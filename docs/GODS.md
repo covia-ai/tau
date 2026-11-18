@@ -1,6 +1,6 @@
 # The gods
 
-Brightside gives its owner a team of super-user agents, the gods, working for
+Tau gives its owner a team of super-user agents, the gods, working for
 them beside their everyday assistants. Each god holds a power the assistants
 deliberately lack, and the judgement to use it on the owner's behalf. This
 doc is the idea and what the gods share; each god has its own doc for its
@@ -97,10 +97,10 @@ holds its own powers, named as Covia names them:
 | Eir | `admin/user/read` on `users` |
 | Njord | none: his treasury is granted per call |
 
-`admin/venue/compact` is Brightside's leaf of Covia's `admin/venue` family,
+`admin/venue/compact` is Tau's leaf of Covia's `admin/venue` family,
 for compacting the store at the next start, apart from `admin/venue/gc`,
 which collects it while it runs ([LAUNCH.md](LAUNCH.md#compacting-the-store)).
-Brightside sets each god's caps with the rest of its configuration at every
+Tau sets each god's caps with the rest of its configuration at every
 launch, before any god can act ([LAUNCH.md](LAUNCH.md#the-startup-pass)), and
 whenever the model changes (`God`). `GodCapsTest` shows Covia refusing what
 they leave out.
@@ -109,11 +109,11 @@ A god's tools are the few it always needs (its bridges, the Inbox, its jobs,
 the reads its job turns on) and those of the skills it loads. Beside the
 venue's library it is offered, by name, the skills its job calls for: Covia's
 users, adapters, secrets, MCP and capabilities skills for Odin; users for
-Thor; Brightside's log and session skills, adapters and MCP for Eir; Convex
+Thor; Tau's log and session skills, adapters and MCP for Eir; Convex
 for Njord. A skill may bring tools its caps do not cover; Covia refuses them.
 
 Whatever can be worked out deterministically is an operation, not
-reasoning. Where a god's job needs a particular read or action, Brightside
+reasoning. Where a god's job needs a particular read or action, Tau
 gives it an operation shaped for that task, such as `brightside:storage` or
 `brightside:info`, rather than leaving the model to piece it together from
 general tools. One call returns what the god needs, so its reasoning goes
@@ -122,13 +122,13 @@ other.
 
 ### The bridges
 
-Each god has two narrow Brightside operations for what caps do not cover.
+Each god has two narrow Tau operations for what caps do not cover.
 
 **Ask** (`brightside:ask-odin`, `brightside:alert-thor`,
 `brightside:ask-njord`, `brightside:ask-eir`) is callable by any authenticated user of the venue,
 or their agents. It mints a short-lived, venue-rooted grant letting the
 calling user make a request of the god, and submits it as that user. The task
-is the user's own job, and Covia attributes the caller natively. Brightside
+is the user's own job, and Covia attributes the caller natively. Tau
 stamps who asked from the authenticated context, so a request cannot forge
 it; the request text itself is untrusted. The bridge returns the god's
 outcome, or a started snapshot while the god is still deciding.
@@ -180,9 +180,9 @@ registers it.
 ### Asking the owner
 
 A god asks its own owner, the venue, so its requests land in the venue's
-inbox. The person at the keyboard is the operator, so Brightside shows that
+inbox. The person at the keyboard is the operator, so Tau shows that
 inbox merged with the owner's own in the Inbox tab. Each request is marked
-with the god who asked, and Brightside answers it as the operator. The
+with the god who asked, and Tau answers it as the operator. The
 answer reaches the god in the conversation that asked, whenever it comes. A
 god withdraws a request of its own once it no longer needs an answer, through
 its run bridge, which cancels the request's job and nothing else; the request
@@ -192,10 +192,10 @@ then shows as cancelled.
 
 Covia suspends an agent when its setup or a fault prevents further work,
 and when someone stops it with `agent:suspend`. An ordinary task failure
-fails that task and lets the agent continue. Brightside resumes a fault
+fails that task and lets the agent continue. Tau resumes a fault
 suspension by itself once the
 configuration is re-applied, which is the usual cure; when that does not
-cure the owner's assistant, Brightside asks Eir ([EIR.md](EIR.md)). It never lifts the
+cure the owner's assistant, Tau asks Eir ([EIR.md](EIR.md)). It never lifts the
 second: the chat with an agent stopped on purpose says so and points to the
 Inbox, and a god stopped on purpose stays stopped. `Suspension` tells the two
 apart.

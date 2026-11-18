@@ -156,7 +156,7 @@ between them.
   everyone reads it, so anything meant only for the owner goes to the owner
   instead.
 
-### Brightside
+### Tau
 
 - Thor gains operations to lower a standing and revoke a token.
 - Settings shows the owner's routes: connected tools with their tokens and

@@ -10,14 +10,14 @@ What git keeps and ignores here (`../.gitignore`):
 |---|---|---|
 | `README.md` | yes | this note |
 | `skills/*/` | yes | project skills for agents working here — `design-docs` maps the design documents and states the rules for changing them; `improvement-loop` runs one pass of the daily self-improvement loop, with its scripts |
-| `settings.json` | yes, if present | project-wide Claude Code settings shared by everyone working on Brightside |
+| `settings.json` | yes, if present | project-wide Claude Code settings shared by everyone working on Tau |
 | `settings.local.json` | no | one person's own permissions and overrides |
 | anything else | no | personal state |
 
 Keep shared settings minimal and explain them in a commit; personal ones
 belong in `settings.local.json`.
 
-The MCP server that lets Claude Code see the running Brightside venue is not
+The MCP server that lets Claude Code see the running Tau venue is not
 here but in the repository root's `.mcp.json` (project scope, git-ignored
 because it carries the venue token) — see `docs/CONFIGURATION.md`, *From
 Claude Code*, for the file to create.

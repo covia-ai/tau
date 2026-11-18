@@ -41,7 +41,7 @@ to the provider whose key you gave it.
 Yours writes its own skills. Show it how you like your weekly report done, and
 it can keep that as something it reaches for next time. Hand it a skill someone
 else wrote — a [`SKILL.md`](https://agentskills.io) folder dropped into
-`~/.brightside/skills/`, the same open format Claude Code and a dozen other
+`~/.tau/skills/`, the same open format Claude Code and a dozen other
 agents use — and it learns that too, on its next start.
 
 **It remembers.** A private memory carries across every conversation, so it
@@ -104,10 +104,12 @@ You need **Java 25+** and **Maven 3.9+**.
 
 ```bash
 git clone https://github.com/covia-ai/tau.git
-cd brightside
+cd tau
 mvn package
-java -jar target/brightside.jar
+java -jar target/tau.jar
 ```
+
+For an existing installation, see [data directories and manual setup](docs/CONFIGURATION.md#selecting-an-existing-installation).
 
 First launch takes a minute: choose a passphrase, write down a recovery
 phrase, pick a model and paste its key, and say what it should call you. Then
@@ -127,7 +129,7 @@ Maven Central; a SNAPSHOT needs the Covia checkout installed locally:
 ```bash
 cd ../covia
 mvn -pl venue,workbench,covia-discord,covia-telegram,covia-claude-code,covia-speech -am install -DskipTests
-cd ../brightside
+cd ../tau
 mvn package
 ```
 
@@ -163,7 +165,7 @@ The only outbound traffic is the model call you configured.
 **Which models?** Pick one from the catalogue under *Settings → Model*. The
 default is Anthropic's Claude.
 
-**Where is my data?** In `~/.brightside/`: an encrypted store holding your
+**Where is my data?** In `~/.tau/`: an encrypted store holding your
 conversations, memory, skills and keys, beside your settings file and logs.
 Back the folder up; delete it to start over completely
 ([docs/CONFIGURATION.md](docs/CONFIGURATION.md)).
@@ -183,7 +185,7 @@ Contributions are very welcome, especially now.
 
 ```bash
 mvn test      # boots real venues, headless; no API key needed
-mvn package   # → target/brightside.jar
+mvn package   # → target/tau.jar
 ```
 
 Branch from `develop` and PR into it. [AGENTS.md](AGENTS.md) is the short

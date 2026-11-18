@@ -3,7 +3,7 @@
 The treasury holds the accounts Njord manages, the spend limit the owner has
 approved on each, the budgets Njord draws from those limits, and the ledger of
 every payment. It belongs to no one network, and is meant to move into Covia.
-Code: `brightside.treasury`. Accounts, limits, budgets, paying and the ledger
+Code: `tau.treasury`. Accounts, limits, budgets, paying and the ledger
 are built, on Convex; the rest of this doc is ahead of the code where
 [Not built yet](#not-built-yet) says so.
 

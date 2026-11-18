@@ -17,11 +17,11 @@ the person in front of the screen over the platform behind it.
 - **The assistant grows, remembers, and asks.** Skills it can author, a memory
   it keeps quietly, an Inbox for decisions only the owner can make.
 
-The provisional product name shown in the UI, tool descriptions and shipped
-skills is **Tau** (τ, two times π).
-The repository, Java packages, operation namespaces and data paths retain
-their `brightside` names. Configured venue and assistant names are independent
-of the product name and are kept as configured.
+The product is **Tau** (τ, two times π). The repository, Java packages,
+build artefact and default data directory use `tau`. Configured venue and
+assistant names are independent of the product name and are kept as configured.
+Operation addresses remain stable so stored calls can be migrated individually
+([ARCHITECTURE.md](ARCHITECTURE.md#operation-addresses)).
 
 ## 1. Speak like a product, not a platform
 

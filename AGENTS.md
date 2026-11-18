@@ -1,10 +1,10 @@
-# AGENTS.md — Brightside
+# AGENTS.md — Tau
 
-Brightside is a self-sovereign personal agent: a Swing/FlatLaf desktop app that
+Tau is a self-sovereign personal agent: a Swing/FlatLaf desktop app that
 runs a complete Covia venue in its own process and chats, as the owner's own
 named principal, with an agent on that venue. It is a product, not a demo
-(`docs/DESIGN.md`). One Maven module, `ai.covia:brightside`; launcher
-`brightside.Main`, desktop app `brightside.BrightSide`.
+(`docs/DESIGN.md`). One Maven module, `ai.covia:tau`; launcher
+`tau.Main`, desktop app `tau.Tau`.
 
 ## Build and test
 
@@ -12,7 +12,7 @@ named principal, with an agent on that venue. It is a product, not a demo
   SNAPSHOT needs every Covia module the pom names (`venue`, `workbench` and the
   in-process `covia-*` modules) installed from `../covia`: `-pl venue -am`
   alone leaves the others stale.
-- `mvn package` → `target/brightside.jar`; `mvn test`; `mvn exec:java`.
+- `mvn package` → `target/tau.jar`; `mvn test`; `mvn exec:java`.
 - Tests boot real venues headless and never put a window or tray icon on a
   desktop. Chat tests use the echo LLM `v/test/ops/llm`, so no API key. Test
   mechanism (wiring, state, behaviour), never UI or prose content.
@@ -40,11 +40,11 @@ owns it.
 | Vault, keys, recovery, network exposure | `SECURITY.md` |
 | First run, unlock, recovery, settings | `ONBOARDING.md` |
 | `config.json`, files, integrations, reaching the venue from other tools | `CONFIGURATION.md` |
-| Brightside's own state in the venue | `APP_STATE.md` |
+| Tau's own state in the venue | `APP_STATE.md` |
 | Views following the lattice; the Jobs page; the Inbox | `WATCHER.md`, `JOBS.md`, `INBOX.md` |
 | The daily self-improvement loop (procedure: the `improvement-loop` skill) | `SELF_IMPROVEMENT.md` |
 | Ahead of the code: federation, the Peers map, memory proposals, trust in routes that speak for the owner | `NETWORK.md`, `PEERS.md`, `ADVANCED_MEMORY.md`, `TRUST.md` |
-| The shipped skills and Brightside's operations | `BrightsideSkillsAdapter`, `BrightsideAdapter` |
+| The shipped skills and Tau's operations | `TauSkillsAdapter`, `TauAdapter` |
 | Covia's conventions, vocabulary and design | `../covia/AGENTS.md`, `../covia/venue/docs/` |
 
 When a change moves a decision or a name, fix the doc that owns it in the same
@@ -56,7 +56,7 @@ commit.
 - Covia's names for venue concepts: venue, engine, adapter, operation, agent,
   session, job.
 - Screens are composed from `ui/components`; a new look is a style class in
-  `brightside/ui/FlatLaf.properties` worn through `Styles`, and colours come
+  `tau/ui/FlatLaf.properties` worn through `Styles`, and colours come
   from `Theme`.
 
 ## Git
@@ -64,10 +64,10 @@ commit.
 Remote `https://github.com/covia-ai/tau`. `develop` is the default
 and working branch — commit there and merge to `master`.
 
-## When Brightside runs you
+## When Tau runs you
 
-If `COVIA_PROJECT` is set, Brightside's own assistant is driving you, headless,
-in its checkout at `~/.brightside/code/brightside`: the app improving itself.
+If `COVIA_PROJECT` is set, Tau's own assistant is driving you, headless,
+in its checkout at `~/.tau/code/tau`: the app improving itself.
 Editing, building, testing, git and looking around are allowed outright and
 nobody sees a permission prompt, so none will be waited on; your own safety
 checks judge anything else, and a blocked action is reported, never worked
@@ -75,9 +75,9 @@ around. To ask something, end the turn with the question: the assistant
 answers on the next turn of the same session, taking it to the owner when it
 is theirs to decide. Only the final message comes back, so make it a faithful
 report of what was done, which tests ran and what remains. Never launch
-Brightside from the checkout (`mvn exec:java`, `java -jar`): the instance
+Tau from the checkout (`mvn exec:java`, `java -jar`): the instance
 driving you is running on this machine, and a second launch would take it
-over. Build with `mvn package` and say that Brightside must be relaunched into
+over. Build with `mvn package` and say that Tau must be relaunched into
 that build, which the owner, or Odin on their behalf, does.
 Commit on `develop` after each meaningful, tested chunk of work; pushing,
 merging to `master` and releasing need the owner's explicit word, relayed in

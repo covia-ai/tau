@@ -33,7 +33,7 @@ nothing expires.
 
 ## Tiers
 
-- **Instructions** — the system prompt, `brightside-context` and loaded skills.
+- **Instructions** — the system prompt, `tau-context` and loaded skills.
   Owner- and venue-written; never touched by memory machinery.
 - **Curated core** — the pinned list, kept small and budgeted. Written by
   consolidation and by explicit owner requests ("remember that…").
@@ -118,7 +118,7 @@ the gates below.
   preference adherence and fact recall fail differently.
 - Entries are imperative, dated and superseded in place; an append-only
   history of preferences makes the model answer from the stale one.
-- `brightside-context` keeps name, DID and model route; the directives list is
+- `tau-context` keeps name, DID and model route; the directives list is
   memory and stays editable by the owner from Settings.
 
 ## Remembering to act
@@ -167,6 +167,6 @@ the gates below.
 - Covia will not grow a searchable memory tier
   ([covia#429](https://github.com/covia-ai/covia/issues/429), not planned):
   memory stays small and always in context, so any search operation and
-  index proposed here would be Brightside's own.
+  index proposed here would be Tau's own.
 - Confirmation of destructive memory operations rides on
   [tau#16](https://github.com/covia-ai/tau/issues/16).

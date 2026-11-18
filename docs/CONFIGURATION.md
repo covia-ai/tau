@@ -1,13 +1,13 @@
 # Configuration reference
 
-Brightside keeps its own state under `~/.brightside/`. Advanced configuration
+Tau keeps its own state under `~/.tau/`. Advanced configuration
 lives in `config.json`; choices made in Settings are kept separately so that
 hand-edited file and its comments stay intact.
 
-- **Every key is optional.** An empty `{}` is valid; Brightside supplies a
+- **Every key is optional.** An empty `{}` is valid; Tau supplies a
   working default for anything omitted. Changes take effect on restart.
 - **The `venue` map is passed through.** Any key the Covia venue understands
-  can be set, merged over Brightside's private-by-default settings.
+  can be set, merged over Tau's private-by-default settings.
 - **No secrets in the file.** Model keys, bot tokens and the Moltbook key
   live in the venue's encrypted secret stores, entered through Settings.
 - **Back up the whole directory as one unit**; delete it to start over. The
@@ -20,24 +20,24 @@ hand-edited file and its comments stay intact.
 
 | Path | What it is |
 |---|---|
-| `~/.brightside/config.json` | Settings (JSON5 — comments allowed). Hand-edited. |
-| `~/.brightside/file-roots.json` | Folder access overrides saved from the Files screen; applied over configured roots on restart. |
-| `~/.brightside/venue.etch` | The encrypted lattice store: conversations, memory, skills, agent state and personal drives. |
-| `~/.brightside/venue.etch.unclean-<stamp>` | The store as it was before a launch-time repair ([LAUNCH.md](LAUNCH.md)); remove it once the repaired store has proved itself, under [Data store space](#data-store-space). |
-| `~/.brightside/venue.etch.compact` | Present when compaction is asked for; the next launch compacts the store and removes it ([Data store space](#data-store-space)). |
-| `~/.brightside/vault.salt` | The non-secret salt for passphrase hardening. |
-| `~/.brightside/identity.enc` | The AES-GCM-encrypted Ed25519 identity seed. |
-| `~/.brightside/keys.enc` | Transient: stages an onboarding API key until the first launch moves it into the venue's encrypted secret stores; absent afterwards. |
-| `~/.brightside/unlock.passphrase` | Optional remembered passphrase, stored as plaintext after explicit opt-in; exclude it from ordinary vault backups. |
-| `~/.brightside/tool-token.json` | Optional: while Brightside runs, a login as you for local tools, renewed hourly, after explicit opt-in ([From Claude Code](#from-claude-code)). |
-| `~/.brightside/files/` | Brightside-managed local files; exposed to the assistant as the confined writable `files` root. |
-| `~/.brightside/code/` | Source checkouts the assistant works on, as the writable `code` root; `code/brightside` is Brightside's own source, a [Claude Code](#claude-code) project by default. The self-improvement loop keeps `last-good.jar` and `.covia-installed` beside it ([SELF_IMPROVEMENT.md](SELF_IMPROVEMENT.md)). |
-| `~/.brightside/logs/` | Plaintext rolling logs; exposed to the assistant as the server-enforced read-only `logs` root. |
-| `~/.brightside/run/` | The copy of the jar a relaunch started from another build ([LAUNCH.md](LAUNCH.md#relaunch)); earlier copies go at the next relaunch. |
-| `~/.brightside/cache/speech/` | The speech models and engine libraries [voice typing](#voice-typing) and [reading aloud](#reading-replies-aloud) download once you agree; safe to delete. |
+| `~/.tau/config.json` | Settings (JSON5 — comments allowed). Hand-edited. |
+| `~/.tau/file-roots.json` | Folder access overrides saved from the Files screen; applied over configured roots on restart. |
+| `~/.tau/venue.etch` | The encrypted lattice store: conversations, memory, skills, agent state and personal drives. |
+| `~/.tau/venue.etch.unclean-<stamp>` | The store as it was before a launch-time repair ([LAUNCH.md](LAUNCH.md)); remove it once the repaired store has proved itself, under [Data store space](#data-store-space). |
+| `~/.tau/venue.etch.compact` | Present when compaction is asked for; the next launch compacts the store and removes it ([Data store space](#data-store-space)). |
+| `~/.tau/vault.salt` | The non-secret salt for passphrase hardening. |
+| `~/.tau/identity.enc` | The AES-GCM-encrypted Ed25519 identity seed. |
+| `~/.tau/keys.enc` | Transient: stages an onboarding API key until the first launch moves it into the venue's encrypted secret stores; absent afterwards. |
+| `~/.tau/unlock.passphrase` | Optional remembered passphrase, stored as plaintext after explicit opt-in; exclude it from ordinary vault backups. |
+| `~/.tau/tool-token.json` | Optional: while Tau runs, a login as you for local tools, renewed hourly, after explicit opt-in ([From Claude Code](#from-claude-code)). |
+| `~/.tau/files/` | Tau-managed local files; exposed to the assistant as the confined writable `files` root. |
+| `~/.tau/code/` | Source checkouts the assistant works on, as the writable `code` root; `code/tau` is Tau's own source, a [Claude Code](#claude-code) project by default. The self-improvement loop keeps `last-good.jar` and `.covia-installed` beside it ([SELF_IMPROVEMENT.md](SELF_IMPROVEMENT.md)). |
+| `~/.tau/logs/` | Plaintext rolling logs; exposed to the assistant as the server-enforced read-only `logs` root. |
+| `~/.tau/run/` | The copy of the jar a relaunch started from another build ([LAUNCH.md](LAUNCH.md#relaunch)); earlier copies go at the next relaunch. |
+| `~/.tau/cache/speech/` | The speech models and engine libraries [voice typing](#voice-typing) and [reading aloud](#reading-replies-aloud) download once you agree; safe to delete. |
 
-To reset Brightside completely, remove the whole data directory while
-Brightside is stopped.
+To reset Tau completely, remove the whole data directory while
+Tau is stopped.
 
 If remembered unlock is enabled, omit `unlock.passphrase` from a normal backup:
 putting the plaintext passphrase beside the encrypted vault defeats the backup's
@@ -48,25 +48,48 @@ access controls and that trade-off is intentional.
 *Open logs folder* on the same page opens the log directory. Changes to the file
 take effect on restart.
 
-Running `java -jar target/brightside.jar path/to/config.json` uses a specific
+Running `java -jar target/tau.jar path/to/config.json` uses a specific
 configuration file instead, and that file's directory becomes the data
 directory — including its `files/`, `code/` and `logs/` roots — handy for keeping several
 independent agents side by side.
 
 Adding `--unlock` unlocks at once with the remembered passphrase instead of
-waiting at the unlock dialog, for starting Brightside from a script or from
+waiting at the unlock dialog, for starting Tau from a script or from
 Claude Code while you are away, and comes up in the tray rather than as a
 window. Without a remembered passphrase it exits with
-an error; if Brightside is already running it leaves it be, unless
+an error; if Tau is already running it leaves it be, unless
 `--takeover` is given too, which takes over from it without asking.
 
 `--takeover` on its own is for a launch you are sitting at, such as an IDE run
-configuration: it takes over from a running Brightside and unlocks with the
+configuration: it takes over from a running Tau and unlocks with the
 remembered passphrase without asking, and the window comes up as usual. For
 everyday launches, Settings → General → Startup offers the same two choices
 ([LAUNCH.md](LAUNCH.md#startup)). On Windows it also offers to start
-Brightside when you sign in, once a passphrase is remembered
+Tau when you sign in, once a passphrase is remembered
 ([LAUNCH.md](LAUNCH.md#starting-at-windows-sign-in)).
+
+## Selecting an existing installation
+
+Tau defaults to `~/.tau`, `code/tau`, `target/tau.jar` and agent id `Tau`.
+It does not automatically move or rewrite an installation. To keep an existing
+data directory, pass its `config.json` explicitly to `tau.jar`; to move it,
+stop the app first and move the whole directory together. Check any absolute
+store, file-root and project paths in configuration and saved file roots.
+
+Set `chat.agentId` explicitly to the existing assistant's id before starting
+if it is not `Tau`. Configured names and prompts are kept as supplied. Shipped
+skills live at `v/skills/tau`, the app context load is `tau-context`, and the
+default Claude Code project and Discord bot id are `tau`. Adjust stored pins,
+agent configuration and integration records as needed; delete an old Discord
+bot through its adapter before creating a replacement to avoid two connections.
+Update launch commands, MCP configuration and any sign-in entry to name
+`tau.jar`. The improvement scripts use `TAU_HOME` for a non-default directory
+and `MAIN_AGENT` for a non-default assistant id.
+
+Existing operation addresses and MCP tool names remain available alongside
+the new `v/ops/tau` paths and `tau_` tool names
+([ARCHITECTURE.md](ARCHITECTURE.md#operation-addresses)); the encrypted-store
+key derivation is also unchanged ([SECURITY.md](SECURITY.md)).
 
 ## The file
 
@@ -92,7 +115,7 @@ Brightside when you sign in, once a passphrase is remembered
 ### `theme`
 
 `"dark"` (default) or `"light"`: the mode to start in — FlatLaf's Dark or
-Light theme with Brightside's purple accent. *Settings → Theme* has the
+Light theme with Tau's purple accent. *Settings → Theme* has the
 Light/Dark switch, and under it the themes of that mode that FlatLaf provides
 — its own, the IntelliJ theme pack (Dracula, Nord, One Dark, Solarized, …) and
 any `.theme.json` in the same format you drop into `themes/` beside this file
@@ -101,7 +124,7 @@ mode keeps its own theme and the switch flips between them; on FlatLaf's own
 themes there is an accent colour too. Choices apply at once and are remembered
 in `prefs.properties` (`ui.mode`, `ui.theme.dark`, `ui.theme.light`, and
 `ui.accent` as `#RRGGBB`), which then take precedence over this key; delete
-those lines to return to the file's setting and Brightside's purple.
+those lines to return to the file's setting and Tau's purple.
 
 ### `repairStore`
 
@@ -116,16 +139,16 @@ would rather restore a backup by hand. How the repair works is in
 
 Accepts **any key the Covia venue runtime understands** — `mcp`, `a2a`,
 `adapters`, `modules`, `auth`, `store`, `secrets`, and so on. The map is merged
-over Brightside's defaults recursively: nested maps keep omitted defaults,
+over Tau's defaults recursively: nested maps keep omitted defaults,
 while explicit scalar values and lists replace them. For example, changing
 `auth.tokenExpiry` preserves `auth.public.enabled: false`; enabling anonymous
 access requires setting `auth.public.enabled: true`. New venue options need
-no Brightside change.
+no Tau change.
 
-Brightside's defaults:
+Tau's defaults:
 
 - bind to `127.0.0.1` (loopback only — nothing on your network can reach it)
-- a persistent encrypted store at `~/.brightside/venue.etch`, with its identity
+- a persistent encrypted store at `~/.tau/venue.etch`, with its identity
   and encryption material injected only into the in-memory venue configuration
 - anonymous HTTP and MCP access disabled; local tools must authenticate
 - auto-create users
@@ -158,10 +181,10 @@ and across configuration changes.
 | `agentId` | The agent's id under your namespace — `<venueDID>:u:<name>/g/<agentId>`. Fresh and implicit defaults are described in [Agent identity](IDENTITY.md#agent-identity). |
 | `operation` | The transition operation driving each turn. Default `v/ops/llmagent/chat`. |
 | `llmOperation` | The model operation. Default `v/models/anthropic/claude-sonnet-5-5`. OpenRouter and Ollama serve more models than the venue catalogues: `v/models/openrouter/<vendor>/<model>` or `v/models/ollama/<model>` names any of them, and one the catalogue lacks runs through the provider's own operation with that model. |
-| `systemPrompt` | The assistant's identity, role and tone. Dynamic owner/model context comes from Brightside's read-only context operation; task detail belongs in on-demand skills. |
+| `systemPrompt` | The assistant's identity, role and tone. Dynamic owner/model context comes from Tau's read-only context operation; task detail belongs in on-demand skills. |
 
 A reply has no time limit. A turn takes as long as its model and tool calls
-take: the venue bounds each model call, and Brightside lets each tool call run
+take: the venue bounds each model call, and Tau lets each tool call run
 for up to an hour, so delegated work such as a Claude Code turn comes back with
 its result. A turn that runs long shows a stop control in the chat. Stopping
 cancels the chat job, not the agent: you can carry on at once, and anything the
@@ -173,7 +196,7 @@ The default model operation needs a provider key. Two supported ways to supply i
 
 1. **Environment** — put `ANTHROPIC_API_KEY` in the environment before
    launching.
-2. **Brightside settings** — enter it during onboarding or under *Settings →
+2. **Tau settings** — enter it during onboarding or under *Settings →
    Model*. It is written to the encrypted secret stores on the venue — yours
    and the operator's, so your agents and the gods each resolve their own copy —
    and takes effect immediately. A key entered at onboarding is staged
@@ -235,10 +258,10 @@ Enter, *Send* or "Go", always gets an answer. If each pause costing a model
 call matters, set *Send when I pause* to never.
 
 By default it all happens on this computer, so what you say never leaves it:
-Covia's `covia-speech` adapter runs inside Brightside's venue (registered
+Covia's `covia-speech` adapter runs inside Tau's venue (registered
 in-process, like Discord) and transcribes with sherpa-onnx and NVIDIA's
 Parakeet TDT v3 model, which understands 25 European languages. The first time
-you press the microphone, Brightside asks before downloading the model (about
+you press the microphone, Tau asks before downloading the model (about
 670 MB) and the engine's libraries, then shows the download until voice typing
 is ready. Both are fetched at pinned versions and checked against their
 SHA-256 before use. The model is loaded when you first speak, holds about a
@@ -247,7 +270,7 @@ gigabyte of memory, and is let go after five minutes unused.
 | What | Where |
 |---|---|
 | The recording | in memory only, sent inline to the engine and stored nowhere; transcription is a read, so no job record keeps it or the words |
-| The model and libraries | `~/.brightside/cache/speech/`; delete it to reclaim the space, and the next press asks again |
+| The model and libraries | `~/.tau/cache/speech/`; delete it to reclaim the space, and the next press asks again |
 | The microphone | the computer's default recording device, under the system's own microphone permission |
 
 Another engine is a choice in `config.json`, under the venue's adapter block:
@@ -285,7 +308,7 @@ that launch and says why in the log.
 
 ## Reading replies aloud
 
-Brightside is silent unless you ask it to speak. Right-click a reply and
+Tau is silent unless you ask it to speak. Right-click a reply and
 choose *Read aloud* to hear that one; to hear every reply as it arrives, turn
 on *Read replies aloud* under *Settings → General → Voice* (off on a fresh
 install; kept in the venue store). *Esc*
@@ -302,9 +325,9 @@ Like voice typing, it all happens on this computer by default: the venue's
 speech adapter speaks with sherpa-onnx and the VITS LJSpeech voice (English),
 and nothing you hear is stored or kept in a job record (`v/ops/speech/say` is a
 read). A word the voice does not know, such as an unusual name, is spelled out
-letter by letter rather than skipped. The first time, Brightside asks before
+letter by letter rather than skipped. The first time, Tau asks before
 downloading the voice (about 115 MB), into
-the same `~/.brightside/cache/speech/`. To have a provider speak instead while
+the same `~/.tau/cache/speech/`. To have a provider speak instead while
 keeping your voice on this computer, set `"speakEngine": "openai"` in the
 venue's speech block; your replies' text then goes to that provider.
 
@@ -313,7 +336,7 @@ venue's speech block; your replies' text then goes to that provider.
 *Settings → General → Data store* shows how much disk `venue.etch` takes.
 The store only grows: a value replaced or deleted stays in the file until the
 store is compacted, which keeps everything still in use and drops the rest.
-*Compact it the next time Brightside starts* asks for that; the next launch
+*Compact it the next time Tau starts* asks for that; the next launch
 does it before the venue opens, once, and the chat says what the store held
 before and after. Clear the box to withdraw it. Nothing compacts the store
 unasked. Why it waits for a start is in [LAUNCH.md](LAUNCH.md#compacting-the-store).
@@ -330,8 +353,8 @@ removing the kept files, to the owner first.
 
 *Settings → Integrations* puts your assistant on Discord as a bot you can
 message from your phone or any server it is in. Covia's `covia-discord`
-adapter runs inside Brightside's venue (registered in-process, not loaded as a
-module jar); Brightside only stores the token and creates the bot through the
+adapter runs inside Tau's venue (registered in-process, not loaded as a
+module jar); Tau only stores the token and creates the bot through the
 adapter's own operations. Nothing about it goes in `config.json`.
 
 1. In the [Discord Developer Portal](https://discord.com/developers/applications)
@@ -347,7 +370,7 @@ adapter's own operations. Nothing about it goes in `config.json`.
 | What | Where |
 |---|---|
 | The token | in your user's encrypted secret store on the venue as `DISCORD_BOT_TOKEN`; the bot record holds only the reference `s/DISCORD_BOT_TOKEN` |
-| The bot | one, named `brightside`, owned by your user, answering as the configured chat agent; persisted by the adapter under the venue's private `w/adapters/discord/…` workspace and re-armed at boot |
+| The bot | one, named `tau`, owned by your user, answering as the configured chat agent; persisted by the adapter under the venue's private `w/adapters/discord/…` workspace and re-armed at boot |
 | Conversations | one per Discord channel or DM, kept by the adapter; `!new` in Discord starts a fresh one |
 
 Access fails closed: only the Discord user ids or usernames you list can talk
@@ -363,9 +386,9 @@ loads on demand like any other.
 
 ## Telegram
 
-Covia's `covia-telegram` adapter runs inside Brightside's venue too
+Covia's `covia-telegram` adapter runs inside Tau's venue too
 (registered in-process, like Discord), so it is always the Covia version
-Brightside is built on, and needs no module jar or `config.json` entry. It is
+Tau is built on, and needs no module jar or `config.json` entry. It is
 idle until a bot is created through its operations; there is no Settings page
 for it yet.
 
@@ -379,13 +402,13 @@ name with you, registers the account itself and hands you the claim link —
 the key stays inside the venue.
 
 1. Choose the agent's name (Moltbook keeps names unique) and a line of
-   description, and press *Register*. Brightside registers the account through
+   description, and press *Register*. Tau registers the account through
    Moltbook's API and keeps the key.
 2. Press *Open claim page* and finish as the owner: verify an email (your login
    to Moltbook's owner dashboard) and post the verification tweet. Until then
    the status reads *waiting for you to claim it*.
 3. Ask your assistant to check Moltbook. It loads the shipped `moltbook` skill,
-   whose tools are Brightside's own Moltbook operations. Each resolves the key
+   whose tools are Tau's own Moltbook operations. Each resolves the key
    inside the venue and returns Moltbook's answer as data — the model never
    composes a request or sees the key. Setting up from chat is a child skill
    it loads only when Moltbook is not set up ([SKILLS.md](SKILLS.md)).
@@ -399,7 +422,7 @@ itself stays yours on Moltbook.
 |---|---|
 | The key | in your user's encrypted secret store inside the venue store (`venue.etch`), keyed from your identity seed — it survives a forgotten-passphrase recovery, and it is yours alone. The Moltbook operations resolve it as `s/MOLTBOOK_API_KEY` |
 | The claim page | remembered in the Moltbook adapter's own state in the venue store, under your user, until the account is claimed; deleted with your user |
-| The account | one, named as you chose, owned by you on Moltbook; Brightside holds nothing else |
+| The account | one, named as you chose, owned by you on Moltbook; Tau holds nothing else |
 
 A check-in starts from Moltbook's home dashboard, then reads the account's
 notifications — the only place replies to its comments show up, since home
@@ -420,15 +443,15 @@ rather than retry at once. A periodic check-in can be set up with the
 Your assistant can hand coding work to [Claude Code](https://claude.com/claude-code),
 Anthropic's coding agent, in project directories you name — one task per turn,
 or a conversation it continues across turns. Covia's `covia-claude-code`
-adapter runs inside Brightside's venue (registered in-process, like Discord)
+adapter runs inside Tau's venue (registered in-process, like Discord)
 and starts the `claude` command installed on this computer as your own OS
 user, so it uses whatever sign-in Claude Code already has here and needs no key
-from Brightside.
+from Tau.
 
-One project exists without any configuration: **`brightside`**, Brightside's
-own source, at `~/.brightside/code/brightside`. Brightside creates the
+One project exists without any configuration: **`tau`**, Tau's
+own source, at `~/.tau/code/tau`. Tau creates the
 directory empty; the assistant clones the repository into it when you first
-ask it to work on Brightside, and from then on can fix and extend the app —
+ask it to work on Tau, and from then on can fix and extend the app —
 building needs Java 25 and Maven on your computer, and the change takes
 effect when you run the new build. In that project Claude Code works in its
 `auto` permission mode with the everyday developer tools allowed outright —
@@ -470,10 +493,10 @@ Naming any other directory Claude Code may work in is your decision, made in
 }
 ```
 
-A project you declare as `brightside` replaces the default — the way to point
+A project you declare as `tau` replaces the default — the way to point
 the assistant at a developer's own checkout. Restart, and the assistant's
 `coding` skill lists the projects and reveals its children for working in
-them — `claude-code`, `git`, and `self-improvement` for Brightside's own
+them — `claude-code`, `git`, and `self-improvement` for Tau's own
 source ([SKILLS.md](SKILLS.md)).
 
 Claude Code runs headless here, so it cannot ask for permission the way it
@@ -483,7 +506,7 @@ edit or run anything that changes the directory. `acceptEdits` lets it edit
 files; `allowedTools` names the commands it may run (`Bash(npm:*)` is npm,
 `Bash(git:*)` is git); `auto` puts Claude Code's own safety checks in
 charge of whatever the allow list does not cover — headless, that means a
-refusal, not a prompt, so pair it with an allow list as Brightside's own
+refusal, not a prompt, so pair it with an allow list as Tau's own
 project does; `bypassPermissions` removes every check, and is available only
 to a project that declares it. A question it cannot settle itself it asks by
 ending its turn with, and the assistant answers on the next turn of the same
@@ -491,18 +514,18 @@ session.
 
 | What | Where |
 |---|---|
-| Whose a project is | yours, unless it names another `user` (a DID). The adapter's own default is the venue operator, whose agents are not yours; Brightside makes every project without a `user` the owner's — and adds the `brightside` project — when your identity binds to the venue at launch |
+| Whose a project is | yours, unless it names another `user` (a DID). The adapter's own default is the venue operator, whose agents are not yours; Tau makes every project without a `user` the owner's — and adds the `tau` project — when your identity binds to the venue at launch |
 | The conversations | Claude Code's own transcripts, so a session outlives its process and a restart; the adapter keeps a small pool of live processes and continues a session with `--resume` |
 | Everything else the adapter accepts | `command` (when `claude` is not on the PATH, or an argv array), `defaults` and per-project `options` (model, permission mode, allowed tools, turn and budget limits…), `maxSessions`, `idleSeconds` — as the module documents them in the Covia repository |
 
 A mistake in the block — a directory that does not exist, an unknown setting —
 leaves Claude Code out for that launch and says why in the log; the rest of
-Brightside is unaffected. The other direction, Claude Code using your venue as
+Tau is unaffected. The other direction, Claude Code using your venue as
 a tool, is under [Reaching the venue from other tools](#reaching-the-venue-from-other-tools).
 
 ## Your identity
 
-At first launch Brightside asks *"What should I call you?"*. That name is all
+At first launch Tau asks *"What should I call you?"*. That name is all
 you give it. Behind the scenes it makes you a principal on your own venue:
 
 ```
@@ -512,7 +535,7 @@ u:<name>                                  the principal
 ```
 
 Here `<name>` is the stable, DID-safe slug chosen on first setup, not the
-editable display spelling. Brightside keeps both forms in the venue store and
+editable display spelling. Tau keeps both forms in the venue store and
 pins the full user DID once the home venue first launches:
 
 ```json
@@ -576,15 +599,15 @@ needs a proof — so authenticate *as* the user rather than across users.
 
 ### From a stdio MCP client
 
-Clients that launch an MCP server command can use Brightside without setting
+Clients that launch an MCP server command can use Tau without setting
 HTTP headers or handling a token themselves:
 
 ```json
 {
   "mcpServers": {
-    "brightside": {
+    "tau": {
       "command": "java",
-      "args": ["-jar", "C:/Apps/Brightside/brightside.jar", "--mcp-stdio"]
+      "args": ["-jar", "C:/Apps/Tau/tau.jar", "--mcp-stdio"]
     }
   }
 }
@@ -594,7 +617,7 @@ Replace the jar path with the absolute path to your build or installation.
 Use Java 25 or later, giving its executable's absolute path if the client
 cannot find `java`.
 
-1. Set up Brightside and unlock it once with *Remember me* enabled if you want
+1. Set up Tau and unlock it once with *Remember me* enabled if you want
    MCP clients to start it automatically.
 2. Tick *Settings → Access → Keep a login as you for local tools*.
 3. Add the command to your client's MCP configuration and connect.
@@ -609,7 +632,7 @@ startup. Each client gets its own connection; the bridge never opens the venue
 store or takes over an existing app. A running but locked app needs you to
 unlock it.
 
-The command reads `~/.brightside/config.json` for the venue port and
+The command reads `~/.tau/config.json` for the venue port and
 `tool-token.json` beside it for authentication. For a different installation,
 append the absolute configuration path after `--mcp-stdio`. This mode accepts
 neither `--unlock` nor `--takeover`.
@@ -620,16 +643,16 @@ bridge with a diagnostic on standard error; reconnect once the app is
 available. A startup timeout leaves the app starting; a later connection can
 rejoin it. `mcp-startup.lock` beside the configuration coordinates launchers
 and records the starting process; it contains no credentials. Closing a
-client ends its bridge, not Brightside. The
+client ends its bridge, not Tau. The
 [local token's authority and lifetime](#from-claude-code) also apply here.
 
 ### From Codex
 
-The shared `.codex/config.toml` registers Brightside's local MCP endpoint.
+The shared `.codex/config.toml` registers Tau's local MCP endpoint.
 Authentication belongs in the user's `~/.codex/config.toml`, under
-`[mcp_servers.brightside]`. With *Settings → Access → Keep a login as you for
+`[mcp_servers.tau]`. With *Settings → Access → Keep a login as you for
 local tools* ticked, configure `http_headers_helper` to read
-`~/.brightside/tool-token.json`; it already contains the header map Codex
+`~/.tau/tool-token.json`; it already contains the header map Codex
 expects. This keeps credentials out of the repository and lets the client
 read a fresh token when authentication expires. A configured
 `bearer_token_env_var` takes precedence over the helper, so omit it when
@@ -642,11 +665,11 @@ configuration.
 Claude Code is [above](#claude-code).)
 
 Claude Code reaches the running venue's MCP endpoint through an MCP server
-named `brightside`. The private way, kept in your own `~/.claude.json` and
+named `tau`. The private way, kept in your own `~/.claude.json` and
 never in the repository, is one command with the token:
 
 ```
-claude mcp add --transport http --scope local brightside http://127.0.0.1:8085/mcp   --header "Authorization: Bearer <token>"
+claude mcp add --transport http --scope local tau http://127.0.0.1:8085/mcp   --header "Authorization: Bearer <token>"
 ```
 
 The shareable shape is a project-scoped `.mcp.json` at the repository root,
@@ -655,7 +678,7 @@ git-ignored here because it carries the token:
 ```json
 {
   "mcpServers": {
-    "brightside": {
+    "tau": {
       "type": "http",
       "url": "http://127.0.0.1:8085/mcp",
       "headers": { "Authorization": "Bearer <token>" }
@@ -664,16 +687,16 @@ git-ignored here because it carries the token:
 }
 ```
 
-1. With Brightside running, make a *Login as you* under *Settings → Access* —
+1. With Tau running, make a *Login as you* under *Settings → Access* —
    *30 days* is the practical choice — and paste it in place of `<token>` (or write
-   `${BRIGHTSIDE_MCP_TOKEN}` there and keep the token in that environment
+   `${TAU_MCP_TOKEN}` there and keep the token in that environment
    variable instead).
 2. Start Claude Code in this repository and approve the project server when
-   asked; `claude mcp list` should show `brightside … ✔ Connected`.
+   asked; `claude mcp list` should show `tau … ✔ Connected`.
 
 **Without pasting tokens.** Tick *Settings → Access → Keep a login as you for
-local tools* and Brightside keeps a user login, valid for a day and renewed every
-hour while it runs, in `~/.brightside/tool-token.json`, already in the shape
+local tools* and Tau keeps a user login, valid for a day and renewed every
+hour while it runs, in `~/.tau/tool-token.json`, already in the shape
 Claude Code's `headersHelper` must print. Point the server at it instead of a
 pasted header, and Claude Code reads it afresh at every connect, and again
 after a `401`:
@@ -681,20 +704,20 @@ after a `401`:
 ```json
 {
   "mcpServers": {
-    "brightside": {
+    "tau": {
       "type": "http",
       "url": "http://127.0.0.1:8085/mcp",
-      "headersHelper": "cat ~/.brightside/tool-token.json"
+      "headersHelper": "cat ~/.tau/tool-token.json"
     }
   }
 }
 ```
 
-With that, and a remembered passphrase, Claude Code can start Brightside
-itself with `java -jar target/brightside.jar --unlock --takeover` and connect
+With that, and a remembered passphrase, Claude Code can start Tau
+itself with `java -jar target/tau.jar --unlock --takeover` and connect
 once it is up, with nobody at the computer. On Windows the helper may run
 under `cmd.exe`, which has no `cat` and does not expand `~`: use
-`powershell.exe -NoProfile -Command Get-Content -Raw C:/Users/<you>/.brightside/tool-token.json`.
+`powershell.exe -NoProfile -Command Get-Content -Raw C:/Users/<you>/.tau/tool-token.json`.
 A helper that fails sends no token, and the venue's `401` then shows up as a
 failed OAuth client registration.
 
@@ -745,7 +768,7 @@ Locations adds one of two kinds:
 - **A folder on this computer** is a named directory available through the
   assistant's file tools. Choose a folder, give it a short name, and choose
   read-only or writable access. Right-click a folder in Locations to change its
-  access or remove it from Brightside; removing it takes away file-tool access,
+  access or remove it from Tau; removing it takes away file-tool access,
   but does not delete its files or change other integrations, such as a Claude
   Code project using that directory.
 - **A personal drive** is one of the acting user's DLFS drives, stored in the
@@ -825,7 +848,7 @@ venue — the values operations resolve as `s/<name>`: your provider API keys,
 the Moltbook API key and the Discord bot token live here, alongside anything
 stored with `secret:set`.
 Names are listed openly; add or replace a value by name, or forget one. A
-value is only ever shown after re-entering your Brightside passphrase — the
+value is only ever shown after re-entering your Tau passphrase — the
 same gate as the primary seed — and only for that sitting. Acting as the
 venue operator (Identity → switch user) shows the operator's store instead.
 
@@ -834,5 +857,5 @@ venue operator (Identity → switch user) shows the operator's store instead.
 | Variable | Effect |
 |---|---|
 | `ANTHROPIC_API_KEY` | Key for the default model operation. |
-| `BRIGHTSIDE_NO_TRAY=1` | Skip the system tray; closing the window quits. |
-| `BRIGHTSIDE_MCP_TOKEN` | Optional home for the venue-signed token a `.mcp.json` can reference as `${BRIGHTSIDE_MCP_TOKEN}` instead of embedding it. |
+| `TAU_NO_TRAY=1` | Skip the system tray; closing the window quits. |
+| `TAU_MCP_TOKEN` | Optional home for the venue-signed token a `.mcp.json` can reference as `${TAU_MCP_TOKEN}` instead of embedding it. |

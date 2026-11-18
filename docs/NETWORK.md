@@ -3,7 +3,7 @@
 A personal agent that runs only on your own machine is a private tool. A
 personal agent that can *meet other agents* — under an identity that belongs to
 you, with authority you granted and money you allowed — is something else
-entirely. This document describes Brightside when that second thing is finished.
+entirely. This document describes Tau when that second thing is finished.
 
 It is deliberately ahead of the code. The primitives it relies on are Covia and
 Convex ones that exist or are being built; what is missing is a product shaped
@@ -23,7 +23,7 @@ way to settle up. So every multi-agent path in that world runs through a
 company: a hosted directory for discovery, a hosted feed for "agent society", a
 hosted marketplace for skills.
 
-Brightside runs a venue. Venues meet venues. Identity, trust, agreement and
+Tau runs a venue. Venues meet venues. Identity, trust, agreement and
 settlement are protocol, not platform — which is a thing a competitor cannot
 add later without rebuilding from the bottom.
 
@@ -53,7 +53,7 @@ add later without rebuilding from the bottom.
 
 ## The ladder
 
-Network products die of cold start. Brightside's answer is that the same
+Network products die of cold start. Tau's answer is that the same
 primitives pay off at every size, starting at one.
 
 ```
@@ -70,7 +70,7 @@ next rung needs. Nothing waits on a network existing.
 
 ## N = 1 — your agent, on all your devices
 
-**What the person gets.** They install Brightside on a second machine, say "this
+**What the person gets.** They install Tau on a second machine, say "this
 is me too", approve it from the first, and their agent is simply *there* —
 same memory, same conversations, same skills it wrote, same name. Change
 something on the laptop and the phone has it. Work offline on both and they
@@ -290,7 +290,7 @@ of all four as a solar map on sample data. How it becomes live is in
 - **Reputation without a popularity contest.** Completed jobs and vouches from
   people you already trust, weighted by distance in the graph — not a global
   score anyone can farm.
-- **Interop.** Whether Brightside imports skills in the formats the wider
+- **Interop.** Whether Tau imports skills in the formats the wider
   ecosystem already uses, verifying and sandboxing what it cannot vouch for.
 - **Disputes.** Escrow covers non-delivery; it does not cover "this was
   rubbish". Whether that needs anything beyond reputation and refunds.
@@ -298,6 +298,6 @@ of all four as a solar map on sample data. How it becomes live is in
 ## Relationship to what exists
 
 Cross-venue operation already works in Covia; the gap this document describes is
-a product built on it rather than a protocol still to be invented. Brightside's
+a product built on it rather than a protocol still to be invented. Tau's
 job is to be the thing an ordinary person runs that turns out, quietly, to be a
 node on that network.

@@ -1,0 +1,594 @@
+package tau.chat;
+
+import static tau.Tau.APP_NAME;
+
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import tau.AppConfig;
+import tau.Eir;
+import tau.Ids;
+import tau.Suspension;
+import convex.core.data.ACell;
+import convex.core.data.AMap;
+import convex.core.data.AString;
+import convex.core.data.Maps;
+import convex.core.data.Strings;
+import convex.core.lang.RT;
+import convex.core.util.JSON;
+import covia.adapter.AgentAdapter;
+import covia.api.Fields;
+import covia.exception.JobFailedException;
+import covia.grid.Job;
+import covia.grid.Status;
+import covia.grid.Venue;
+
+/**
+ * One conversation with the configured chat agent on a venue.
+ *
+ * <p>Uses the venue's agent framework directly: the agent is created (or its
+ * configuration re-applied) with {@code agent:create} / {@code agent:update},
+ * and the leading message is an {@code agent:chat} call that returns the
+ * agent's reply and the session id. While that chat is in flight, follow-up
+ * messages use {@code agent:message}: they are delivered immediately to the
+ * same session's venue queue rather than starting a competing chat job. The
+ * session id is echoed on later messages so the agent keeps the conversation
+ * history; {@link #reset()} starts a new one.
+ *
+ * <p>Calls block until the agent replies, however long its turn takes — use
+ * from a worker thread, never the Swing event thread. {@link #cancel()} from
+ * another thread ends the wait.
+ */
+public final class ChatSession {
+
+	private static final Logger log = LoggerFactory.getLogger(ChatSession.class);
+
+	private static final String OP_CREATE = "v/ops/agent/create";
+	private static final String OP_UPDATE = "v/ops/agent/update";
+	private static final String OP_INFO = "v/ops/agent/info";
+	private static final String OP_CHAT = "v/ops/agent/chat";
+	private static final String OP_MESSAGE = "v/ops/agent/message";
+	private static final String OP_RESUME = "v/ops/agent/resume";
+
+	/** Time allowed for agent management calls (create/update/info). */
+	private static final long ADMIN_TIMEOUT_SECONDS = 30;
+	/**
+	 * How long one of the assistant's tool calls may run: an hour, the venue's
+	 * own ceiling for an authenticated MCP call, not the agent loop's default
+	 * five minutes. Delegated work such as a Claude Code turn routinely takes
+	 * longer than that, and a call that times out loses its result.
+	 */
+	static final long TOOL_CALL_TIMEOUT_MS = 3_600_000L;
+
+	/** The assistant's private memory lives in its scratch namespace. */
+	public static final String MEMORY_PATH = "n/memory";
+	/** What every one of the owner's assistants knows about them, in the owner's workspace. */
+	public static final String SHARED_MEMORY_PATH = "w/memory";
+	/** The user's own skills — discoverable, theirs to grow. */
+	public static final String USER_SKILLSET = "w/skills";
+	/**
+	 * The venue's shipped skill library. {@code v/skills/root} is the usable
+	 * skillset level — the per-family entry points (agents, grid, auth,
+	 * connections, venue, discovery…), each revealing its family when loaded.
+	 * Each is a useful first load for its family and reveals the rest, which is
+	 * the shape Tau's own skills follow too. (Pointing at bare
+	 * {@code v/skills} would be silently useless: it holds skillsets, not
+	 * skills.)
+	 */
+	public static final String VENUE_SKILLSET = "v/skills/root";
+	static final String MEMORY_OP = "v/ops/memory";
+	/**
+	 * The bounded, hierarchical read: one call renders a subtree's shape and
+	 * sample values within a byte budget, so the assistant sees the structure
+	 * before deciding what, if anything, to read exactly. Covia's default tool
+	 * pack carries only read and list, so it is granted here outright.
+	 */
+	public static final String INSPECT_OP = "v/ops/covia/inspect";
+	/**
+	 * Read-only render of a memory collection. A context entry runs before every
+	 * inference, and Covia only admits an op declared {@code readOnly} there
+	 * (covia#465 asks for a warning instead); {@link #MEMORY_OP} is the
+	 * read/write tool and cannot be.
+	 */
+	static final String MEMORY_RECALL_OP = "v/ops/memory-recall";
+	static final String SKILL_FEEDBACK_OP = "v/ops/tau/report-skill-feedback";
+	/**
+	 * The harness's conversation-compaction control. Covia offers it only to an
+	 * agent that names it (covia#464): without it the context-budget notice at
+	 * 90% tells the assistant it has no way to compact, and a long conversation
+	 * grows until the model refuses it. With it, the notice asks for a summary
+	 * and the venue rebuilds the session's cached prefix around that summary,
+	 * with the memory pin, the app context and the skills index refreshed.
+	 */
+	static final String COMPACT_TOOL = "compact";
+	/** Read-only dynamic product context; deliberately a non-skill load. */
+	public static final String CONTEXT_OP = "v/ops/tau/context";
+	/** Stable identity for the configured context load. */
+	public static final String CONTEXT_LOAD_KEY = "tau-context";
+
+	/** The agent's reply and the session it belongs to. */
+	public record Reply(String text, String sessionId) {
+	}
+
+	/** A follow-up message accepted into a venue-managed session queue. */
+	public record Delivery(String sessionId) {
+	}
+
+	private final Venue venue;
+	private AppConfig.Chat config;
+	private final String userName;
+	private final boolean configureExisting;
+	/** The name the agent goes by, for its record's {@code config.name} (null: leave the record's). */
+	private String agentName;
+	/** A skill the agent starts with pinned, from the template it was made from (null: none). */
+	private String pinnedSkill;
+	private volatile String sessionId;
+	private volatile long sessionGeneration;
+	private boolean pendingResume;
+	private boolean agentReady;
+	/** Eir's repair of the agent, asked when resuming did not cure a fault; see {@link #askEir}. */
+	private CompletableFuture<ACell> repair;
+	/** Runs once when the agent is first ready; see {@link #whenReady}. */
+	private Runnable onReady;
+	/** The chat job whose reply is being awaited, or null. */
+	private volatile Job inFlight;
+
+	public ChatSession(Venue venue, AppConfig.Chat config) {
+		this(venue, config, null);
+	}
+
+	/**
+	 * @param venue    in-process client bound to the acting user
+	 * @param config   the chat agent's configuration
+	 * @param userName the user's display name (e.g. {@code "Mike"}), told to the
+	 *                 agent so it addresses them correctly, or null
+	 */
+	public ChatSession(Venue venue, AppConfig.Chat config, String userName) {
+		this(venue, config, userName, true);
+	}
+
+	/**
+	 * @param configureExisting         whether {@link #ensureAgent()} re-applies
+	 *                                  this configuration when the agent exists
+	 */
+	public ChatSession(Venue venue, AppConfig.Chat config, String userName,
+			boolean configureExisting) {
+		this.venue = venue;
+		this.config = config;
+		this.userName = userName;
+		this.configureExisting = configureExisting;
+	}
+
+	public AppConfig.Chat config() {
+		return config;
+	}
+
+	/** The in-process client this conversation acts through, bound to the acting user. */
+	public Venue venue() {
+		return venue;
+	}
+
+	/**
+	 * The name the agent goes by — what the agents pane, agent info and other
+	 * venues show — written to its record as {@code config.name} by the next
+	 * {@link #ensureAgent}. Null or blank: the record's own name stands, if any.
+	 */
+	public synchronized ChatSession named(String agentName) {
+		this.agentName = (agentName == null || agentName.isBlank()) ? null : agentName.trim();
+		return this;
+	}
+
+	/**
+	 * Pins {@code skillPath} in the agent's {@code config.loads} as the next
+	 * {@link #ensureAgent} writes it: an agent made to specialise starts with
+	 * its skill loaded. Like any owner pin it stays; null pins nothing.
+	 */
+	public synchronized ChatSession pinning(String skillPath) {
+		this.pinnedSkill = skillPath;
+		return this;
+	}
+
+	/**
+	 * Re-apply the agent's configuration (e.g. a new model chosen in Settings).
+	 *
+	 * @return true if it applied now; false if the agent is busy (a reply in
+	 *         flight) and it will apply on the next message instead
+	 */
+	public synchronized boolean reconfigure(AppConfig.Chat config) throws Exception {
+		this.config = config;
+		this.agentReady = false;
+		return ensureAgent(true);
+	}
+
+	/** The user's display name, or null if unspecified. */
+	public String userName() {
+		return userName;
+	}
+
+	/** Current session id, or null before the first reply / after a reset. */
+	public String sessionId() {
+		return sessionId;
+	}
+
+	/** Forget the current session; the next message starts a new conversation. */
+	public void reset() {
+		sessionGeneration++;
+		sessionId = null;
+		pendingResume = false;
+	}
+
+	/**
+	 * Continue a previous conversation (e.g. reopened on restart). The id is
+	 * used on the next message; if the venue no longer knows it, {@link #send}
+	 * quietly falls back to a new session.
+	 */
+	public void resume(String sessionId) {
+		sessionGeneration++;
+		this.sessionId = sessionId;
+		this.pendingResume = (sessionId != null);
+	}
+
+	/**
+	 * Makes sure the chat agent exists with the configured operation, model
+	 * and system prompt. Creates it on first use. For Tau's standard agent
+	 * it re-applies configuration on later runs; named agents can instead retain
+	 * the configuration already stored in their agent record. Idempotent per
+	 * session object.
+	 *
+	 * @return true if the configuration is in force; false if the agent exists
+	 *         but could not be updated yet (e.g. it is mid-cycle) — chatting
+	 *         still works on its previous configuration and the update is
+	 *         retried on the next call
+	 * @throws Exception if the agent does not exist and cannot be created
+	 */
+	public synchronized boolean ensureAgent() throws Exception {
+		return ensureAgent(configureExisting);
+	}
+
+	private boolean ensureAgent(boolean updateExisting) throws Exception {
+		if (agentReady) return true;
+		ACell info = agentInfo();
+		String status = agentStatus(info);
+		AMap<AString, ACell> agentConfig = AgentSetup.config(config.operation(), config.llmOperation(),
+			config.systemPrompt(), userName, agentName, pinnedSkill, configuredLoads(info));
+		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
+		if (status != null) {
+			if (!updateExisting) return ready();
+			// agent:update is a recursive *merge* (vectors replace, maps merge), not
+			// a replace: tools/skillsets/context above are re-applied wholesale, but
+			// a `loads` pin dropped from this map would linger on existing agents.
+			try {
+				run(OP_UPDATE, input, ADMIN_TIMEOUT_SECONDS);
+				log.info("Applied configuration to chat agent '{}'", config.agentId());
+			} catch (Exception e) {
+				// e.g. the agent is mid-cycle (update is rejected while RUNNING); the
+				// previous configuration stands for now. Leave agentReady false so
+				// the next send() tries again once the agent is idle.
+				log.warn("Could not apply configuration to agent '{}' (will retry): {}",
+					config.agentId(), e.getMessage());
+				return false;
+			}
+			// A failed transition (a bad model op, a missing API key…) leaves the
+			// agent SUSPENDED, and a suspended agent refuses every chat until it is
+			// resumed. The configuration has just been (re)applied — which is the
+			// usual fix — so resume it now rather than leave the chat bricked. One
+			// stopped on purpose (by Thor, say) stays stopped.
+			if (Suspension.byFault(info)) resume();
+		} else {
+			run(OP_CREATE, input, ADMIN_TIMEOUT_SECONDS);
+			log.info("Created chat agent '{}' ({} via {})", config.agentId(), config.operation(), config.llmOperation());
+		}
+		return ready();
+	}
+
+	/** Marks the agent ready and runs the {@link #whenReady} hook the first time. */
+	private boolean ready() {
+		agentReady = true;
+		Runnable hook = onReady;
+		onReady = null;
+		if (hook != null) hook.run();
+		return true;
+	}
+
+	/**
+	 * Runs {@code hook} once, the first time this session's agent is ready —
+	 * on the first send, since binding a chat submits nothing. It runs on the
+	 * sending thread, before the message goes out, so it must not block.
+	 */
+	public synchronized ChatSession whenReady(Runnable hook) {
+		this.onReady = hook;
+		return this;
+	}
+
+	/** The agent's status (SLEEPING, RUNNING, SUSPENDED, TERMINATED), or null if it doesn't exist. */
+	private ACell agentInfo() {
+		try {
+			return run(OP_INFO, Maps.of(Fields.AGENT_ID, config.agentId()), ADMIN_TIMEOUT_SECONDS);
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	private static String agentStatus(ACell info) {
+		if (info == null) return null;
+		AString status = RT.ensureString(RT.getIn(info, Fields.STATUS));
+		return (status != null) ? status.toString() : "";
+	}
+
+	@SuppressWarnings("unchecked")
+	private static AMap<AString, ACell> configuredLoads(ACell info) {
+		ACell loads = RT.getIn(info, Fields.CONFIG, Fields.LOADS);
+		return (loads instanceof AMap<?, ?>) ? (AMap<AString, ACell>) loads : null;
+	}
+
+	/**
+	 * Asks Eir to repair this session's agent, stopped by a fault that resuming
+	 * it did not cure: a fault in the harness, not a task that went wrong. Not
+	 * again while she is still on it. Best-effort; logged, never thrown.
+	 */
+	private synchronized void askEir(Exception failure) {
+		if (repair != null && !repair.isDone()) return;
+		ACell info = agentInfo();
+		if (!Suspension.byFault(info)) return;
+		AString error = RT.ensureString(RT.getIn(info, Fields.ERROR));
+		String request = Eir.afterFault(config.agentId(), (error != null) ? error.toString() : failure.getMessage());
+		log.warn("Agent '{}' is still stopped by a fault after resuming; asking Eir", config.agentId());
+		repair = Eir.ask(venue, request, null).exceptionally(e -> {
+			log.warn("Could not ask Eir to repair '{}': {}", config.agentId(), e.toString());
+			return null;
+		});
+	}
+
+	/**
+	 * Eir's repair of this session's agent, asked when resuming did not cure a
+	 * fault; null if none has been asked. It completes with her outcome.
+	 */
+	public synchronized CompletableFuture<ACell> repair() {
+		return repair;
+	}
+
+	/** Clears a suspension (SUSPENDED → SLEEPING). Best-effort; logged, never thrown. */
+	private void resume() {
+		try {
+			run(OP_RESUME, Maps.of(Fields.AGENT_ID, config.agentId()), ADMIN_TIMEOUT_SECONDS);
+			log.info("Resumed suspended chat agent '{}'", config.agentId());
+		} catch (Exception e) {
+			log.warn("Could not resume agent '{}': {}", config.agentId(), e.getMessage());
+		}
+	}
+
+	/**
+	 * The chat's agent was suspended on purpose — by Thor, the operator or the
+	 * owner — so Tau will not restart it by itself, as it does after a
+	 * failed turn. The message is for the owner.
+	 */
+	public static final class SuspendedException extends Exception {
+		private static final long serialVersionUID = 1L;
+
+		SuspendedException(String agent, String reason, Throwable cause) {
+			super(agent + " has been stopped on purpose" + ((reason != null) ? " (“" + reason + "”)" : "")
+				+ ", so " + APP_NAME + " won't restart it by itself. If Thor stopped it, his request in your Inbox says why"
+				+ " and lets you resume it.", cause);
+		}
+	}
+
+	private String displayName() {
+		return (agentName != null) ? agentName : config.agentId();
+	}
+
+	/** Whether {@code e} is the venue refusing work because the agent is suspended, by Covia's code for it. */
+	static boolean isSuspended(Throwable e) {
+		for (Throwable t = e; t != null; t = t.getCause()) {
+			if (t instanceof JobFailedException failure
+					&& AgentAdapter.SUSPENDED_CODE.equals(failure.getErrorCode())) return true;
+			if (t.getCause() == t) break;
+		}
+		return false;
+	}
+
+	/**
+	 * Stops waiting for the reply in flight by cancelling its chat job on the
+	 * venue: the blocked {@link #send} throws {@link CancellationException} and
+	 * the session is kept. The agent's turn itself is not interrupted — Covia
+	 * only drops the job as a waiter — so whatever it finishes still lands in
+	 * the session, where the live watcher shows it.
+	 *
+	 * @return true if a chat job was in flight and has been cancelled
+	 */
+	public boolean cancel() {
+		Job job = inFlight;
+		if (job == null || job.isFinished()) return false;
+		venue.cancelJob(job.getID());
+		return true;
+	}
+
+	/** Sends one user message and waits for the agent's reply. */
+	public Reply send(String message) throws Exception {
+		return send(message, ignored -> {
+		});
+	}
+
+	/**
+	 * Sends one user message and waits for the agent's reply.
+	 *
+	 * @param accepted called as soon as the venue has accepted the chat and
+	 *                 assigned its session id, before model work completes
+	 */
+	public Reply send(String message, Consumer<String> accepted) throws Exception {
+		return send(Strings.create(message), accepted);
+	}
+
+	/**
+	 * Sends one user message — text, or a structured {@code {text, via}} message
+	 * that says where it came from — and waits for the agent's reply.
+	 *
+	 * @param accepted called as soon as the venue has accepted the chat and
+	 *                 assigned its session id, before model work completes
+	 */
+	public Reply send(ACell message, Consumer<String> accepted) throws Exception {
+		ensureAgent();
+		try {
+			Reply reply = sendOnce(message, accepted);
+			pendingResume = false;
+			return reply;
+		} catch (Exception e) {
+			// Suspended by an earlier failed turn (e.g. before a key was fixed in
+			// Settings): resume and try this message once more, same session.
+			// Stopped on purpose: say so, and leave it to whoever stopped it.
+			if (isSuspended(e)) {
+				ACell info = agentInfo();
+				if (Suspension.deliberate(info)) throw new SuspendedException(displayName(), Suspension.reason(info), e);
+				log.warn("Agent is suspended ({}); resuming and retrying", e.getMessage());
+				resume();
+				try {
+					Reply reply = sendOnce(message, accepted);
+					pendingResume = false;
+					return reply;
+				} catch (Exception again) {
+					askEir(again);
+					throw again;
+				}
+			}
+			// A resumed session the venue no longer knows: drop it and retry once.
+			// Only for that error — a model or key failure must not mint a fresh
+			// (orphan) session and fail again in it.
+			if (pendingResume && isUnknownSession(e)) {
+				log.warn("Could not continue the previous conversation ({}); starting a new one",
+					e.getMessage());
+				pendingResume = false;
+				sessionId = null;
+				return sendOnce(message, accepted);
+			}
+			throw e;
+		}
+	}
+
+	/**
+	 * Delivers a follow-up immediately to an existing session's venue queue.
+	 * This does not wait for, or manufacture, a reply; the live session watcher
+	 * observes the cycle(s) the venue subsequently runs.
+	 */
+	public Delivery enqueue(String message, String targetSessionId) throws Exception {
+		return enqueue(Strings.create(message), targetSessionId);
+	}
+
+	/** As {@link #enqueue(String, String)}, for a structured {@code {text, via}} message too. */
+	public Delivery enqueue(ACell message, String targetSessionId) throws Exception {
+		if (targetSessionId == null || targetSessionId.isBlank()) {
+			throw new IllegalStateException("Cannot queue a message before the venue assigns a session");
+		}
+		ensureAgent();
+		ACell result = run(OP_MESSAGE, Maps.of(
+			Fields.AGENT_ID, config.agentId(),
+			Fields.SESSION_ID, Strings.create(targetSessionId),
+			Fields.MESSAGE, message), ADMIN_TIMEOUT_SECONDS);
+		String deliveredSid = Ids.text(RT.getIn(result, Fields.SESSION_ID));
+		if (deliveredSid == null) {
+			throw new IllegalStateException("The venue accepted a queued message without a session id");
+		}
+		return new Delivery(deliveredSid);
+	}
+
+	/**
+	 * Recognises the agent adapter's optional unknown-session code. Missing or
+	 * unfamiliar codes are ordinary failures; their wording must not cause us
+	 * to replace the saved session.
+	 */
+	static boolean isUnknownSession(Throwable e) {
+		for (Throwable t = e; t != null; t = t.getCause()) {
+			if (t instanceof JobFailedException failure
+					&& AgentAdapter.UNKNOWN_SESSION_CODE.equals(failure.getErrorCode())) return true;
+			if (t.getCause() == t) break;
+		}
+		return false;
+	}
+
+	private Reply sendOnce(ACell message, Consumer<String> accepted) throws Exception {
+		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.MESSAGE, message);
+		long generation = sessionGeneration;
+		String sid = sessionId;
+		if (sid != null) input = input.assoc(Fields.SESSION_ID, Strings.create(sid));
+
+		Job job = venue.invoke(OP_CHAT, input).get(ADMIN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		inFlight = job;
+		String acceptedSid = Ids.text(RT.getIn(job.getData(), Fields.SESSION_ID));
+		if (acceptedSid != null) {
+			if (sessionGeneration == generation) sessionId = acceptedSid;
+			if (accepted != null) accepted.accept(acceptedSid);
+		}
+
+		ACell result;
+		try {
+			result = awaitReply(job);
+		} finally {
+			if (inFlight == job) inFlight = null;
+		}
+		String newSid = Ids.text(RT.getIn(result, Fields.SESSION_ID));
+		String returnedSid = (newSid != null) ? newSid : sid;
+		// A user may enter Home while this call is in flight. The completed old
+		// turn remains valid history, but must not rebind the fresh composer.
+		if (newSid != null && sessionGeneration == generation) sessionId = returnedSid;
+		return new Reply(render(RT.getIn(result, Fields.RESPONSE)), returnedSid);
+	}
+
+	/**
+	 * Waits for the agent's reply to a chat job. Deliberately no deadline: a
+	 * turn takes as long as its model and tool calls take, each of which the
+	 * venue bounds itself, and cutting it off from here would cancel the job and
+	 * lose the whole turn. The user ends a wait through {@link #cancel()}.
+	 */
+	private static ACell awaitReply(Job job) throws Exception {
+		try {
+			return job.future().get();
+		} catch (ExecutionException e) {
+			// A cancelled job carries no error message, so name what happened.
+			if (Status.CANCELLED.equals(job.getStatus())) {
+				throw new CancellationException("Stopped waiting for this reply");
+			}
+			throw unwrap(e);
+		}
+	}
+
+	/**
+	 * Invokes an agent management operation and waits for its result. A failed
+	 * job surfaces as its underlying exception; a timeout cancels the job.
+	 */
+	private ACell run(String operation, ACell input, long timeoutSeconds) throws Exception {
+		Job job = venue.invoke(operation, input).get(ADMIN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		return await(job, operation, timeoutSeconds);
+	}
+
+	private ACell await(Job job, String operation, long timeoutSeconds) throws Exception {
+		try {
+			return job.future().get(timeoutSeconds, TimeUnit.SECONDS);
+		} catch (ExecutionException e) {
+			throw unwrap(e);
+		} catch (TimeoutException e) {
+			try {
+				venue.cancelJob(job.getID());
+			} catch (Exception ignored) {
+				// best effort — the job may already have finished
+			}
+			throw new TimeoutException("No reply from " + operation + " within " + timeoutSeconds + "s");
+		}
+	}
+
+	private static Exception unwrap(ExecutionException e) {
+		Throwable cause = (e.getCause() != null) ? e.getCause() : e;
+		return (cause instanceof Exception ex) ? ex : new RuntimeException(cause);
+	}
+
+	/** Renders an agent response for display: strings verbatim, anything else as JSON. */
+	public static String render(ACell response) {
+		if (response == null) return "";
+		if (response instanceof AString s) return s.toString();
+		return JSON.toStringPretty(response);
+	}
+}

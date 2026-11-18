@@ -1,12 +1,12 @@
 # Launch, takeover and exit
 
-How a Brightside process starts, what happens when one is already running, and
-how it stops or restarts. Code: `BrightSide`, `Takeover`, `Relaunch`,
+How a Tau process starts, what happens when one is already running, and
+how it stops or restarts. Code: `Tau`, `Takeover`, `Relaunch`,
 `EmbeddedVenue`, `Startup`, `TrayManager`.
 
 - **Nothing shows without live data behind it.** The unlock dialog or wizard
   comes first; the main window appears only once the venue is ready.
-- **Brightside's own state is put right before anything runs.** A startup
+- **Tau's own state is put right before anything runs.** A startup
   pass in Covia's launch hook migrates, repairs and verifies it, and submits
   jobs only for what it changes. The owner's agent is configured on the first
   message.
@@ -22,7 +22,7 @@ how it stops or restarts. Code: `BrightSide`, `Takeover`, `Relaunch`,
 
 ## Startup
 
-The launcher `Main` normally enters `BrightSide.main`. With `--mcp-stdio`,
+The launcher `Main` normally enters `Tau.main`. With `--mcp-stdio`,
 it runs a connection to the app, starting it with the existing unattended
 unlock flow when absent. `McpStartup` serialises concurrent cold connections
 and waits for authenticated readiness; an existing app is never taken over.
@@ -30,8 +30,8 @@ Standard output carries MCP messages only; diagnostics go to standard error.
 Closing the client's input ends that connection and leaves the app running.
 See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
 
-1. `BrightSide.main` loads `~/.brightside/config.json` (`AppConfig`), configures
-   logging to `~/.brightside/logs/brightside.log` (dated rollovers; uncaught
+1. `Tau.main` loads `~/.tau/config.json` (`AppConfig`), configures
+   logging to `~/.tau/logs/tau.log` (dated rollovers; uncaught
    exceptions on any thread land there too) and installs the look and feel.
 2. `start()` installs the tray icon where the desktop has one and shows the
    first screen at once: the onboarding wizard in the main window when no
@@ -45,7 +45,7 @@ See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
    dialog back, and always asks; the tray's *Show* brings back whichever is
    current.
 
-   `--unlock` on the command line (`java -jar brightside.jar --unlock`) is for
+   `--unlock` on the command line (`java -jar tau.jar --unlock`) is for
    a launch nobody is sitting at, such as one from Claude Code: it unlocks at
    once with the remembered passphrase and puts nothing on screen: no unlock
    dialog, and once the venue is up it stays in the tray (minimised, on a
@@ -60,7 +60,7 @@ See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
    is left alone and the launch exits, unless `--takeover` is given as well;
    the startup settings never apply to it.
    `--takeover`, with or without `--unlock`, takes over from a running
-   Brightside without asking (below). On its own it is a launch someone is
+   Tau without asking (below). On its own it is a launch someone is
    sitting at, as from an IDE: it also unlocks with the stored passphrase
    without asking, as the setting above does, and the window comes up as usual.
 3. Unlock or onboarding opens the vault, yields the identity seed and secures
@@ -71,11 +71,11 @@ See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
 4. When compaction was asked for, `StoreSpace` opens the store first and has
    Covia collect it, then hands it to the venue (below).
    `EmbeddedVenue.launch` starts the `VenueServer` on loopback with public
-   access disabled, registering `BrightsideAdapter`, `BrightsideSkillsAdapter`,
+   access disabled, registering `TauAdapter`, `TauSkillsAdapter`,
    Moltbook, Discord, Telegram, Claude Code and speech in Covia's pre-start hook: after the
    built-in adapters are installed and configured secrets provisioned, before
    durable jobs are recovered and adapter workers start, so a job a crash left
-   on one of Brightside's operations is recovered by its owner and the Discord
+   on one of Tau's operations is recovered by its owner and the Discord
    bots re-arm with everything else. The [startup pass](#the-startup-pass)
    follows in the same hook. A failure in the hook closes the
    half-assembled server, so nothing is left holding the port or the store.
@@ -94,14 +94,14 @@ See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
 
 ### Starting at Windows sign-in
 
-On Windows the owner can have Brightside start when they sign in: *Start
-Brightside when I sign in to Windows* in Settings → General → Startup, off
+On Windows the owner can have Tau start when they sign in: *Start
+Tau when I sign in to Windows* in Settings → General → Startup, off
 until they turn it on, and offered only with a passphrase remembered, since
 the start unlocks with it. Turning it on writes one entry under the account's
 own `Run` key (`StartAtSignIn`), which Windows starts at sign-in and Task
-Manager lists under Startup apps, where it can be disabled without Brightside.
+Manager lists under Startup apps, where it can be disabled without Tau.
 The entry is the `--unlock` launch above: up in the tray, unlocked, leaving a
-running Brightside alone. Windows starts it, so it belongs to no other
+running Tau alone. Windows starts it, so it belongs to no other
 program's job.
 
 While the setting is on, each start rewrites the entry to name the Java and
@@ -115,15 +115,15 @@ is unavailable there; another data directory gets an entry of its own.
 
 ### The startup pass
 
-Brightside's own counterpart to Covia's migration, run by `Startup` in the
-launch hook once Brightside's adapters are registered: the store is current
+Tau's own counterpart to Covia's migration, run by `Startup` in the
+launch hook once Tau's adapters are registered: the store is current
 and no recovered job, schedule or agent has run yet, so what it puts right
 holds before anything acts. Each step is safe to run on every start, and none
 fails the launch.
 
-1. **Migrate.** The Brightside and Covia versions the store last started
+1. **Migrate.** The Tau and Covia versions the store last started
    under ([APP_STATE.md](APP_STATE.md)) are compared with this build's, and an
-   upgrade is logged. Brightside's own version-gated steps belong here, after
+   upgrade is logged. Tau's own version-gated steps belong here, after
    Covia's; there are none yet.
 2. **Repair.** The gods are brought up to date with the stored model,
    their caps included, and one stopped by a fault is resumed
@@ -132,7 +132,7 @@ fails the launch.
    stopped by a fault; anything else is logged and shown to the owner.
 
 The pass also records a fingerprint of Tau's standard agent setup and shipped
-skills. Once the venue is serving, Brightside asks Eir to repair what
+skills. Once the venue is serving, Tau asks Eir to repair what
 verification found, and, after an upgrade or when that fingerprint changed, to
 bring the owner's account up to date ([EIR.md](EIR.md)).
 
@@ -158,7 +158,7 @@ Two processes cannot share `venue.etch`; the second fails on the file lock. So
   ticked on that question or in Settings → General → Startup. The unlock
   dialog then notes that the running instance will hand over once unlocked.
   (An instance that appears only later is asked about at launch time instead.)
-- A new install is told to quit the running Brightside first, and exits. It
+- A new install is told to quit the running Tau first, and exits. It
   would mint a fresh identity, and only the running venue's own key can ask it
   to stop, so a takeover could never succeed.
 - The handover itself waits for the vault, since the requests must be signed
@@ -167,15 +167,15 @@ Two processes cannot share `venue.etch`; the second fails on the file lock. So
   two main windows are never on screen together.
 - `Takeover.identify` first asks what is on the port, running
   `v/ops/brightside/info` with a short-lived JWT (`iss = sub = aud =` the
-  venue's DID) signed with the seed both instances unlocked. A Brightside
+  venue's DID) signed with the seed both instances unlocked. A Tau
   holding our identity answers with its app name, venue DID, the store it
   holds and its process id. Anything else is refused with a message the owner
-  can act on: a `401` is a Brightside with a different identity; an unknown
-  operation is a Covia venue that is not Brightside; no venue answer at all is
+  can act on: a `401` is a Tau with a different identity; an unknown
+  operation is a Covia venue that is not Tau; no venue answer at all is
   something else on the port.
 - `Takeover.requestShutdown` then POSTs `v/ops/brightside/shutdown` with the
   same kind of token. The running instance accepts only the venue operator
-  (`BrightsideAdapter.handleShutdown` requires the caller DID to equal the
+  (`TauAdapter.handleShutdown` requires the caller DID to equal the
   venue DID) and runs its `exit()`: the store flushes and the process ends.
 - The venue closes its HTTP listener before it flushes and closes the store, so
   a quiet port is not a free store. `Takeover.waitUntilDown` polls until nothing
@@ -189,7 +189,7 @@ against a private venue.
 
 ## Restart and relaunch
 
-Brightside starts again in one of two ways, each an operation that needs
+Tau starts again in one of two ways, each an operation that needs
 Covia's `admin/venue/restart` on the venue's process, as shutdown does: the
 venue itself, or an agent whose caps include it, which Odin's do
 ([ODIN.md](ODIN.md)). Covia's own venue restart needs process control that
@@ -199,7 +199,7 @@ only a standalone venue has.
   process: the same program, with the key it already holds. It picks up
   `config.json` and a compaction asked for, not new code.
 - **`brightside:relaunch`** starts a new process that takes over, as above,
-  running this program again or another Brightside jar: this is how a new
+  running this program again or another Tau jar: this is how a new
   build comes in.
 
 Either way an agent's work in flight resumes once the venue is back: it finds
@@ -221,7 +221,7 @@ stops. `RestartTest` runs both on a venue whose app does nothing.
 - A venue that fails to come back is reported where the owner is looking, as
   at startup. Behind Lock, unlocking launches it again; otherwise quitting and
   starting again is the way back.
-- Refused while Brightside is starting up or quitting, during another restart,
+- Refused while Tau is starting up or quitting, during another restart,
   and off the desktop. The steps from closing the venue to binding the window
   run only with a window, so no test covers them.
 
@@ -242,12 +242,12 @@ stops. `RestartTest` runs both on a venue whose app does nothing.
   level: an enclosing job that forbids it still holds the newcomer, as the
   Claude desktop app's job, around each session's, does.
   `WindowsProcessTest` covers it.
-- `jar` names another Brightside jar instead: any content reference the venue
-  resolves for the caller, such as `file://code/brightside/target/brightside.jar`
-  for Brightside's own build, a DLFS path or an asset, read under the
-  caller's authority. It is copied into `~/.brightside/run/` and the copy
+- `jar` names another Tau jar instead: any content reference the venue
+  resolves for the caller, such as `file://code/tau/target/tau.jar`
+  for Tau's own build, a DLFS path or an asset, read under the
+  caller's authority. It is copied into `~/.tau/run/` and the copy
   runs, so the build can be replaced meanwhile; earlier copies go unless one
-  is still running. A jar whose main class is not Brightside's is refused.
+  is still running. A jar whose main class is not Tau's is refused.
 - It comes back as this one is, and takes over and unlocks with the
   remembered passphrase without asking, whatever the startup settings say:
   `--takeover` when the window is showing, so the window comes back;
@@ -260,7 +260,7 @@ stops. `RestartTest` runs both on a venue whose app does nothing.
   its unlock dialog, or in a dialog of its own from the tray.
 - Nothing checks that a jar is newer: a build's version does not tell
   development builds apart. A jar too old for the store takes over, finds the
-  store written by a newer Brightside, changes nothing and says so
+  store written by a newer Tau, changes nothing and says so
   ([below](#opening-a-store-an-older-build-wrote)); starting the newer build
   again opens it.
 - The operation answers as soon as the newcomer has started, with its process
@@ -268,7 +268,7 @@ stops. `RestartTest` runs both on a venue whose app does nothing.
   only in the log, or on its own unlock dialog. `brightside:info` reports the
   process id and when the process started, so a caller can see afterwards that
   the relaunch happened.
-- Refused while Brightside is locked (unlocking at once would undo the lock,
+- Refused while Tau is locked (unlocking at once would undo the lock,
   and the newcomer cannot take over without the key), while a newcomer an
   earlier relaunch started is still running beside this one, off the desktop,
   where there is no app to start again, and inside another program's process
@@ -283,7 +283,7 @@ stops. `RestartTest` runs both on a venue whose app does nothing.
 - *Hide to tray* (Settings → General, or the hide shortcut) hides the window and
   keeps the venue running; the tray icon brings it back.
 - Quit (tray menu or Settings → General) always flushes and exits.
-- Without a tray (unsupported desktop, or `BRIGHTSIDE_NO_TRAY=1`) there is
+- Without a tray (unsupported desktop, or `TAU_NO_TRAY=1`) there is
   nowhere to hide: close quits, minimise minimises.
 
 ## Exit and flush

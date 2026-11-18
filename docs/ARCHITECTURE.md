@@ -1,11 +1,11 @@
 # Architecture
 
-Brightside is one JVM process holding a Swing desktop app and a complete Covia
-venue: single Maven module `ai.covia:brightside`, launcher `brightside.Main`
-and desktop application `brightside.BrightSide`. The desktop application is a client of the Embedded
+Tau is one JVM process holding a Swing desktop app and a complete Covia
+venue: single Maven module `ai.covia:tau`, launcher `tau.Main`
+and desktop application `tau.Tau`. The desktop application is a client of the Embedded
 Venue API within that process, with direct access to venue state and services.
 
-- **The Embedded Venue API is the application API.** Brightside deliberately
+- **The Embedded Venue API is the application API.** Tau deliberately
   couples to the venue's Java APIs, immutable lattice values, services and live
   events. The remote HTTP, MCP and A2A APIs serve external clients; they do not
   define or limit the desktop application's integration.
@@ -14,7 +14,7 @@ Venue API within that process, with direct access to venue state and services.
   venue's agent framework under the acting principal. View selection and
   presentation belong to the UI.
 - **Configuration is data.** The owner's `venue` map is merged over defaults
-  and handed to the venue, so new venue options need no Brightside change.
+  and handed to the venue, so new venue options need no Tau change.
 - **One UI kit, themed by FlatLaf.** Every screen is composed from
   `ui/components`; no screen hard-codes a colour or a font.
 - **Skills carry the abilities.** The assistant starts small and loads what a
@@ -24,10 +24,22 @@ Product principles are in [DESIGN.md](DESIGN.md); startup, takeover and exit
 in [LAUNCH.md](LAUNCH.md); keys and recovery in [SECURITY.md](SECURITY.md);
 the file and API keys in [CONFIGURATION.md](CONFIGURATION.md).
 
+## Operation addresses
+
+Tau publishes `v/ops/tau/<operation>` with `tau_` MCP tool names. The app adapter
+also keeps `v/ops/brightside/<operation>` and its existing MCP tool names, so
+stored jobs, skills and integrations can migrate calls individually. Both
+names use the same implementation, state and authorisation checks. The internal
+dispatch id stays `brightside:<operation>`; it is independent of the public
+catalogue path. The adapter's
+catalogue view remains under `v/adapters/brightside`, and its state and
+per-user view retain the same id ([APP_STATE.md](APP_STATE.md)). Java classes
+and packaged resources use `tau` independently of these public addresses.
+
 ## The shape of it
 
 ```
-Brightside application ──► Embedded Venue API (in-process Java)
+Tau application ──► Embedded Venue API (in-process Java)
                             ├─ state reads and live subscriptions
                             ├─ engine, adapters and venue services
                             └─ LocalVenue operations as the acting principal
@@ -98,9 +110,9 @@ forgets the folders it touched and what is in them, refresh invalidates it
 all, and principal
 changes replace the entire binding. Stale results
 are discarded after selection, principal changes or logout. The browser uses
-the shared Brightside cards, labels, icons and readouts. Sharing this
+the shared Tau cards, labels, icons and readouts. Sharing this
 component with Convex GUI is future work; the first implementation lives in
-Brightside without a Convex GUI dependency.
+Tau without a Convex GUI dependency.
 
 **The chat session reflects the agent framework.** The session view represents
 Covia agent state and allows user interactions through the embedded APIs.
@@ -108,7 +120,7 @@ Its close coupling to the framework is intentional: the venue owns execution,
 history and memory, while the view owns selection, rendering and subscriptions.
 
 **Session recovery requires a recognised condition.** When resuming a saved
-conversation, Brightside starts a fresh one only for the agent adapter's
+conversation, Tau starts a fresh one only for the agent adapter's
 optional unknown-session code. Missing or unfamiliar codes leave the saved
 conversation in place and surface the failure; message wording never decides
 recovery. The code contract belongs to [Covia Jobs](https://github.com/covia-ai/covia/blob/develop/venue/docs/JOBS.md).
@@ -118,7 +130,7 @@ take; each tool call may run for up to an hour ([CONFIGURATION](CONFIGURATION.md
 
 **The assistant writes Markdown.** Assistant bubbles render through
 Covia Workbench's `covia.gui.markdown`: commonmark-java's AST becomes a styled
-document. Brightside supplies its theme, bubble appearance and link actions;
+document. Tau supplies its theme, bubble appearance and link actions;
 the shared Swing components install no application styling. The owner's own
 words stay as typed.
 
@@ -152,14 +164,14 @@ never takes the reply for the owner's words
 ([CONFIGURATION](CONFIGURATION.md#reading-replies-aloud)).
 
 **In-flight activity shows facts only.** The thinking bubble presents what
-Brightside has been told: preparing, running, elapsed time, and tool calls as
+Tau has been told: preparing, running, elapsed time, and tool calls as
 the venue reports them.
 
 **Conversations are switchable, and a change never yanks you elsewhere.** The
 session view owns the selected conversation, live subscription and refreshes.
 `SessionFeed` reads and projects lattice state off the event thread; changing
 the selection invalidates pending results, and leaving a binding closes its
-feed and subscription. `BrightSide` owns application lifecycle and principal
+feed and subscription. `Tau` owns application lifecycle and principal
 binding, not conversation watching. The agent record remains authoritative.
 
 **The tray is best-effort.** Without a tray the window still behaves sensibly,
@@ -182,5 +194,5 @@ The runnable jar is built by `maven-shade-plugin` with the services
 transformer, because Jetty, Javalin and LangChain4j rely on
 `META-INF/services`, and drops the venue's bundled OpenAPI plugin so the venue
 serves its own document. Logging is configured programmatically from
-`brightside/logback.xml` because the venue jar ships a root `logback.xml` of
+`tau/logback.xml` because the venue jar ships a root `logback.xml` of
 its own.

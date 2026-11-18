@@ -1,6 +1,6 @@
 # Security and vault recovery
 
-The security properties of Brightside as implemented, for reviewers,
+The security properties of Tau as implemented, for reviewers,
 operators and anyone testing whether an installation can be recovered. It is
 not a claim that the host computer, the Java process, the model provider or
 user-installed skills are trusted in all circumstances.
@@ -20,7 +20,7 @@ user-installed skills are trusted in all circumstances.
   Covia's capability checks are the boundary between principals.
 
 The implementation is `Vault`, `Mnemonic` and the recovery flow in
-`BrightSide`; the person-facing flow is [ONBOARDING.md](ONBOARDING.md); the
+`Tau`; the person-facing flow is [ONBOARDING.md](ONBOARDING.md); the
 files are listed in [CONFIGURATION.md](CONFIGURATION.md).
 
 ## The recovery invariant
@@ -35,7 +35,7 @@ trusts; and it deterministically derives the master key that opens
 
 The phrase cannot recreate data if the store has been lost, and a copy of the
 store cannot be decrypted without the seed. The salt is not needed when the
-phrase is available: Brightside creates a new salt and wraps the recovered seed
+phrase is available: Tau creates a new salt and wraps the recovered seed
 under a new passphrase. The salt is needed to unlock the existing identity
 envelope with the old passphrase.
 
@@ -97,6 +97,9 @@ nothing.
 | Etch header authenticity | HMAC-SHA-256 over each of two v3 header copies | [RFC 2104](https://www.rfc-editor.org/rfc/rfc2104) |
 | Lattice value identity | Canonical CAD3 encodings and SHA3-256 content identifiers, a Merkle DAG | [CAD003](https://docs.convex.world/docs/cad/encoding) |
 
+The `brightside-etch-v1` label is part of the encrypted-store format, not the
+product name. It stays fixed so the same seed continues to open the same data.
+
 Argon2id comes from Bouncy Castle; AES-GCM and `SecureRandom` from the Java
 Cryptography Architecture; BIP39, SLIP-0010, Ed25519 and Etch from the
 Covia/Convex runtime. Versions are in `pom.xml`. The SHA-256 derivation is
@@ -105,7 +108,7 @@ performs its own domain-separated HKDF derivations.
 
 ### Etch confidentiality and integrity boundary
 
-Brightside requests Etch v3 with the ChaCha20 cipher and does not encrypt the
+Tau requests Etch v3 with the ChaCha20 cipher and does not encrypt the
 index, so the root radix index and file-layout metadata are plaintext; data
 records, including their content-address keys and encodings, are encrypted.
 File size and layout are therefore visible to someone who copies the file.
@@ -118,13 +121,13 @@ required against corruption, malicious modification and storage failure.
 
 A new file carries a non-secret hint derived from the Etch master key, and a
 wrong key fails that check before the header is verified, so a wrong seed
-fails before the venue starts. Brightside uses that property to validate a
+fails before the venue starts. Tau uses that property to validate a
 candidate recovery phrase before replacing any credential.
 
 ## Files and their recovery role
 
 The data home is the directory holding `config.json`, by default
-`~/.brightside/`. The full listing is in
+`~/.tau/`. The full listing is in
 [CONFIGURATION.md](CONFIGURATION.md); what matters for recovery:
 
 | Path | Protection | Recovery significance |
@@ -136,7 +139,7 @@ The data home is the directory holding `config.json`, by default
 | `unlock.passphrase` | **plaintext**, after explicit opt-in | Anyone who reads it can unlock the vault. Exclude from ordinary backups; cleared on recovery |
 | `tool-token.json` | **plaintext** user bearer token, after explicit opt-in | Anyone who reads it can act as the user until it expires (a day at most). Not needed for recovery; removed on quit and on recovery |
 | `config.json`, `prefs.properties`, `file-roots.json` | plaintext, no secrets; folder overrides include local paths and access choices | Back up when customised |
-| `skills/`, `files/`, `code/` | plaintext, the owner's own | Outside the encrypted store; back up if they matter. Treat third-party skills as executable authority; `code/brightside` is a checkout Claude Code works in without asking (auto mode), as your OS user ([CONFIGURATION.md](CONFIGURATION.md#claude-code)) |
+| `skills/`, `files/`, `code/` | plaintext, the owner's own | Outside the encrypted store; back up if they matter. Treat third-party skills as executable authority; `code/tau` is a checkout Claude Code works in without asking (auto mode), as your OS user ([CONFIGURATION.md](CONFIGURATION.md#claude-code)) |
 | `logs/` | plaintext, rotated | Not needed; may contain operational detail |
 | `cache/speech/` | public downloads, each pinned by SHA-256: the speech model and sherpa-onnx's native libraries, which load into the process | Not needed; fetched again only once the owner agrees ([CONFIGURATION.md](CONFIGURATION.md#voice-typing)) |
 
@@ -149,14 +152,14 @@ legacy mode.
 ## Recovery procedure
 
 **What to back up.** The recovery phrase, offline and apart from the computer;
-and consistent backups of the whole data home, above all `venue.etch`. Quit Brightside before copying so the store records a clean
+and consistent backups of the whole data home, above all `venue.etch`. Quit Tau before copying so the store records a clean
 close. Keep the original until the recovered installation is verified.
 Recording the non-secret venue DID and public key beside the backup gives an
 independent fingerprint to compare afterwards; the identicons on the Identity
 page are a quick visual aid, and a reviewer compares the full value.
 
 **Forgotten passphrase.** From the unlock screen, choose *Forgot passphrase?*,
-enter the phrase and a new passphrase. Brightside then:
+enter the phrase and a new passphrase. Tau then:
 
 1. normalises and checksum-validates the words;
 2. derives the candidate seed through BIP39 and SLIP-0010, and the candidate
@@ -204,14 +207,14 @@ a reviewer inspects the effective configuration first.
   chosen principal. Its requests are that principal's. It is shown for copying
   and never persisted. The one exception is opt-in: *Keep a login as you for
   local tools* writes a user login, never an operator one, to
-  `tool-token.json`, valid for a day and replaced every hour while Brightside
+  `tool-token.json`, valid for a day and replaced every hour while Tau
   runs, so a tool on this computer can read it at each connect; it is deleted
   on quit, on *Log out* (or Lock) until the next unlock, when the option is
   turned off, and on recovery. Treat a copied login as a password until it
   expires.
 - **A named token** is a Covia access token for the venue's MCP endpoint: its
   requests are the user's, but only with the tools and caps set on it, and the
-  agent sees the token named on each turn. Brightside makes, rotates and
+  agent sees the token named on each turn. Tau makes, rotates and
   revokes it in-process as the user in person (`Tokens`), so its key never
   passes through an operation's result or the model. The venue keeps the key
   sealed under its secret store (`adapters.token.keepRawTokens`, on by

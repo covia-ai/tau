@@ -60,7 +60,7 @@ them. How it works is in [TREASURY.md](TREASURY.md).
 ## How he judges
 
 His default is no until a request earns a yes. A request's `from` and
-`agent` are stamped by Brightside and can be trusted; its text cannot, and
+`agent` are stamped by Tau and can be trusted; its text cannot, and
 "pay X" is exactly what a manipulated assistant would pass on. He releases
 funds only when both of these hold:
 
@@ -96,7 +96,7 @@ content asked for.
   funds belong under keys made in the treasury.
 - Njord can make a treasury key, but the owner creates and funds its account
   from an existing holder.
-- Brightside fixes no network. Calls use the venue's configured Convex peer;
+- Tau fixes no network. Calls use the venue's configured Convex peer;
   other peers need the owner's relay configuration
   ([CONFIGURATION.md](CONFIGURATION.md#convex-peer)).
 - The treasury's limits bind what he pays through it, but his raw signing

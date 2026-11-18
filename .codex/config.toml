@@ -1,4 +1,4 @@
-[mcp_servers.brightside]
+[mcp_servers.tau]
 url = "http://127.0.0.1:8085/mcp"
 # Authentication is configured per user in ~/.codex/config.toml.
 enabled = true

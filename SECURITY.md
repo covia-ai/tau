@@ -1,6 +1,6 @@
 # Security Policy
 
-Brightside is a personal agent that runs a complete Covia venue inside its own process, on the owner's own computer, under the owner's own identity. It holds the owner's identity seed, conversations, memory and skills locally. We take security reports seriously and appreciate the time researchers spend to make it safer.
+Tau is a personal agent that runs a complete Covia venue inside its own process, on the owner's own computer, under the owner's own identity. It holds the owner's identity seed, conversations, memory and skills locally. We take security reports seriously and appreciate the time researchers spend to make it safer.
 
 ## Reporting a vulnerability
 
@@ -14,7 +14,7 @@ Report privately through one of:
 Please include, as far as you can:
 
 - a description of the issue and its impact;
-- the Brightside version, or the commit (`git rev-parse HEAD`), and your operating system;
+- the Tau version, or the commit (`git rev-parse HEAD`), and your operating system;
 - steps to reproduce, or a proof of concept;
 - any suggested remediation.
 
@@ -29,7 +29,7 @@ We will not pursue legal action against researchers who act in good faith, avoid
 
 ## Supported versions
 
-Brightside is an early preview. Security fixes land on `develop` and ship in the next release; we do not backport to older builds.
+Tau is an early preview. Security fixes land on `develop` and ship in the next release; we do not backport to older builds.
 
 | Version | Supported |
 |---------|-----------|
@@ -50,7 +50,7 @@ Brightside is an early preview. Security fixes land on `develop` and ship in the
 - the Covia runtime itself: [covia-ai/covia](https://github.com/covia-ai/covia/blob/develop/SECURITY.md);
 - the upstream [Convex](https://github.com/Convex-Dev/convex) lattice platform;
 - model providers, MCP servers and peers the owner chooses to connect;
-- the host operating system, and skills the owner installed from elsewhere. If Brightside makes those easy to misuse, we still want to hear about it.
+- the host operating system, and skills the owner installed from elsewhere. If Tau makes those easy to misuse, we still want to hear about it.
 
 If you are unsure where a problem lives, report it to us and we will route it.
 

@@ -1,11 +1,11 @@
 # Identity
 
-Three principals, one key. Brightside has exactly one secret, a 32-byte
+Three principals, one key. Tau has exactly one secret, a 32-byte
 Ed25519 seed, and everything that can act, own or be addressed is named
 relative to it.
 
 - **The venue** is the seed's `did:key`: it signs tokens, owns the store's
-  encryption key, and is what other venues will know Brightside by.
+  encryption key, and is what other venues will know Tau by.
 - **The owner** is a user of that venue, `<venueDID>:u:<slug>`, with no key of
   its own: the venue signs for it, and the chat acts as it so every turn is
   attributed to the owner rather than to "the operator".
@@ -27,10 +27,10 @@ relative to it.
 The seed comes from the BIP39 recovery phrase chosen or imported at onboarding
 (key hierarchy in [SECURITY.md](SECURITY.md)). The venue's DID is the
 `did:key` of its public key, fixed the moment the seed exists and reproduced by
-the phrase on any machine; Brightside binds to loopback, so there is no
+the phrase on any machine; Tau binds to loopback, so there is no
 `did:web` alias. The venue key signs the bearer tokens the venue trusts,
 identifies the venue to other venues ([NETWORK.md](NETWORK.md)), and derives
-the key that encrypts the store. It is Convex-capable, but Brightside does not
+the key that encrypts the store. It is Convex-capable, but Tau does not
 yet create or link a Convex account to it.
 
 ## User identity
@@ -39,7 +39,7 @@ The owner picks a **name**. `Identity` keeps two forms apart: the display
 name exactly as typed, which the UI shows and the assistant says; and the
 slug, a lower-case DID-safe label used only to form the principal.
 The identity record holds name, slug and the full DID, and lives in the venue
-store in Brightside's adapter state ([APP_STATE.md](APP_STATE.md)), so the
+store in Tau's adapter state ([APP_STATE.md](APP_STATE.md)), so the
 recovery phrase brings it back with the store. The DID is pinned when the
 home venue first launches and must equal `<runningVenueDID>:u:<slug>` on every
 later launch, so a copied or edited profile cannot quietly move the UI to
@@ -74,10 +74,10 @@ An agent is `<userDID>:g:<agentId>`, the same `g` namespace its record lives
 in. A bare path in its configuration, `w/skills` or `n/memory`, still means
 the owner's namespace: the DID says who acted, not whose data a path names.
 
-Fresh configurations choose `Tau` as the default agent (`chat.agentId`).
-Configurations that omit this key keep the implicit `Brightside` id, so an
-existing assistant retains its memory and conversations. Without an explicit
-system prompt, the default persona uses the configured agent id as its name.
+The default agent is `Tau` (`chat.agentId`), including when this key is omitted.
+Set the key explicitly to use an existing assistant's id and retain its memory
+and conversations. Without an explicit system prompt, the default persona uses
+the configured agent id as its name.
 A new agent's id is the
 name the owner typed, with anything a path cannot carry turned into `-`, and it
 never changes. The display name is the one the record sets; without one, the

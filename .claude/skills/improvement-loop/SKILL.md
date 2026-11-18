@@ -21,12 +21,17 @@ Names used below (Git Bash):
 
 ```bash
 S=<this skill's directory>/scripts      # mcp.sh covia.sh relaunch.sh smoke.sh
-W=~/.brightside/code/brightside          # the loop's worktree, branch improve
+W=~/.tau/code/tau          # the loop's worktree, branch improve
 M=$(dirname "$(git -C "$W" rev-parse --path-format=absolute --git-common-dir)")  # main checkout, on develop
 ```
 
 Work in `$W`. Follow the repository's AGENTS.md there. Never edit `../covia`,
 never push, never release.
+
+Read `chat.agentId` from the active `config.json` (under `TAU_HOME`, or
+`~/.tau` by default), using `Tau` only when the key is absent. Export that id
+as `MAIN_AGENT` before the smoke checks, and use it as the fork's `sourceId`.
+Do not infer the agent id from its display name.
 
 ## 1. Preflight
 
@@ -36,7 +41,7 @@ never push, never release.
   `git -C "$W" stash` it and say so in the report.
 - `git -C "$W" rebase develop`. A conflict: abort, report, stop.
 - `$S/smoke.sh`. If Tau is not running (exit 2 from `mcp.sh`), start it
-  from a copy of `~/.brightside/code/last-good.jar` with
+  from a copy of `~/.tau/code/last-good.jar` with
   `javaw -jar <copy> --unlock --takeover` (PowerShell `Start-Process`), then
   `$S/relaunch.sh "Tau was down (say why, from its log); started from the
   last good build, relaunched so Tau owns its process" file://code/last-good.jar`:
@@ -47,7 +52,7 @@ never push, never release.
 ## 2. The improvement agent
 
 `$S/mcp.sh agent_info '{"agentId":"Improver"}'`. Missing: create it as a fork
-of Tau's main agent with `agent_fork` (`sourceId` `Brightside`, `agentId`
+of the configured main agent with `agent_fork` (`sourceId` as above, `agentId`
 `Improver`, `config` the contents of `../agent.json`). Present: apply
 `agent.json` with `agent_update` (`agentId`, `config`). Suspended:
 `agent_resume`.
@@ -142,7 +147,7 @@ fails because Odin held, it prints what he asked: answer that in the next
 request, or report it for the owner. Never send the same relaunch again
 without the reasons he asked for.
 
-On success: `cp "$W/target/brightside.jar" ~/.brightside/code/last-good.jar`,
+On success: `cp "$W/target/tau.jar" ~/.tau/code/last-good.jar`,
 then re-run the failing actions of the entries this chunk fixed, and go to
 step 4: after an upgrade always, after an improvement if the bound at the top
 allows. On failure:

@@ -7,7 +7,7 @@ stops — is in [GODS.md](GODS.md). This is what is his alone. Code: `Odin`.
 
 - **He holds the venue's administration**: integrations, modules and MCP
   servers, users, access grants, the data store's disk, restarting and
-  shutting down Brightside, and changes inside a user's namespace. Repairing
+  shutting down Tau, and changes inside a user's namespace. Repairing
   faults is Eir's ([EIR.md](EIR.md)).
 - **He judges each request on the owner's interest.** He does it, asks the
   owner first, or declines.
@@ -49,7 +49,7 @@ As the venue, all of its administration: adapters, modules and MCP servers;
 the venue's settings and its own secrets; users, including deleting them and
 revoking their sign-in keys; grants over the venue's own resources; peers; the
 data store's disk, compacted at the next start, and the files earlier repairs
-kept; restarting Brightside, either the venue inside the running app or a
+kept; restarting Tau, either the venue inside the running app or a
 relaunch, a new instance taking over, which can run a new build
 ([LAUNCH.md](LAUNCH.md#restart-and-relaunch)); and shutting it down. Inside
 one of the venue's users'

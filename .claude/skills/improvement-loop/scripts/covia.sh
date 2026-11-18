@@ -5,13 +5,13 @@
 #                            and whether any of it touches store formats
 #   covia.sh install [sha]   build that commit (default: develop) outside the
 #                            checkout and install the modules Tau needs
-# The installed commit is recorded in ~/.brightside/code/.covia-installed.
+# The installed commit is recorded in ~/.tau/code/.covia-installed.
 set -e
 # Default: the covia checkout beside this repository's main checkout (from a
 # worktree too).
 common=$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir)
 covia="${COVIA_DIR:-$(dirname "$(dirname "$common")")/covia}"
-home="${BRIGHTSIDE_HOME:-$HOME/.brightside}"
+home="${TAU_HOME:-$HOME/.tau}"
 mark="$home/code/.covia-installed"
 modules="venue,workbench,covia-discord,covia-telegram,covia-claude-code,covia-speech"
 installed=$(cat "$mark" 2>/dev/null || true)

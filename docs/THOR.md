@@ -69,7 +69,7 @@ answer; an attack that needs nothing changed gets the same warning.
 
 Nothing he can run reveals or sets a secret, grants access, creates agents or
 schedules, talks to an agent as the user, or answers the user's Inbox.
-Changes to Brightside itself are Odin's, and Thor asks him for them. The gods
+Changes to Tau itself are Odin's, and Thor asks him for them. The gods
 are beyond his reach, and so is Njord's treasury: his bridge lends sudo only
 into users' namespaces, and never into one another god keeps.
 
@@ -89,10 +89,10 @@ is responding to reported threats.
 
 - Covia cannot revoke a grant once issued; a delegation lasts until it
   expires. Thor can only stop the agent holding it.
-- Brightside's users have no sign-in keys of their own to revoke, and a
+- Tau's users have no sign-in keys of their own to revoke, and a
   token issued to a tool outside the app lasts until it expires
   ([CONFIGURATION.md](CONFIGURATION.md#from-claude-code)).
-- Brightside re-applies its own configuration to the main assistant when a
+- Tau re-applies its own configuration to the main assistant when a
   chat first sends, so tools Thor takes from that agent come back then; a
   suspension stays.
 - Thor depends on someone reporting a threat; he does not automatically

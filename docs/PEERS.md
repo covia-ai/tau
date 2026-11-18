@@ -1,8 +1,8 @@
 # Peers — from a preview to live nodes
 
-How the Peers tab gets from sample data to the real network: what Brightside
+How the Peers tab gets from sample data to the real network: what Tau
 holds about other nodes, where that comes from, and how the map's own settings
-are kept apart from it. The model is `brightside.peers`; the map and its
+are kept apart from it. The model is `tau.peers`; the map and its
 screen are `ui/peers`, drawing a sample source today. Past the first step the
 doc is ahead of the code. The networked product it serves is in
 [NETWORK.md](NETWORK.md).
@@ -20,13 +20,13 @@ doc is ahead of the code. The networked product it serves is in
 - **Settings are local and disposable.** They live with this installation,
   never travel to peers, and can be reset at any time without touching
   anything real.
-- **Live first where it is honest.** The services Brightside already talks to
+- **Live first where it is honest.** The services Tau already talks to
   can be shown live before any P2P exists.
 
 ## Peer data
 
 A node is whatever the network says another participant is: a venue, a user
-on a venue, or an agent of a user. Brightside assumes only this much:
+on a venue, or an agent of a user. Tau assumes only this much:
 
 | Part | What it is |
 |---|---|
@@ -77,7 +77,7 @@ when the source says something changed:
    sources exist. The "Preview" chip goes when every source is live.
 2. **Your venue.** The embedded venue, its operator, you, and each one's
    agents, read in-process. This needs nothing upstream.
-3. **Local services.** Brightside already talks to real services: the model
+3. **Local services.** Tau already talks to real services: the model
    provider, Discord, Moltbook, the Convex peer, Claude Code, and MCP clients
    connected to the venue. Each can be a system of its own with its live
    status, linked to yours.
@@ -115,10 +115,10 @@ structure of their own:
 Settings never hold a node's name, status or facts. A placement for a DID the
 source no longer reports is pruned when the tab opens; resetting clears
 placements and ring sizes and nothing else. The map's clock is the wall
-clock, so bodies keep moving while Brightside is closed and placements hold
+clock, so bodies keep moving while Tau is closed and placements hold
 across launches.
 
-**Where they live.** In Brightside's own adapter state on the venue, under the
+**Where they live.** In Tau's own adapter state on the venue, under the
 acting person's DID: encrypted with the store, outside the person's own
 namespace, and deleted with the person. The person's agents can read them at
 `x/brightside/peers-map` with the ordinary read tools but not change them. The
@@ -140,7 +140,7 @@ the operator keeps a separate arrangement.
    with real status.
 4. **A P2P node in the venue** ([covia#587](https://github.com/covia-ai/covia/issues/587)). Discovery and connection, under the
    venue's identity, off by default and joined from Settings, with a
-   read-only peers operation and change events. Brightside reads it through
+   read-only peers operation and change events. Tau reads it through
    the embedded API, as it reads everything else.
 5. **Relations.** Grants and follows mark the people you trust and link their
    venues to yours; introductions arrive through people you trust.
@@ -157,5 +157,5 @@ the operator keeps a separate arrangement.
 - **Strangers:** a network may hold far more nodes than are worth drawing;
   show those actually seen, grouped by region, unlabelled until pointed at.
 - **Your devices:** more than one device under one person is more than one
-  node of that person; how they are drawn waits until Brightside runs on more
+  node of that person; how they are drawn waits until Tau runs on more
   than one.

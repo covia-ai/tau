@@ -1,6 +1,6 @@
 # Watcher
 
-How Brightside's screens, and the few things that must keep up off screen,
+How Tau's screens, and the few things that must keep up off screen,
 follow the venue's lattice: one shared watcher reads lattice components and
 tells whoever asked when a value changes. It lives in `ui/binding/Watcher`.
 

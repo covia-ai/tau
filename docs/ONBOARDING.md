@@ -1,6 +1,6 @@
 # Onboarding, unlock and recovery
 
-How a new person goes from launching Brightside to talking to their agent, and
+How a new person goes from launching Tau to talking to their agent, and
 how a returning one gets back in. Three things become true on the way, without
 it ever feeling like a crypto tutorial:
 
@@ -29,7 +29,7 @@ hierarchy and the recovery procedure are SECURITY.md's.
 The identity seed and the store key are needed before the venue can launch, so
 the wizard and unlock both run before it. The code is `OnboardingWizard`,
 `UnlockDialog` and `RecoveryDialog` under `ui/onboarding`, `Vault` and
-`Mnemonic` under `vault`, with `BrightSide` orchestrating.
+`Mnemonic` under `vault`, with `Tau` orchestrating.
 
 ## First run
 
@@ -67,7 +67,7 @@ asks ([LAUNCH.md](LAUNCH.md#startup)).
 
 ## Recovery from the phrase
 
-*Forgot passphrase?* takes the recovery phrase and a new passphrase. Brightside
+*Forgot passphrase?* takes the recovery phrase and a new passphrase. Tau
 verifies the recovered seed against the retained store before touching any
 credential file, then rewrites the identity envelope and reopens the existing
 store. Conversations, memory, skills and the secret stores, provider keys
@@ -77,7 +77,7 @@ restores the identity only.
 ## Settings afterwards
 
 - **Model** — provider, model and key. The model choice persists in
-  Brightside's venue state ([APP_STATE.md](APP_STATE.md)) and applies on the
+  Tau's venue state ([APP_STATE.md](APP_STATE.md)) and applies on the
   next message; the key goes to the venue's
   secret stores at once and never to `config.json`. Stored values are viewable,
   passphrase-gated, under *Settings → Secrets* (a passphrase remembered on

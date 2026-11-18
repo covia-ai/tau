@@ -2,7 +2,7 @@
 # Asks Odin to relaunch Tau into a jar, saying why, waits for the new process,
 # and prints its info. Tau starts its successor itself, so it outlives this
 # session.
-#   relaunch.sh "<why>" [jar]   jar: file://code/brightside/target/brightside.jar
+#   relaunch.sh "<why>" [jar]   jar: file://code/tau/target/tau.jar
 #                               by default; file://code/last-good.jar is the
 #                               rollback
 # Odin judges every relaunch, so <why> says what it is for and, for a new
@@ -12,13 +12,13 @@
 # the owner. Never relaunch the same jar again without the reasons he asked for.
 here=$(dirname "$0")
 why="$1"
-jar="${2:-file://code/brightside/target/brightside.jar}"
+jar="${2:-file://code/tau/target/tau.jar}"
 [ -n "$why" ] || { echo 'usage: relaunch.sh "<why>" [jar]' >&2; exit 2; }
-worktree="${W:-$HOME/.brightside/code/brightside}"
+worktree="${W:-$HOME/.tau/code/tau}"
 build=$(git -C "$worktree" log -1 --format='%h %s' 2>/dev/null)
 
 pid_now() {
-	"$here/mcp.sh" grid_run '{"operation":"v/ops/brightside/info"}' 2>/dev/null \
+	"$here/mcp.sh" grid_run '{"operation":"v/ops/tau/info"}' 2>/dev/null \
 		| python -I -c "import json,sys;print(json.loads(sys.stdin.read()).get('pid',''))" 2>/dev/null
 }
 
@@ -44,11 +44,11 @@ request=$(python -I - "$jar" "$why" "$build" <<'EOF'
 import json, sys
 jar, why, build = sys.argv[1:4]
 context = "Why: " + why
-if jar.endswith("code/brightside/target/brightside.jar") and build:
+if jar.endswith("code/tau/target/tau.jar") and build:
 	context += "\nThe build: the loop's worktree at " + build + "."
 context += ("\nThe rollback: file://code/last-good.jar, the last build that ran here and passed the"
 	" machine checks.")
-print(json.dumps({"operation": "v/ops/brightside/ask-odin", "input": {
+print(json.dumps({"operation": "v/ops/tau/ask-odin", "input": {
 	"request": "Relaunch Tau into " + jar + " (brightside:relaunch with that jar). This is the daily"
 		" self-improvement loop, whose relaunches the owner has approved as a standing decision.",
 	"context": context, "timeout": 300000}}))
@@ -69,7 +69,7 @@ i=0
 while [ $i -lt 100 ]; do
 	pid=$(pid_now)
 	if [ -n "$pid" ] && [ "$pid" != "$before" ]; then
-		"$here/mcp.sh" grid_run '{"operation":"v/ops/brightside/info"}'
+		"$here/mcp.sh" grid_run '{"operation":"v/ops/tau/info"}'
 		exit 0
 	fi
 	if [ -n "$task" ] && [ -n "$pid" ]; then

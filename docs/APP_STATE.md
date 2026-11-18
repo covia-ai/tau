@@ -1,17 +1,17 @@
-# Brightside's own state
+# Tau's own state
 
-Brightside keeps what is its own, and owned by no Covia region, in its
+Tau keeps what is its own, and owned by no Covia region, in its
 adapters' state inside the venue. That state is a lattice value at
 `:adapters/<name>` in the venue store, and each adapter owns its shape. Covia
 keeps conversations, agents, skills, secrets and scheduled work. DLFS keeps
-files. Brightside's adapters keep the rest. How adapter state works is
+files. Tau's adapters keep the rest. How adapter state works is
 Covia's (`venue/docs/ADAPTERS.md`, "Private state and user-managed storage",
 in the Covia repository).
 
 - **One store.** Adapter state is encrypted with the venue store, backed up
   with it and recovered by the recovery phrase. It commits in the same
   transactions as users, agents and secrets.
-- **Shaped by Brightside.** Any CAD3 value, behind the adapter's own methods.
+- **Shaped by Tau.** Any CAD3 value, behind the adapter's own methods.
   Nothing outside the adapter reads or writes the raw value.
 - **The installation's part and each person's part.** Installation-wide
   values sit at the top. A person's sit under `users/<did>`, written through
@@ -29,7 +29,7 @@ in the Covia repository).
 |---|---|---|
 | The owner's identity (display name, slug, user DID, operator label) | `owner` | `brightside` |
 | Chosen model | `model` | `brightside` |
-| The Brightside and Covia versions the store last started under ([LAUNCH.md](LAUNCH.md#the-startup-pass)) | `startup/versions` | `brightside` |
+| The Tau and Covia versions the store last started under ([LAUNCH.md](LAUNCH.md#the-startup-pass)) | `startup/versions` | `brightside` |
 | A fingerprint of the agent setup and shipped skills the store last started with ([SKILLS.md](SKILLS.md#what-the-assistant-starts-with)) | `startup/setup` | `brightside` |
 | The startup problems Eir was last asked about, so the same ones do not ask her again ([EIR.md](EIR.md)) | `startup/asked` | `brightside` |
 | Voice preferences (read aloud, send after a pause) | `voice` | `brightside` |
@@ -48,13 +48,13 @@ the person's secret store; adapter state holds no credentials.
 itself. Logs, `files/`, `code/` and `skills/` are the owner's files on disk.
 `prefs.properties` and `file-roots.json` hold only overrides read before the
 store opens: unlocking without asking, taking over a running instance, whether
-closing the unlock window keeps Brightside in the tray, the look the unlock
+closing the unlock window keeps Tau in the tray, the look the unlock
 window is drawn in, and the folder roots the venue is configured with.
 
 ## Rules
 
 - **Methods, not paths.** Each value has a reader and a writer on its adapter
-  (`BrightsideAdapter`, `MoltbookAdapter`, `TreasuryAdapter`). Screens and
+  (`TauAdapter`, `MoltbookAdapter`, `TreasuryAdapter`). Screens and
   operations call those; nothing else names a key.
 - **A person's part through their view.** Reads and writes for a person use
   the adapter state bound to that person. Each adapter's user-deletion hook

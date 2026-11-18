@@ -1,9 +1,9 @@
 # Skills, tools and memory
 
-How Brightside's assistant gets its abilities: a small always-on core, three
+How Tau's assistant gets its abilities: a small always-on core, three
 libraries of skills it loads when a task calls for one, and a private memory.
-This is the design; the shipped library itself is `BrightsideSkillsAdapter`
-and the skill files under `src/main/resources/brightside/skills/`, and the
+This is the design; the shipped library itself is `TauSkillsAdapter`
+and the skill files under `src/main/resources/tau/skills/`, and the
 mechanism is Covia's (`../covia/venue/docs/SKILLS.md`). The Skills screen
 shows the library as the assistant can discover it: each skillset it
 searches, the skills in it, and beneath each skill what it reveals. A
@@ -12,7 +12,7 @@ loaded there;
 what each reveals links into the library.
 
 - **Discovery is broad; authority is deliberate.** The assistant can see its
-  owner's, Brightside's and the venue's libraries, but starts every turn with
+  owner's, Tau's and the venue's libraries, but starts every turn with
   only read-only lattice reads (inspect, read, list), memory, the
   skill-feedback reporter and the compact control. Every other tool arrives by
   loading the skill that carries it.
@@ -38,7 +38,7 @@ what each reveals links into the library.
 
 | Namespace | Purpose | Written by |
 |---|---|---|
-| `v/skills/brightside/…` | Brightside's shipped skills | `BrightsideSkillsAdapter`, at venue launch |
+| `v/skills/tau/…` | Tau's shipped skills | `TauSkillsAdapter`, at venue launch |
 | `v/skills/root` | the venue's own library — its entry points, each opening a family | the venue |
 | `w/skills` | the owner's agent's own skills, including imported `SKILL.md` folders | the agent, `FilesystemSkills` |
 | `w/skill-feedback/<id>` | append-only reports of concrete skill-system misses | the scoped feedback operation |
@@ -46,12 +46,12 @@ what each reveals links into the library.
 | `n/…` | the agent's private scratch, including `n/memory`: the owner's standing decisions that only this agent's work needs | the agent |
 
 Only the venue writes `v/`. A skill of the owner's shadows a shipped skill of
-the same name, and Brightside's shadow the venue's. Brightside ships its own
+the same name, and Tau's shadow the venue's. Tau ships its own
 variant of a venue skill where talking to the owner or using the app calls for
 different judgement, and gives it the module's tools: `hitl`, and `voice` and
 `speaking` in place of the speech module's `speech`. Protocol knowledge stays
 close to the venue's. A skill is optional depth: an
-agent may never load it, or may not be Brightside's, so anything that must
+agent may never load it, or may not be Tau's, so anything that must
 hold goes in the context line or in the message itself.
 
 ## What the assistant starts with
@@ -61,7 +61,7 @@ template, gets the same setup from `AgentSetup`. `ChatSession` applies it to the
 main assistant on the owner's first message from the app after each launch;
 until then, scheduled runs and other channels use the one last applied:
 
-- **Skillsets** `w/skills`, `v/skills/brightside`, `v/skills/root`, in that
+- **Skillsets** `w/skills`, `v/skills/tau`, `v/skills/root`, in that
   order. No skill is pinned, except in an agent made from a template for one
   kind of work: Research, Software development and Writing & editing pin
   `research`, `coding` and `writing`, and the pin stays as the owner's.
@@ -77,7 +77,7 @@ until then, scheduled runs and other channels use the one last applied:
   operation: `w/memory`, shared by all the owner's assistants, then its own
   `n/memory`. Covia cuts each pinned entry at a fixed share of the context
   budget and keeps its beginning, so a memory that outgrows it loses its
-  newest entries. Then one non-skill load, `brightside-context`,
+  newest entries. Then one non-skill load, `tau-context`,
   which the read-only `brightside:context` operation assembles: the owner's
   name and DID, where model processing happens, today's date and timestamp
   (a model's own "now" is its training cut-off), and the product invariants.
@@ -90,9 +90,9 @@ Tau's own parts of that setup are the operation, tools, memory pins, skill
 sources and the context load. The prompt, model, name, caps and the owner's
 own pins belong to the agent: they are written when it is created and kept
 after. `brightside:upgrade-agent` brings an existing agent that Tau made (it
-carries the `brightside-context` load) onto Tau's current parts and leaves
+carries the `tau-context` load) onto Tau's current parts and leaves
 the rest; it creates nothing. When a start finds Tau's parts or a shipped
-skill changed since the last one, Brightside asks Eir to upgrade the owner's
+skill changed since the last one, Tau asks Eir to upgrade the owner's
 agents ([EIR.md](EIR.md#upgrades)).
 
 ## How a load works
@@ -149,12 +149,12 @@ reveals. Descriptions live in the skill files; this is the shape.
   and delete tools for `w/skills`), Covia's `skill-import`.
 - `lattice` — structured data and its scopes, with the edit tools → Covia's
   `assets`, `secrets`.
-- `files` — Brightside's file roots with the file tools → `vault`, `dlfs`.
+- `files` — Tau's file roots with the file tools → `vault`, `dlfs`.
 - `diagnostics` — job records with the read-only and job tools, and asking
-  Eir to repair a fault ([EIR.md](EIR.md)) → `sessions`, `brightside-logs`.
-- `harness` — how Brightside works internally → `etch`, `convex-lattice`.
+  Eir to repair a fault ([EIR.md](EIR.md)) → `sessions`, `tau-logs`.
+- `harness` — how Tau works internally → `etch`, `convex-lattice`.
 - `automation` — reminders and routines with the scheduler tools → Covia's
-  `tasks` and `orchestration`, Brightside's `hitl`.
+  `tasks` and `orchestration`, Tau's `hitl`.
 - `hitl` — asking the owner through the Inbox. Shadows Covia's skill of the
   same name: judgement about what the owner sees and when to ask.
 - `administration` — asking Odin for what needs operator rights
@@ -175,18 +175,18 @@ reveals. Descriptions live in the skill files; this is the shape.
   the request to Njord, who keeps the keys and makes every transaction
   ([NJORD.md](NJORD.md)).
 - `research` — evidence-led research with the web tools → Covia's `http` for
-  credentialed APIs. The untrusted-content boundary is Brightside's judgement
+  credentialed APIs. The untrusted-content boundary is Tau's judgement
   and lives here.
 - `writing`, `planning` — working methods; no tools.
 - `coding` — working method, with the listing of the owner's Claude Code
   projects → `claude-code` (delegating a task in a project and continuing its
   sessions, with the run, sessions and stop tools; shadows the module's own
-  `claudecode` skill with Brightside's judgement), `git` (the checkouts in the
+  `claudecode` skill with Tau's judgement), `git` (the checkouts in the
   `code` root — cloning, reading one directly with the file reads — and the
   version-control judgement: what is local and reversible, what needs the
   owner's word), `self-improvement` (working on Tau's own code through
   Claude Code — the checkout, the rulebook, build, test, relaunch — and its
-  part in the daily loop, with the info tool). Brightside's own source is a project by default; the rest are
+  part in the daily loop, with the info tool). Tau's own source is a project by default; the rest are
   the owner's to declare ([CONFIGURATION.md](CONFIGURATION.md#claude-code)).
 - `moltbook` — taking part on Moltbook with its operations, a check-in reading the notifications before marking them read → `moltbook-setup`.
 - `introduction` — greeting guidance and how it presents what it can do, from its skills index; loaded rather than pinned.
@@ -197,16 +197,16 @@ the index and open their own families.
 
 ## Growing, importing and feedback
 
-- The assistant can work on Brightside itself. Its source is a Claude Code
-  project by default (`code/brightside`, cloned on first use), and `coding` →
+- The assistant can work on Tau itself. Its source is a Claude Code
+  project by default (`code/tau`, cloned on first use), and `coding` →
   `self-improvement` is the path: agree the change, hand it to Claude Code one
   bounded task at a time, verify by the tests, and report; the change takes
-  effect once Odin relaunches Brightside into the new build, when the owner
+  effect once Odin relaunches Tau into the new build, when the owner
   wants it running. A daily loop does this on its own
   ([SELF_IMPROVEMENT.md](SELF_IMPROVEMENT.md)).
 
 - The assistant writes its own skills to `w/skills/<name>`. `skill-authoring`
-  brings the lattice write tool for that purpose and a Brightside deletion
+  brings the lattice write tool for that purpose and a Tau deletion
   operation confined to `w/skills`, accepting top-level or nested relative names.
   Deletion removes the addressed subtree; the authoring skill also teaches
   removal of the parent's child reference without replacing its other children. Thus
@@ -217,7 +217,7 @@ the index and open their own families.
   the same. What is always on is read-only; destructive operations are a
   loaded skill's, and the owner's confirmation for them is
   [tau#16](https://github.com/covia-ai/tau/issues/16).
-- Folders of `SKILL.md` files under `~/.brightside/skills/` are imported into
+- Folders of `SKILL.md` files under `~/.tau/skills/` are imported into
   `w/skills` at launch (`FilesystemSkills`), unchanged when nothing changed.
 - A narrow always-on operation appends concrete misses — a failed load, a
   missing skill, an instruction that contradicts observed tools — under
@@ -228,7 +228,7 @@ the index and open their own families.
 
 ## Tests
 
-`BrightsideSkillsTest` is driven by the shipped list: every skill resolves,
+`TauSkillsTest` is driven by the shipped list: every skill resolves,
 every tool it declares exists, every child it reveals loads with its tools
 including the venue skills it points at, and no top-level skill reveals
 children without tools of its own. Nothing asserts prose.

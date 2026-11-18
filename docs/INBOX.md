@@ -1,6 +1,6 @@
 # Inbox
 
-How Brightside shows the decisions waiting for the owner, tells them when a new
+How Tau shows the decisions waiting for the owner, tells them when a new
 one arrives and carries their answer back. Why a decision belongs to the owner
 is in [DESIGN.md](DESIGN.md); how the gods ask is in
 [GODS.md](GODS.md#asking-the-owner).
@@ -20,7 +20,7 @@ is in [DESIGN.md](DESIGN.md); how the gods ask is in
 ## Where requests come from
 
 `Inbox.Source` composes Covia's typed Inbox components for the acting principal
-and the venue; when Brightside acts as the venue's operator the two are one
+and the venue; when Tau acts as the venue's operator the two are one
 inbox, read once. A request is known by its owner and id together, so the same
 id in two inboxes stays two requests. Reading an account that does not exist
 yet reads as absent and creates nothing, and a deleted account clears only its

@@ -1,0 +1,228 @@
+package tau.ui.settings;
+
+import static tau.Tau.APP_NAME;
+
+import java.util.List;
+
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JPasswordField;
+import javax.swing.JTextField;
+import javax.swing.SwingWorker;
+
+import tau.ui.components.Buttons;
+import tau.ui.components.Clipboard;
+import tau.ui.components.Dialogs;
+import tau.ui.components.Fields;
+import tau.ui.components.EyeButton;
+import tau.ui.components.Labels;
+import tau.ui.components.Lucide;
+import tau.ui.components.SelectableText;
+import tau.ui.components.Styles;
+import tau.ui.components.Theme;
+import tau.ui.components.Toast;
+import tau.ui.components.Tone;
+import net.miginfocom.swing.MigLayout;
+
+/**
+ * The <b>Secrets</b> settings page: the acting user's encrypted secret store on
+ * the venue — the values operations resolve as {@code s/<name>} (the Moltbook
+ * and Discord keys live here). Names are listed openly; a value is revealed
+ * only behind passphrase re-authentication — the same gate as the primary seed
+ * — and only for that sitting. A passphrase remembered in plaintext on this
+ * computer passes the gate unasked: it proves nothing to ask for what any
+ * reader of the file already has. Saving under an existing name replaces it.
+ */
+@SuppressWarnings("serial")
+public final class SecretsPanel extends SettingsPage {
+
+	/** What the page can do; reveal re-authenticates and throws when it cannot. */
+	public interface Host {
+		List<String> listSecrets();
+
+		boolean storeSecret(String name, String value);
+
+		boolean deleteSecret(String name);
+
+		String revealSecret(String name, char[] passphrase) throws Exception;
+
+		/** The passphrase remembered in plaintext on this computer, a fresh copy (null: none); the page wipes it. */
+		char[] rememberedPassphrase();
+	}
+
+	private static final String MASK = "••••••••••••";
+
+	private final Host host;
+	private final JPanel rows = new JPanel(new MigLayout(
+		"insets 0, fillx, wrap 5, gapy 2", "[grow 30,fill]12[grow 70,fill]8[]2[]6[]", ""));
+	private final JTextField nameField = new JTextField(16);
+	private final JPasswordField valueField = Fields.secret(new JPasswordField(24));
+	/** Bumped on every rebuild so a slow reveal never lands on replaced rows. */
+	private long version;
+
+	public SecretsPanel(Host host) {
+		super("Save secret");
+		this.host = host;
+		build();
+	}
+
+	private void build() {
+		rows.setOpaque(false);
+		group(null);
+		addSpan(rows);
+		group(null);
+		addField("Name",
+			"Letters, digits, dots, dashes and underscores — how operations reference it (s/<name>)", nameField);
+		// The action belongs beside the fields it acts on: adding the primary
+		// button here re-parents it out of the bottom action bar, which then
+		// carries only the status note.
+		JPanel saveRow = new JPanel(new MigLayout("insets 0, fillx", "[grow,fill]8[]", ""));
+		saveRow.setOpaque(false);
+		saveRow.add(valueField, "growx");
+		saveRow.add(primary);
+		addField("Value", "Stored encrypted; saving under an existing name replaces its value", saveRow);
+		primary.setToolTipText("Encrypt and store the secret under this name");
+		onPrimary(this::onSave);
+	}
+
+	/** Re-reads the list; anything revealed goes back behind the mask. */
+	public void refresh(List<String> names) {
+		version++;
+		rows.removeAll();
+		if (names.isEmpty()) {
+			rows.add(Labels.small("No secrets stored yet."), "span 5");
+		} else {
+			for (String name : names) addRow(name);
+		}
+		rows.revalidate();
+		rows.repaint();
+	}
+
+	/** Drops everything shown or typed when the user logs out or switches. */
+	public void clearSensitive() {
+		version++;
+		rows.removeAll();
+		rows.revalidate();
+		rows.repaint();
+		nameField.setText("");
+		valueField.setText("");
+		clearNote();
+	}
+
+	private void addRow(String name) {
+		JLabel label = Styles.classes(new JLabel(name), Styles.MONOSPACED);
+		SelectableText value = new SelectableText(MASK).mono().muted();
+		EyeButton eye = new EyeButton("Reveal the value (behind your passphrase)", "Hide the value", 16);
+		JButton copy = Buttons.icon(Lucide.icon("copy", 16, Theme::muted),
+			"Copy the value (behind your passphrase while it is hidden)");
+		JButton forget = Buttons.small("Forget");
+		forget.setToolTipText("Remove this secret from the store");
+		final String[] revealed = { null };
+
+		eye.addActionListener(e -> {
+			if (revealed[0] != null) {
+				revealed[0] = null;
+				value.setText(MASK);
+				eye.setShown(false);
+				return;
+			}
+			fetchGated(name, "reveal", eye, secret -> {
+				revealed[0] = secret;
+				value.setText(secret);
+				eye.setShown(true);
+				setNote("Revealed for this sitting only.", false);
+			});
+		});
+		copy.addActionListener(e -> {
+			if (revealed[0] != null) {
+				Clipboard.copy(revealed[0], copy);
+				return;
+			}
+			// Copy without showing: the same gate, but the value goes straight
+			// to the clipboard and stays masked on screen.
+			fetchGated(name, "copy", copy, secret -> {
+				Clipboard.copy(secret);
+				clearNote();
+				Toast.show(copy, "Copied without revealing it", "check", Tone.SUCCESS);
+			});
+		});
+		forget.addActionListener(e -> {
+			if (!Dialogs.confirmDanger(this, "Forget secret",
+				"Forget \"" + name + "\"? Anything resolving s/" + name + " will stop working.")) return;
+			boolean done = host.deleteSecret(name);
+			refresh(host.listSecrets());
+			setNote(done ? "Forgot " + name + "." : "Couldn't forget " + name + ".", !done);
+		});
+
+		rows.add(label, "wmin 0");
+		rows.add(value, "growx, wmin 0");
+		rows.add(eye);
+		rows.add(copy);
+		rows.add(forget);
+	}
+
+	/**
+	 * The passphrase gate shared by reveal and copy: prompts — unless the
+	 * passphrase is remembered on this computer — re-authenticates and
+	 * decrypts off the event thread, and hands the value to {@code use}, which
+	 * decides whether it is shown or only copied. {@code trigger} is disabled
+	 * while the check runs.
+	 */
+	private void fetchGated(String name, String verb, JButton trigger, java.util.function.Consumer<String> use) {
+		char[] entered = host.rememberedPassphrase();
+		if (entered == null) {
+			JPasswordField pass = new JPasswordField(24);
+			if (!Dialogs.confirmDanger(this,
+				"Enter your " + APP_NAME + " passphrase to " + verb + " \"" + name + "\"", pass)) return;
+			entered = pass.getPassword();
+			pass.setText("");
+			if (entered.length == 0) return;
+		}
+		char[] passphrase = entered;
+		long v = version;
+		trigger.setEnabled(false);
+		setNote("Checking your passphrase…", false);
+		new SwingWorker<String, Void>() {
+			@Override
+			protected String doInBackground() throws Exception {
+				return host.revealSecret(name, passphrase);
+			}
+
+			@Override
+			protected void done() {
+				java.util.Arrays.fill(passphrase, '\0');
+				trigger.setEnabled(true);
+				if (version != v) return; // the list was rebuilt meanwhile
+				try {
+					use.accept(get());
+				} catch (Exception ex) {
+					setNote("That passphrase didn't unlock this identity.", true);
+				}
+			}
+		}.execute();
+	}
+
+	private void onSave() {
+		String name = nameField.getText().trim();
+		char[] typed = valueField.getPassword();
+		String value = new String(typed).trim();
+		java.util.Arrays.fill(typed, '\0');
+		if (name.isEmpty() || value.isEmpty()) {
+			setNote("A name and a value are both needed.", true);
+			if (value.isEmpty()) Fields.flag(valueField);
+			if (name.isEmpty()) Fields.flag(nameField);
+			return;
+		}
+		boolean stored = host.storeSecret(name, value);
+		if (stored) {
+			nameField.setText("");
+			valueField.setText("");
+			refresh(host.listSecrets());
+			setNote("Stored " + name + ".", false);
+		} else {
+			setNote("Couldn't store it — names use letters, digits, dots, dashes and underscores.", true);
+			Fields.flag(nameField);
+		}
+	}
+}

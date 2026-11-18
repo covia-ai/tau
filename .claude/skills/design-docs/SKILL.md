@@ -1,9 +1,9 @@
 ---
 name: design-docs
-description: Brightside's design documents under docs/ — which one answers what, and the rules for writing or changing one. Use when reading, editing or adding documentation in this repository, or when a code change makes a doc wrong.
+description: Tau's design documents under docs/ — which one answers what, and the rules for writing or changing one. Use when reading, editing or adding documentation in this repository, or when a code change makes a doc wrong.
 ---
 
-# Brightside design docs
+# Tau design docs
 
 The `docs/` folder explains *why* things are the way they are, for a person or
 an agent orienting before they work. `AGENTS.md` at the root is the short
@@ -27,13 +27,13 @@ guide and points here.
 | `docs/SECURITY.md` | the recovery invariant, key hierarchy, algorithms, file roles, recovery procedure, network exposure, limitations |
 | `docs/ONBOARDING.md` | first run, unlock, recovery from the phrase, settings afterwards |
 | `docs/LAUNCH.md` | startup order, taking over a running instance, restart and relaunch, tray, exit |
-| `docs/CONFIGURATION.md` | the reference: files under `~/.brightside/`, `config.json`, API keys, Discord, Moltbook, Claude Code, identity, reaching the venue from other tools |
+| `docs/CONFIGURATION.md` | the reference: files under `~/.tau/`, `config.json`, API keys, Discord, Moltbook, Claude Code, identity, reaching the venue from other tools |
 | `docs/NETWORK.md` | target state once venues meet venues; deliberately ahead of the code |
 | `docs/PEERS.md` | the Peers map: peer data versus map settings, where nodes come from, the steps from preview to live nodes; ahead of the code |
 | `docs/WATCHER.md` | how views follow the lattice: watching a component, observing off screen, the shared pass, lifetime, absent values |
 | `docs/JOBS.md` | the Jobs page: Covia's `Jobs` and `JobRecord` as its model, time ranges by seek, rows built only on screen, actions, known limits |
 | `docs/INBOX.md` | the Inbox: the composed source, observing whatever is on screen, one projection for cards, badge, tray mark and notifications, answering |
-| `docs/APP_STATE.md` | Brightside's own state in its adapters' venue state: what is there, what moves in, what stays in files, the rules for reading and writing it |
+| `docs/APP_STATE.md` | Tau's own state in its adapters' venue state: what is there, what moves in, what stays in files, the rules for reading and writing it |
 | `docs/SELF_IMPROVEMENT.md` | the daily self-improvement loop: who does what, a run, what needs the owner, where things are; the procedure is the `improvement-loop` skill |
 | `docs/TRUST.md` | how far an agent trusts a route that is not the owner directly: standings, who raises and lowers them, Thor and suspicion, the requirements on the venue, skills and protocols; ahead of the code |
 | `docs/ADVANCED_MEMORY.md` | proposals for tiered, provenance-gated memory with consolidation, recall and intents; nothing in it is built |

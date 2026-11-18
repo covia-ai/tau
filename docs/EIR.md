@@ -27,7 +27,7 @@ Tau runs unattended: scheduled work at night, assistants on channels while
 the owner is out. When something in the harness breaks — a model route
 retired, a skill renamed under a pinned load, an adapter that will not
 start — the assistant that hit it cannot mend itself, and the owner may not
-be there to notice. Brightside already cures what a re-applied configuration
+be there to notice. Tau already cures what a re-applied configuration
 cures. What is left needs diagnosis: reading the error and the log, working
 out the cause, and choosing a repair. That is judgement, so it is a god's.
 
@@ -115,7 +115,7 @@ the owner's: she says what fails and where.
   a provider down — stops her too. Tau warns about a missing key at start.
 - A fault that stops the venue from starting is beyond any god; store repair
   and the last good build handle that ([LAUNCH.md](LAUNCH.md)).
-- Brightside re-applies its own configuration to the main assistant when a
+- Tau re-applies its own configuration to the main assistant when a
   chat first sends, so a repair she makes to that agent's configuration lasts
   only until then; a fix that must hold belongs in Tau's code.
 - She is asked about the owner's chat assistant when its fault persists;
