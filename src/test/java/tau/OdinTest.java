@@ -37,7 +37,7 @@ import covia.venue.RequestContext;
 
 /**
  * Odin's plumbing on a real venue: he is the operator's agent, an owner's
- * assistant reaches him as the owner, he acts only through his own bridge and
+ * assistant reaches him under its own identity, he acts through his own bridge and
  * only within its allowlists — as the venue or, by sudo, inside a user's
  * namespace — and what he asks his owner lands in the venue's inbox, which the
  * operator answers. His model is the venue's task-completing test model, so

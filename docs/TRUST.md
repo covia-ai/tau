@@ -144,10 +144,10 @@ authority through conversational wording.
 
 ## Where it stands
 
-- The main assistant's default prompt and `security` skill instruct it to
-  treat external routes as guests. This is prompt policy: the agent still
-  acts with its own authority, and templates and gods have different prompts
-  ([SECURITY.md](SECURITY.md#authentication-and-network-exposure)).
+- Shared guidance for Tau assistants, including templates, and the gods
+  treats external routes as requests, not owner instructions. This is prompt
+  policy; the agent still acts with its own authority
+  ([SECURITY.md](SECURITY.md#external-requests)).
 - The owner makes named access tokens in *Settings → Access*, from presets or
   a custom set of tools, and the assistant can list and revoke them. A
   token's turns reach the agent as the owner's, with the token named on the

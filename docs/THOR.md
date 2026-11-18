@@ -83,9 +83,9 @@ is responding to reported threats.
   expires. Thor can only stop the agent holding it.
 - A copied signed login lasts until expiry. Named MCP tokens can be revoked;
   these are different credentials ([SECURITY.md](SECURITY.md#authentication-and-network-exposure)).
-- Tau re-applies its own configuration to the main assistant when a
-  chat first sends, including tools and unrestricted caps. Restrictions Thor
-  applies there can be overwritten; a deliberate suspension stays.
+- Chat setup preserves capability restrictions and deliberate suspensions.
+  It still refreshes standard tools; removing a tool is not an authority boundary
+  ([SKILLS.md](SKILLS.md)).
 - Thor depends on someone reporting a threat; he does not automatically
   detect or block a credential leaving in a tool call.
 - Tools reaching the venue over MCP act as the owner, not as an agent;

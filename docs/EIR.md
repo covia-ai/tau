@@ -106,8 +106,8 @@ the owner's: she says what fails and where.
   a provider down — stops her too. Tau warns about a missing key at start.
 - A fault that stops the venue from starting is beyond any god; store repair
   and the last good build handle that ([LAUNCH.md](LAUNCH.md)).
-- Tau re-applies its own configuration to the main assistant when a
-  chat first sends, so a repair she makes to that agent's configuration lasts
-  only until then; a fix that must hold belongs in Tau's code.
+- Chat setup preserves caps, but refreshes the main assistant's configured
+  prompt, model and standard tools. Repairs to those parts must agree with
+  Settings and Tau's code ([SKILLS.md](SKILLS.md)).
 - She is asked about the owner's chat assistant when its fault persists;
   another agent's fault reaches her only when someone asks.

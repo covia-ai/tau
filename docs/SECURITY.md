@@ -233,17 +233,37 @@ equal `<runningVenueDID>:u:<slug>`, so a copied or edited profile cannot move
 the UI to another principal. The in-process application and the venue share
 one trust boundary.
 
-A message that reaches the assistant from anywhere but the owner directly — a
-connected channel such as Discord, another user or agent, a tool connected
-through an access token — was let in by whoever admitted it, so the assistant
-acts on it with its own authority. Caution follows provenance instead: the
-venue labels each turn with where it came from. The main assistant's default
-instructions and `security` skill direct it to treat anyone but the owner as
-an outside party, helped within reason but shown nothing private, and with nothing
-irreversible, outward-facing, costly or access-widening done on its word
-without the owner. Agents made from templates, and the gods, have their own
-instructions without this guidance. Routes that act for the owner, and how
-trust is granted and withdrawn, are in [TRUST.md](TRUST.md).
+## External requests
+
+Covia records a request's route separately from its content and renders it
+as a venue-verified `From` label for the model. The route names authenticated
+principals and handovers through tokens, channels, agents and sudo. A token
+identifies its issuer, not the person holding it. A copied label in message
+text cannot replace the recorded route. Unreadable routes are marked unknown.
+
+Tau's shared context and the gods' instructions require the whole route to
+be considered: an external sender does not become the owner merely because
+an intermediate call acts with the owner's authority. Token use, scheduled
+work and agent messages are not evidence of the owner's present approval.
+The ask bridges preserve provenance and token context while explicitly
+granting a request to the named god ([GODS.md](GODS.md#the-bridges)).
+A new agent cycle starts as that agent; the incoming messages keep
+their routes, but its outgoing work does not automatically inherit every
+source that influenced it.
+
+**Provenance informs judgement; it does not confine the agent.** An admitted
+request can cause the assistant to use its own authority. Its caps are checked
+at actions, but they are not automatically reduced to the external sender's
+caps. New owner assistants default to unrestricted caps; routine chat setup
+preserves subsequent restrictions ([SKILLS.md](SKILLS.md)). A model persuaded
+by hostile content can still misuse any power it holds. Native code running
+in the process is outside that boundary ([ARCHITECTURE.md](ARCHITECTURE.md)).
+
+The regression tests check route preservation, separation of forged content
+from provider-facing attribution, token enforcement and persistent agent
+restrictions. They do not establish resistance to every prompt injection or
+test a production model's judgement. Enforced approval for consequential
+actions and route-specific trust remain design work in [TRUST.md](TRUST.md).
 
 ## Runtime secret handling
 
@@ -280,7 +300,7 @@ trust is granted and withdrawn, are in [TRUST.md](TRUST.md).
 - A custom store path is recovery metadata the phrase does not reproduce.
 - Filesystem ACLs, disk encryption, backups, malware protection and physical
   security are the host's responsibility.
-- The assistant runs with all of the owner's authority, so although its
+- A default assistant runs with all of the owner's authority, so although its
   `mcp-tokens` skill offers only listing and revoking, Covia's own token
   operations would let it make a token and read its key. Asking the owner to
   make one, approved in the Inbox, waits for an ask that runs one exact call

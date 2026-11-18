@@ -51,7 +51,7 @@ public final class AgentSetup {
 
 	/**
 	 * Tau's whole configuration for an agent: what creating it writes, and what
-	 * the main assistant has re-applied at each start.
+	 * the main assistant has re-applied at each start, excluding existing caps.
 	 *
 	 * @param operation    the transition operation
 	 * @param llmOperation the model, as a catalogue path
@@ -112,7 +112,7 @@ public final class AgentSetup {
 				Strings.create(TauSkillsAdapter.SKILLSET),
 				Strings.create(ChatSession.VENUE_SKILLSET)),
 			// The owner's own assistant may do whatever the owner can in their
-			// namespace; an agent left without caps could call no tool at all.
+			// namespace. This is a creation default, never a routine authority reset.
 			"caps", Config.UNRESTRICTED);
 		if (agentName != null) config = config.assoc(Strings.create("name"), Strings.create(agentName));
 		return config;
@@ -134,7 +134,8 @@ public final class AgentSetup {
 			"op", ChatSession.CONTEXT_OP,
 			"input", input,
 			"label", APP_NAME + " application context",
-			"budget", 4000L,
+			// Room for source-provenance guidance alongside identity and product context.
+			"budget", 6000L,
 			"volatile", CVMBool.FALSE));
 	}
 

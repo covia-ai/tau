@@ -39,7 +39,7 @@ import covia.venue.Engine;
  *
  * <p>Each god also has two Tau bridges, both handled once for every god
  * in {@link TauAdapter}: one by which the owner's assistants reach it
- * ({@link #ask}), submitted as the calling user so the god sees who asked, and
+ * ({@link #ask}), preserving the acting principal and request route, and
  * one through which it acts where standing caps cannot yet say what it may
  * do ({@link #run}), callable by that god alone. The run bridge lends the
  * venue's authority for one of the god's {@link #venueOperations}: a change
@@ -208,7 +208,7 @@ public record God(String id, String ask, String run, String overseer, String kee
 			Fields.OPERATION, AppConfig.DEFAULT_OPERATION,
 			"llmOperation", route.operation(),
 			"model", route.model(),
-			"systemPrompt", systemPrompt,
+			"systemPrompt", systemPrompt + "\n" + TauAdapter.REQUEST_PROVENANCE,
 			// Read-only venue-namespace reads (covia read/list) on top of the tools.
 			"defaultTools", true,
 			"tools", Vectors.of(all.stream().map(Strings::create).toArray(ACell[]::new)),

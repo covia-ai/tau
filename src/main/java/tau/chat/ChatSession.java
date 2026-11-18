@@ -261,6 +261,9 @@ public final class ChatSession {
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
 		if (status != null) {
 			if (!updateExisting) return ready();
+			// Authority is an explicit owner/admin decision. Omit caps from the
+			// merge so even a concurrent restriction survives ordinary chat setup.
+			input = input.assoc(Fields.CONFIG, agentConfig.dissoc(Fields.CAPS));
 			// agent:update is a recursive *merge* (vectors replace, maps merge), not
 			// a replace: tools/skillsets/context above are re-applied wholesale, but
 			// a `loads` pin dropped from this map would linger on existing agents.

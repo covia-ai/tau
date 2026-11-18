@@ -97,10 +97,13 @@ Each god has two narrow Tau operations for what caps do not cover.
 **Ask** (`brightside:ask-odin`, `brightside:alert-thor`,
 `brightside:ask-njord`, `brightside:ask-eir`) is callable by any authenticated user of the venue,
 or their agents. It mints a short-lived, venue-rooted grant letting the
-calling user make a request of the god, and submits it as that user. The task
-is the user's own job, and Covia attributes the caller natively. Tau
-stamps who asked from the authenticated context, so a request cannot forge
-it; the request text itself is untrusted. The bridge returns the god's
+acting principal make a request of the god. It preserves that principal and
+the request's route and token context. The grant adds this one request right
+even if the token's own caps do not include it: invoking the bridge is access
+to its mediation, not merely an alias for `agent:request`. The task belongs to the
+caller's account; an agent is identified as that agent, not promoted to its
+owner. Covia supplies provenance outside the untrusted task content
+([SECURITY.md](SECURITY.md#external-requests)). The bridge returns the god's
 outcome, or a started snapshot while the god is still deciding.
 
 **Run** (`brightside:odin-run`, `brightside:thor-run`,
@@ -112,8 +115,10 @@ not make or would need a cap far wider than the act ([ODIN.md](ODIN.md)).
 What a god's caps let it do itself, its bridge does not lend. With a user,
 one of this venue's own, it runs one of the god's namespace operations
 inside that user's namespace on their behalf through Covia's `user:sudo`. A
-per-call delegation bounds it to that namespace, so the venue's own authority
-does not leak in. The job record says "venue, on behalf of the user". A seed
+per-call delegation lets the god enter as that user, with the user's whole
+authority. The bridge's operation allowlist bounds what it may run there;
+the grant does not narrow the authority inside sudo. Covia records the
+god-to-user handover in the route. A seed
 goes by reference only; the bridge refuses a literal one. A god may also have
 granted operations, which run as the god itself under a grant the venue signs
 for exactly what that call touches, named by the operation's adapter
