@@ -76,9 +76,9 @@ public final class AgentSetup {
 			// memory tool, a narrow append-only channel for concrete skill misses,
 			// and the harness's compact control so a long conversation can be
 			// summarised in place. None exposes general workspace mutation.
-			// Broader capabilities (writes, HTTP, files, agents, telegram/discord…)
-			// arrive by discovering and loading the skills that grant them — see
-			// skillsets below — so authority stays deliberate rather than always-on.
+			// Further tools (writes, HTTP, files, agents, telegram/discord…)
+			// are exposed by loading skills. This controls model context, not
+			// authority: the owner's agent has unrestricted caps below.
 			"tools", Vectors.of(Strings.create(ChatSession.INSPECT_OP), Strings.create(ChatSession.MEMORY_OP),
 				Strings.create(ChatSession.SKILL_FEEDBACK_OP), Strings.create(ChatSession.COMPACT_TOOL)),
 			"toolCallTimeoutMs", ChatSession.TOOL_CALL_TIMEOUT_MS,

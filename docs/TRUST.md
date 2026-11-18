@@ -1,27 +1,18 @@
 # Trust — who speaks for the owner
 
-How an agent decides how far to trust a message that does not come from the
-owner directly, and what the venue, the skills and the gods must provide so
-that the decision rests on recorded facts rather than on what a message says.
-The doc is ahead of the code. It sets the requirements that the venue's
-provenance, the `security` skill, the interaction protocols and Thor are built
-to. What runs today is under [Where it stands](#where-it-stands).
+This proposal separates a message's authenticated route from its claims
+about the sender. Route standings and their management are not implemented;
+current behaviour is under [Where it stands](#where-it-stands).
 
-- **Trust belongs to the route, never to the words.** A message can come from
-  the owner in the app, a tool through an access token, a channel, another
-  user or another agent. What it says about its own sender proves nothing.
-- **Every route has a standing:** owner, delegate, guest, suspicious or
-  unknown. The venue records it and shows it with every turn, so an agent
-  reads its standing and never has to work it out.
-- **Only the owner raises a standing; Thor may lower one.** Granting trust is
-  the owner's alone. Lowering it only narrows, so the guardian can do it at
-  once and answer for it afterwards.
-- **A delegate speaks for the owner, but within limits.** A route the owner
-  chose to act for them is followed like the owner, except that anything
-  high-stakes is still confirmed with the owner out of band.
-- **Doubt goes to the owner, suspicion to Thor.** An unverified claim becomes
-  an Inbox question. Something that looks like an attack becomes a report to
-  Thor, who investigates and may mark the route suspicious.
+- **Provenance comes from the venue.** Message text cannot establish who sent it.
+- **Standing describes a relationship.** Owner, delegate, guest, suspicious and
+  unknown guide treatment; they do not themselves define enforceable permissions.
+- **Only the owner raises standing.** The proposed guardian power only lowers
+  or revokes it, with an audit trail and notice to the owner.
+- **Delegation needs a scope.** Acting for the owner must not automatically
+  mean possessing all of the owner's authority.
+- **Separate doubt from attack.** Unverified claims go to the owner; evidence
+  of manipulation goes to Thor for investigation.
 
 ## Routes
 
@@ -62,8 +53,9 @@ secret. A skill whose work has stakes of its own names them: a transaction for
 A delegate is confirmed for high-stakes acts because a route can be turned
 without the owner knowing. A connected assistant reads the web and can carry
 an injected instruction into what it asks, and a token can leak. Confirming
-only what matters keeps a delegate useful day to day, while ensuring that a
-turned route cannot do anything that cannot be undone.
+only consequential acts aims to keep a delegate useful. A prompt asking for
+confirmation cannot guarantee this boundary; enforcing it requires scoped
+authority and an approval tied to the exact action.
 
 ## Who changes a standing
 
@@ -76,10 +68,6 @@ turned route cannot do anything that cannot be undone.
 No agent sets a standing for itself or on a message's say-so. An agent
 cannot guard itself, and an attacker who could make an agent lower a standing
 could cut the owner off from a real delegate.
-
-This mirrors the venue's own rule for access tokens: changing one needs the
-issuer's whole authority, while deleting one needs less, because deleting
-only narrows.
 
 ## Establishing trust
 
@@ -94,8 +82,9 @@ only narrows.
 3. **On review.** The owner can see every route with its standing, who last
    changed it and why, and can change it.
 
-Revoking or lowering a standing takes effect at the next turn, including on
-work the route already started.
+The intended restriction must reach subsequent actions, including queued
+work, not just the next prompt. Cancellation of already running work and the
+propagation of provenance through delegated jobs remain design questions.
 
 ## Suspicion and Thor
 
@@ -132,29 +121,17 @@ between them.
 - Work a route started keeps the route, and its standing is read at each
   point of action, as access tokens are.
 
-### Skills
+### Skills and interaction protocols
 
-- The standing prompt and the `security` skill teach the five standings and
-  what each allows, the meaning of high-stakes, and that a message's claims
-  about its sender count for nothing.
-- A skill whose work has stakes names them, so that the confirmation a
-  delegate needs is specific rather than a judgement made afresh each time.
-- Reports to Thor follow [Suspicion and Thor](#suspicion-and-thor). A claim
-  that is merely unverified goes to the owner instead.
+Skills explain the standings and name the consequences specific to their
+tasks. Claims to represent the owner become Inbox requests naming the route;
+consequential acts name the exact proposed action. Reports to Thor include
+the incident evidence. Replies return on their incoming route, with private
+owner information kept out of public channels.
 
-### Interaction protocols
-
-- **Claim:** a guest's claim to act for the owner becomes an Inbox request
-  naming the route. Approving it raises the standing; declining it leaves the
-  route a guest.
-- **Confirmation:** a delegate's high-stakes request becomes an Inbox request
-  before the act, naming the route and the act. A delegate route may be
-  cleared for named kinds of act.
-- **Report:** one report per incident to Thor, with where the message came
-  from, what it tried, what the agent did and the text quoted.
-- **Reply:** a reply goes back on the route it came from. In a public channel
-  everyone reads it, so anything meant only for the owner goes to the owner
-  instead.
+These instructions need matching operation-level enforcement. An Inbox answer
+must authorise only the action or scope displayed, not grant unspecified
+authority through conversational wording.
 
 ### Tau
 
@@ -167,10 +144,10 @@ between them.
 
 ## Where it stands
 
-- The standing prompt and the `security` skill treat anyone but the owner
-  directly as an outside party, which is the guest standing for every route.
-  There are no delegates yet, so a tool the owner set up to act for them is
-  treated as a guest ([SECURITY.md](SECURITY.md#authentication-and-network-exposure)).
+- The main assistant's default prompt and `security` skill instruct it to
+  treat external routes as guests. This is prompt policy: the agent still
+  acts with its own authority, and templates and gods have different prompts
+  ([SECURITY.md](SECURITY.md#authentication-and-network-exposure)).
 - The owner makes named access tokens in *Settings → Access*, from presets or
   a custom set of tools, and the assistant can list and revoke them. A
   token's turns reach the agent as the owner's, with the token named on the
@@ -180,6 +157,9 @@ between them.
 
 ## Open questions
 
+- How standings map to capabilities, with restrictions checked at each action.
+- How route provenance follows delegated work, and what a downgrade does to
+  queued and already running calls.
 - Whether a suspicious standing expires on its own or waits for the owner.
 - **How an external account is known to be the owner's.** Asking the owner
   confirms only their belief about a handle; a pairing code or a provider

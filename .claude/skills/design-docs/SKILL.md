@@ -14,10 +14,10 @@ guide and points here.
 | Read | For |
 |---|---|
 | `docs/DESIGN.md` | product principles: a self-sovereign personal agent, no jargon, machinery hidden not removed |
-| `docs/ARCHITECTURE.md` | the one-process shape, the reads-versus-actions rule, an orientation map of the source, the key decisions, packaging |
+| `docs/ARCHITECTURE.md` | the one-process shape, the reads-versus-actions rule, runtime boundaries and key decisions, packaging |
 | `docs/SKILLS.md` | how the assistant gets abilities: namespaces, what it starts with, how a load works, the shape of the shipped library, growing and feedback |
-| `docs/IDENTITY.md` | venue, user and agent principals; one key; switching user; known limits |
-| `docs/GODS.md` | the gods as a whole: a team of super-user agents working for the owner, when a job deserves one, the team, and what every god shares (bridges, overseer, a user of its own, asking the owner, deliberate stops) |
+| `docs/IDENTITY.md` | venue, user and agent principals; one root identity; switching user; known limits |
+| `docs/GODS.md` | the gods as a whole: venue-owned agents with specialist authority, when a job deserves one, the team, and what every god shares (bridges, overseer, a user of its own, asking the owner, deliberate stops) |
 | `docs/ODIN.md` | Odin, a sub-article of GODS.md: why an administrator, what he may do, how he judges, checking the other gods |
 | `docs/THOR.md` | Thor, a sub-article of GODS.md: why a guardian, responding to reported threats, what he may and may never change, known limits |
 | `docs/NJORD.md` | Njord, a sub-article of GODS.md: why a treasurer, custody of the keys, how he judges a payment, known limits |
@@ -33,9 +33,9 @@ guide and points here.
 | `docs/WATCHER.md` | how views follow the lattice: watching a component, observing off screen, the shared pass, lifetime, absent values |
 | `docs/JOBS.md` | the Jobs page: Covia's `Jobs` and `JobRecord` as its model, time ranges by seek, rows built only on screen, actions, known limits |
 | `docs/INBOX.md` | the Inbox: the composed source, observing whatever is on screen, one projection for cards, badge, tray mark and notifications, answering |
-| `docs/APP_STATE.md` | Tau's own state in its adapters' venue state: what is there, what moves in, what stays in files, the rules for reading and writing it |
+| `docs/APP_STATE.md` | Tau's own state in its adapters' venue state: state ownership, what stays in files, the rules for reading and writing it |
 | `docs/SELF_IMPROVEMENT.md` | the daily self-improvement loop: who does what, a run, what needs the owner, where things are; the procedure is the `improvement-loop` skill |
-| `docs/TRUST.md` | how far an agent trusts a route that is not the owner directly: standings, who raises and lowers them, Thor and suspicion, the requirements on the venue, skills and protocols; ahead of the code |
+| `docs/TRUST.md` | proposed trust standings for external message routes: standings, who raises and lowers them, Thor and suspicion, the requirements on the venue, skills and protocols; ahead of the code |
 | `docs/ADVANCED_MEMORY.md` | proposals for tiered, provenance-gated memory with consolidation, recall and intents; nothing in it is built |
 
 Covia's own design lives in `../covia/venue/docs/` (skills, agent context,
@@ -65,7 +65,7 @@ A change that moves a decision or a name has a doc to keep true:
 
 - a new or renamed skill, or a change to what one carries → `SKILLS.md`
 - a new screen, integration or configuration key → `CONFIGURATION.md`, and
-  `ARCHITECTURE.md`'s orientation map if a new package or entry point appeared
+  `ARCHITECTURE.md` if runtime boundaries or entry points changed
 - how a view follows the lattice → `WATCHER.md`; the Jobs page → `JOBS.md`;
   the Inbox → `INBOX.md`
 - anything about keys, files or recovery → `SECURITY.md`, and `ONBOARDING.md`

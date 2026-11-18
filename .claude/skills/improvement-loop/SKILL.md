@@ -40,8 +40,13 @@ Do not infer the agent id from its display name.
   unfinished work: finish it if it is small and clear, otherwise
   `git -C "$W" stash` it and say so in the report.
 - `git -C "$W" rebase develop`. A conflict: abort, report, stop.
-- `$S/smoke.sh`. If Tau is not running (exit 2 from `mcp.sh`), start it
-  from a copy of `~/.tau/code/last-good.jar` with
+- `$S/smoke.sh` returns 1 if any check fails; it does not preserve `mcp.sh`'s
+  exit codes. For a connection failure, call `$S/mcp.sh grid_run
+  '{"operation":"v/ops/tau/info"}'` directly. Exit 2 means unreachable, not
+  necessarily stopped: check the process and log before starting another
+  instance. A locked app or missing local token needs attention, not takeover.
+  If Tau is confirmed stopped, start it from a copy of
+  `~/.tau/code/last-good.jar` with
   `javaw -jar <copy> --unlock --takeover` (PowerShell `Start-Process`), then
   `$S/relaunch.sh "Tau was down (say why, from its log); started from the
   last good build, relaunched so Tau owns its process" file://code/last-good.jar`:

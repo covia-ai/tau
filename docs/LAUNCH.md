@@ -30,162 +30,81 @@ Standard output carries MCP messages only; diagnostics go to standard error.
 Closing the client's input ends that connection and leaves the app running.
 See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
 
-1. `Tau.main` loads `~/.tau/config.json` (`AppConfig`), configures
-   logging to `~/.tau/logs/tau.log` (dated rollovers; uncaught
-   exceptions on any thread land there too) and installs the look and feel.
-2. `start()` installs the tray icon where the desktop has one and shows the
-   first screen at once: the onboarding wizard in the main window when no
-   vault exists; otherwise the **unlock dialog** (`UnlockDialog`) on its own,
-   pre-filled if the owner chose *Remember me*. The main window is built but
-   stays hidden until the passphrase is accepted. With *Unlock with my stored
-   passphrase, without asking* (Settings → General → Startup), a launch
-   presses Unlock itself: the dialog shows only its progress, and takes a
-   passphrase by hand if the stored one fails. Forgetting the passphrase turns
-   that off. *Lock* (Settings → General) hides the window and brings the
-   dialog back, and always asks; the tray's *Show* brings back whichever is
-   current.
+Startup follows this order:
 
-   `--unlock` on the command line (`java -jar tau.jar --unlock`) is for
-   a launch nobody is sitting at, such as one from Claude Code: it unlocks at
-   once with the remembered passphrase and puts nothing on screen: no unlock
-   dialog, and once the venue is up it stays in the tray (minimised, on a
-   desktop without one) until the tray brings it back. With
-   no passphrase remembered, or no vault yet, it exits at once with an error
-   and opens no window; a remembered passphrase that fails exits with an
-   error too, as does a launch that fails after it, since nobody may be there
-   to read a dialog. One that has already taken over says why in a dialog
-   first, where there is a desktop, since nothing else is left running. Once
-   it is up it is an ordinary session: a later
-   Lock asks for the passphrase as usual. If an instance is already running it
-   is left alone and the launch exits, unless `--takeover` is given as well;
-   the startup settings never apply to it.
-   `--takeover`, with or without `--unlock`, takes over from a running
-   Tau without asking (below). On its own it is a launch someone is
-   sitting at, as from an IDE: it also unlocks with the stored passphrase
-   without asking, as the setting above does, and the window comes up as usual.
-3. Unlock or onboarding opens the vault, yields the identity seed and secures
-   the venue config with it (seed plus the Etch v3 store key). `launchVenueWith`
-   then runs on a background thread while the unlock dialog stays up showing
-   progress ("Starting the venue…"); the main window appears only once the
-   venue is actually ready, so it never shows without live data behind it.
-4. When compaction was asked for, `StoreSpace` opens the store first and has
-   Covia collect it, then hands it to the venue (below).
-   `EmbeddedVenue.launch` starts the `VenueServer` on loopback with public
-   access disabled, registering `TauAdapter`, `TauSkillsAdapter`,
-   Moltbook, Discord, Telegram, Claude Code and speech in Covia's pre-start hook: after the
-   built-in adapters are installed and configured secrets provisioned, before
-   durable jobs are recovered and adapter workers start, so a job a crash left
-   on one of Tau's operations is recovered by its owner and the Discord
-   bots re-arm with everything else. The [startup pass](#the-startup-pass)
-   follows in the same hook. A failure in the hook closes the
-   half-assembled server, so nothing is left holding the port or the store.
-   `onVenueReady` binds the
-   identity to the venue and moves any provider keys still in the vault into
-   the encrypted secret stores, still behind the dialog so a failure returns
-   to it. Only then is the window revealed, and the chat starts as
-   `<venueDID>:u:<slug>`: the agent record, the conversations, the agents list
-   and the inbox are read in-process, any changed filesystem skill is imported
-   and the conversation watcher starts. Nothing else is submitted: the agent
-   is created or reconfigured on the first message, as are the gods on a
-   first run, before a model is stored. What the startup pass found wrong
-   and could not put right is shown in the window. A failure while the chat
-   binds is reported in the window rather than left as a composer that never
-   wakes.
+1. Read configuration, initialise logging and theme, and check for an existing
+   instance before showing a window.
+2. Complete onboarding or unlock the vault. The seed and store key must be
+   available before the venue opens. The main chat remains hidden until ready.
+3. Handle an authorised takeover, any required store repair and requested
+   compaction before opening the venue.
+4. Register Tau's adapters and integrations in Covia's pre-start hook, then run
+   the [startup pass](#the-startup-pass), before recovering jobs or starting
+   workers. A failed hook closes the partially assembled venue.
+5. Bind the owner's identity, transfer any staged provider keys, import changed
+   filesystem skills and bind the views. Report launch or binding failures
+   where the owner can see them. The main agent is configured on its first
+   message; startup may separately configure gods and request Eir's help.
+
+The default listener is authenticated loopback; configuration can override it
+([SECURITY.md](SECURITY.md#authentication-and-network-exposure)).
+
+| Launch mode | Unlock and visibility | Existing instance |
+|---|---|---|
+| Ordinary launch | ask, unless automatic remembered unlock is enabled; show the window | ask to take over, unless the owner enabled automatic takeover |
+| `--unlock` | require a valid remembered passphrase; start in the tray, or minimised without one | leave it running and exit |
+| `--takeover` | use the remembered passphrase if available, otherwise ask; show the window | take over without asking |
+| `--unlock --takeover` | unattended unlock; start in the tray or minimised | take over without asking |
+
+An unattended launch with missing setup or an invalid remembered passphrase
+fails without a window. If it has already displaced the previous instance,
+it reports a subsequent failure in a dialog where possible. Settings → General
+→ Startup controls ordinary-launch preferences; command-line modes override
+them. Lock always asks for the passphrase and leaves the venue running.
 
 ### Starting at Windows sign-in
 
-On Windows the owner can have Tau start when they sign in: *Start
-Tau when I sign in to Windows* in Settings → General → Startup, off
-until they turn it on, and offered only with a passphrase remembered, since
-the start unlocks with it. Turning it on writes one entry under the account's
-own `Run` key (`StartAtSignIn`), which Windows starts at sign-in and Task
-Manager lists under Startup apps, where it can be disabled without Tau.
-The entry is the `--unlock` launch above: up in the tray, unlocked, leaving a
-running Tau alone. Windows starts it, so it belongs to no other
-program's job.
+The opt-in setting under General → Startup requires a remembered passphrase
+and a jar launch. It installs a per-user Windows `Run` entry using `--unlock`;
+Task Manager can disable it. Each successful start updates the entry to the
+Java executable and jar actually running, including a build selected by Odin.
 
-While the setting is on, each start rewrites the entry to name the Java and
-jar it runs from, once the venue is up, so the entry always names a build that
-has started; a relaunch's copy under `run/` is never deleted while it runs.
-Turning the setting off, or forgetting the passphrase, removes the entry. An
-entry of the same name that names another configuration is another program's,
-and is never changed. A launch from classes has no jar to name, so the setting
-is unavailable there; another data directory gets an entry of its own.
-`StartAtSignInTest` covers it with a stand-in for the registry.
+Turning it off or forgetting the passphrase removes the entry. Entries for
+other data directories are left alone. `StartAtSignIn` owns this integration;
+its tests use a stand-in registry.
 
 ### The startup pass
 
-Tau's own counterpart to Covia's migration, run by `Startup` in the
-launch hook once Tau's adapters are registered: the store is current
-and no recovered job, schedule or agent has run yet, so what it puts right
-holds before anything acts. Each step is safe to run on every start, and none
-fails the launch.
+`Startup` runs after adapters are registered and before recovered work starts.
+It compares stored versions, brings gods onto the stored model and current
+caps, resumes fault suspensions, and verifies the result. Without a stored
+model, god setup waits. Deliberate suspensions remain in force.
 
-1. **Migrate.** The Tau and Covia versions the store last started
-   under ([APP_STATE.md](APP_STATE.md)) are compared with this build's, and an
-   upgrade is logged. Tau's own version-gated steps belong here, after
-   Covia's; there are none yet.
-2. **Repair.** The gods are brought up to date with the stored model,
-   their caps included, and one stopped by a fault is resumed
-   ([GODS.md](GODS.md)).
-3. **Verify.** Each god must be there, configured as it should be and not
-   stopped by a fault; anything else is logged and shown to the owner.
+The pass records versions and a fingerprint of the standard agent setup and
+shipped skills. Once serving, Tau asks Eir about unresolved problems and asks
+her to upgrade the owner's agents when versions or that fingerprint changed
+([EIR.md](EIR.md)). Repeated reports of the same problems are suppressed.
 
-The pass also records a fingerprint of Tau's standard agent setup and shipped
-skills. Once the venue is serving, Tau asks Eir to repair what
-verification found, and, after an upgrade or when that fingerprint changed, to
-bring the owner's account up to date ([EIR.md](EIR.md)).
-
-The versions are recorded last, so a start that stops before then counts as
-an upgrade again. `StartupTest` launches a store twice and checks a god left
-with too much authority is narrowed before it can act.
-
-A first run that fails to launch reports on the wizard's last step, with
-Finish available again once the cause is dealt with.
+Unresolved god checks are logged and shown; they do not by themselves abort launch.
+`StartupTest` checks that an over-privileged god is narrowed before it acts.
 
 ## Taking over a running instance
 
-Two processes cannot share `venue.etch`; the second fails on the file lock. So
-`start()` probes the configured port before any window appears, and
-`launchVenueWith` probes it again before launching:
+Two processes cannot share the store. `Takeover` checks the configured port
+before the UI opens and again before venue launch. Any HTTP response counts
+as occupied, including an authentication refusal.
 
-- `Takeover.isRunning(port)` — any HTTP answer from `/api/v1/status` means
-  something is running; only a refused connection means nothing is. (A private
-  venue answers `401` to strangers; that still counts.)
-- A returning owner is asked *Take Over / Cancel* at startup, before the unlock
-  dialog — Cancel exits without a passphrase ever being typed. `--takeover`
-  answers *Take Over* in advance, as does *Always take over without asking*,
-  ticked on that question or in Settings → General → Startup. The unlock
-  dialog then notes that the running instance will hand over once unlocked.
-  (An instance that appears only later is asked about at launch time instead.)
-- A new install is told to quit the running Tau first, and exits. It
-  would mint a fresh identity, and only the running venue's own key can ask it
-  to stop, so a takeover could never succeed.
-- The handover itself waits for the vault, since the requests must be signed
-  with the seed; it runs from the unlock dialog ("Taking over…") and this
-  instance's main window appears only once the other has released the store —
-  two main windows are never on screen together.
-- `Takeover.identify` first asks what is on the port, running
-  `v/ops/brightside/info` with a short-lived JWT (`iss = sub = aud =` the
-  venue's DID) signed with the seed both instances unlocked. A Tau
-  holding our identity answers with its app name, venue DID, the store it
-  holds and its process id. Anything else is refused with a message the owner
-  can act on: a `401` is a Tau with a different identity; an unknown
-  operation is a Covia venue that is not Tau; no venue answer at all is
-  something else on the port.
-- `Takeover.requestShutdown` then POSTs `v/ops/brightside/shutdown` with the
-  same kind of token. The running instance accepts only the venue operator
-  (`TauAdapter.handleShutdown` requires the caller DID to equal the
-  venue DID) and runs its `exit()`: the store flushes and the process ends.
-- The venue closes its HTTP listener before it flushes and closes the store, so
-  a quiet port is not a free store. `Takeover.waitUntilDown` polls until nothing
-  answers, `waitUntilExited` waits for the process the instance named, and
-  `waitUntilReleased` waits for the lock on `venue.etch` to lift. Only then
-  does the newcomer launch its own venue.
+A returning owner can authorise takeover; a new installation cannot, because
+it does not hold the incumbent's seed. After unlock, the newcomer identifies
+the incumbent using a short-lived operator token signed by that seed. It
+requires a matching Tau identity and obtains the process and store details,
+then requests authenticated shutdown.
 
-The newcomer is already up and only needs the incumbent to step aside, so this
-works from an IDE launch with no jar too. `TakeoverTest` runs the handshake
-against a private venue.
+These calls deliberately use `v/ops/brightside/info` and
+`v/ops/brightside/shutdown` so an older running instance can be replaced.
+The newcomer waits for the listener, process and store lock to be released:
+a closed port alone does not mean the store has finished flushing. Only then
+does it open the venue. `TakeoverTest` exercises the private-venue handshake.
 
 ## Restart and relaunch
 
@@ -209,70 +128,42 @@ stops. `RestartTest` runs both on a venue whose app does nothing.
 
 ### Restart
 
-- `config.json` is read again first; a file that cannot be read, or venue
-  settings Covia refuses, refuse the restart before anything stops.
-- Just after answering, the app lets go of the venue as Lock does but keeps
-  the key, closes the venue, which saves the store, and launches it again
-  through the startup path on the configuration just read. The window shows
-  Home starting up, and the chat binds to the new venue as at launch: as the
-  named user, on a clean Home.
-- While locked it restarts behind the unlock dialog, which shows its progress
-  and then asks as before; the unlock binds to the new venue.
-- A venue that fails to come back is reported where the owner is looking, as
-  at startup. Behind Lock, unlocking launches it again; otherwise quitting and
-  starting again is the way back.
-- Refused while Tau is starting up or quitting, during another restart,
-  and off the desktop. The steps from closing the venue to binding the window
-  run only with a window, so no test covers them.
+The app validates the new configuration before stopping. After answering the
+operation, it releases UI bindings, retains the key, closes the venue and
+launches it again. An unlocked app returns to a clean Home chat as the owner;
+a locked app remains behind the unlock dialog.
+
+Restart is refused during startup, shutdown or another restart, and without a
+desktop app. Launch failures are shown in the current view. Behind Lock,
+unlocking retries launch; otherwise the owner can quit and start again.
 
 ### Relaunch
 
-- The newcomer runs on the same Java and configuration file, and by default
-  the same program: the same jar, or the same class path for a launch from an
-  IDE, which then carries on outside the IDE (`Relaunch`, as the MCP bridge
-  starts the app). Windows locks a running jar, so a jar launch never picks
-  up a build that replaced its file.
-- The newcomer outlives whatever started this instance. Windows puts a child
-  process in its parent's job, and whoever owns a job can end everything in
-  it at once: a Claude Code session ends the processes its commands started
-  when the session's own process goes, however many relaunches later. So on
-  Windows `Relaunch` starts the newcomer outside its own job
-  (`WindowsProcess`), and the MCP bridge starts the app the same way. A job
-  that forbids leaving keeps it, with a warning in the log. Leaving goes one
-  level: an enclosing job that forbids it still holds the newcomer, as the
-  Claude desktop app's job, around each session's, does.
-  `WindowsProcessTest` covers it.
-- `jar` names another Tau jar instead: any content reference the venue
-  resolves for the caller, such as `file://code/tau/target/tau.jar`
-  for Tau's own build, a DLFS path or an asset, read under the
-  caller's authority. It is copied into `~/.tau/run/` and the copy
-  runs, so the build can be replaced meanwhile; earlier copies go unless one
-  is still running. A jar whose main class is not Tau's is refused.
-- It comes back as this one is, and takes over and unlocks with the
-  remembered passphrase without asking, whatever the startup settings say:
-  `--takeover` when the window is showing, so the window comes back;
-  `--unlock --takeover` when it is in the tray or minimised, so it comes back
-  there. With no passphrase remembered its unlock dialog asks for one, even
-  from the tray.
-- This instance runs on until the newcomer has unlocked and asks it to stop, so
-  a failure before then leaves it as it was. Only a failure in the newcomer's
-  own venue launch, after the handover, leaves nothing running; it says why on
-  its unlock dialog, or in a dialog of its own from the tray.
-- Nothing checks that a jar is newer: a build's version does not tell
-  development builds apart. A jar too old for the store takes over, finds the
-  store written by a newer Tau, changes nothing and says so
-  ([below](#opening-a-store-an-older-build-wrote)); starting the newer build
-  again opens it.
-- The operation answers as soon as the newcomer has started, with its process
-  id, not once it has taken over; a newcomer that fails after that says so
-  only in the log, or on its own unlock dialog. `brightside:info` reports the
-  process id and when the process started, so a caller can see afterwards that
-  the relaunch happened.
-- Refused while Tau is locked (unlocking at once would undo the lock,
-  and the newcomer cannot take over without the key), while a newcomer an
-  earlier relaunch started is still running beside this one, off the desktop,
-  where there is no app to start again, and inside another program's process
-  (`mvn exec:java`), whose class path would not start it.
+`Relaunch` starts the same Java and configuration with the current jar or class
+path, or with another Tau jar supplied as a caller-readable content reference.
+For example, `file://code/tau/target/tau.jar` selects a local build.
+The jar is copied under `run/` so Windows file locking does not prevent later
+builds; its main class must be Tau's. This check is not a code signature or
+a sandbox.
+
+The successor uses takeover and preserves whether the app was visible or in
+the tray. Without a remembered passphrase it asks for one. The incumbent
+continues until the successor unlocks and requests shutdown, so failures
+before handover leave it available. Failures after handover can leave neither
+instance serving and are reported by the successor.
+
+The operation returns the successor's process ID when it starts, not when it
+is ready. A caller must verify readiness and the new process through
+`brightside:info`. There is no “newer jar” check; an incompatible store is
+refused at launch ([store versions](#opening-a-store-an-older-build-wrote)).
+
+On Windows the successor attempts to leave the parent's process job, so ending
+a coding session does not end Tau. Restrictive enclosing jobs can prevent
+that; a failure is logged. `WindowsProcess` owns the platform mechanism.
+
+Relaunch is refused while locked, while an earlier successor remains pending,
+without a desktop app, or from an embedded launcher such as `mvn exec:java`
+whose class path cannot start independently.
 
 ## Tray, minimise, close, quit
 
@@ -288,43 +179,23 @@ stops. `RestartTest` runs both on a venue whose app does nothing.
 
 ## Exit and flush
 
-`exit()` closes the session view's feed and subscription, closes the inbox
-binding, hides the window, removes the tray icon and closes
-the `VenueServer` on a background thread before `System.exit`. A launch still
-in progress is waited for first (bounded), so a quit from the unlock dialog
-mid-boot still ends with a cleanly closed store. A Convex `Shutdown` hook at
-`SERVICE`, the level Covia gives embedders, does the same on Ctrl-C and SIGTERM.
-
-The JVM can start shutting down while the exit thread is still closing: on
-Ctrl-C, or when its last non-daemon thread ends, since the exit thread is a
-daemon. Convex's Etch hook closes the store file at the later `ETCH` level, so
-`EmbeddedVenue.close()` is idempotent in the way `VenueServer.close()` is: a
-second caller waits for a close under way to finish, and the `SERVICE` hook
-holds the store open until the venue's final save is done.
+Exit closes view bindings and the tray, waits boundedly for any launch in
+progress, and closes the venue off the event thread before ending the process.
+A shutdown hook covers Ctrl-C and SIGTERM. Concurrent closes wait for the
+same final save; the venue closes before Etch's later file-close hook.
+Forced termination can still require store repair.
 
 ## When the store was not closed cleanly
 
-Etch v3 records a clean checkpoint in the store's header, and the first write
-after a checkpoint marks the header open again. The venue publishes its state
-to the store several times a second, but checkpoints only on Covia's flush
-interval (seconds) and where it makes a promise outside, such as accepting a
-job. Even a publish that changes nothing reopens the header, so while Tau runs
-the header is nearly always open. A process that dies before its next
-checkpoint or close — a crash, a power cut, an IDE launch stopped dead, a
-kill — leaves it open, and Etch refuses to open the file: by its design there
-is no writable recovery open, only a repair into a fresh file. `StoreRepair`
-does that at launch, with the key in hand: it rebuilds `venue.etch` into a
-fresh file beside it, moves the old one aside as `venue.etch.unclean-<stamp>`
-and installs the fresh one, then the launch goes on and the chat opens with a
-note saying so. The repaired store holds the state of the last checkpoint:
-what changed after it is missing, even if it had been published. Each problem
-the repair met is logged; a COMPLETE repair still holds every intact record of
-the old file, and Etch's rebuilder currently lists valid tree records among
-its problems when it meets them before their children. If the fresh file
-cannot be installed, the old one is put back so there is never no store at
-all. `"repairStore": false` in `config.json`
-stops the launch instead, for an owner who would rather restore a backup by
-hand ([CONFIGURATION.md](CONFIGURATION.md)).
+Etch refuses a writable open after an unclean stop. With `repairStore` enabled,
+`StoreRepair` rebuilds into a fresh file, preserves the original as
+`venue.etch.unclean-<stamp>` and installs the result before launch. If installing
+the new file fails, it attempts to restore the original.
+
+Repair restores the last checkpoint, not necessarily every published change.
+Keep the preserved file until the recovered data is verified; diagnostic
+problems are logged. Set `repairStore: false` to stop instead and restore a
+backup manually. Interrupted collection has additional limits below.
 
 ## Compacting the store
 
@@ -352,19 +223,15 @@ steps as it writes, so a small store stays near the size of its last step.
 
 ## Opening a store an older build wrote
 
-The venue runs inside the process, so a new build upgrades the store it opens
-and nothing else needs upgrading first. Covia does it as the venue starts, in
-one transaction before anything else touches the store: an upgrade that fails
-changes nothing, and the launch reports it. Some of it is lazy: a conversation
-moves to Covia's append-only history only when its session next runs, so one
-left alone keeps its older form, and both read the same. A store written by a
-newer build is refused, unchanged, with a message on the unlock screen, or in
-a dialog from a launch that took over from the tray.
+Covia migrates versioned venue state transactionally during launch; some
+session data migrates lazily when used. Tau's adapters own their state versions
+and migrations. A build that recognises a newer unsupported state version
+refuses it unchanged.
 
-An upgraded store cannot be read by the older build, and a build from before
-Covia versioned its state does not even check, so going back means a backup of
-`venue.etch` from before the upgrade. `CoviaMigrationTest` upgrades an
-install written by such a build and reads it at every step.
+Do not assume an older jar can undo an upgrade. Builds predating version
+checks may not refuse newer data safely, and migrated stores may be unreadable
+to earlier builds. Keep a pre-upgrade store backup. `CoviaMigrationTest`
+exercises an installation written by an older build.
 
 ## When launch fails
 
@@ -379,8 +246,7 @@ not in the log.
 - A crash part-way through a compaction leaves the store in files that only a
   repair by hand can open, and the launch stops rather than repairing the
   wrong one (`StoreRepair.isInterruptedCollection`), telling the owner to keep
-  every `venue.etch` file as it is. The window is the collection itself, well
-  under a second for a store of tens of megabytes. Putting it right needs
+  every `venue.etch` file as it is. Putting it right needs
   Convex's `etch` tools; doing it at launch belongs in Convex and Covia
   ([covia-ai/covia#614](https://github.com/covia-ai/covia/issues/614)).
 - A relaunch cannot name its jar by a plain `https://` URL: Covia resolves no

@@ -1,97 +1,58 @@
 # Design guidelines
 
-Tau is a **self-sovereign personal agent**: a real consumer product that
-happens to be powered by the Covia Grid. Its job is to be genuinely useful to
-the person who owns it, privately, on their own machine. When in doubt, favour
-the person in front of the screen over the platform behind it.
+Tau is a personal agent running on its owner's computer. These principles
+guide product decisions; they are not claims that every intended safeguard
+has been implemented.
 
-- **Covia is the means, not the message.** The platform should be felt — it
-  just works, it remembers, it is private, it is yours — never shown off.
-- **No jargon in the main flow.** Everyday screens never say venue, DID,
-  principal, operation, adapter, lattice, agent or job.
-- **Hide the machinery, don't remove it.** Every technical surface stays
-  reachable under Settings.
-- **The person picks a name, nothing more.** Identity is felt, not explained.
-- **Defaults that just work.** An empty configuration is valid, and private by
-  default.
-- **The assistant grows, remembers, and asks.** Skills it can author, a memory
-  it keeps quietly, an Inbox for decisions only the owner can make.
+- **The owner stays in control.** Make the scope and consequence of an action
+  clear. Ask for decisions that belong to the owner, and respect deliberate stops.
+- **Local state, explicit connections.** Keep the owner's state locally and
+  explain when a model provider or integration receives it.
+- **Plain language in everyday flows.** Use familiar words for tasks; reserve
+  venue concepts for the technical views that need them.
+- **Accessible machinery.** Keep settings, logs, identity and model context
+  inspectable without crowding the main flow.
+- **Useful defaults.** An empty configuration is valid. Default to authenticated
+  loopback access and offer the echo bot when no model key is available.
+- **Learn without obscuring authority.** Skills and memory help an assistant
+  work; permissions must be enforced independently of its instructions.
 
 The product is **Tau** (τ, two times π). The repository, Java packages,
 build artefact and default data directory use `tau`. Configured venue and
-assistant names are independent of the product name and are kept as configured.
-Operation addresses remain stable so stored calls can be migrated individually
+assistant names are independent of the product name. Existing operation
+addresses remain usable so stored calls can migrate individually
 ([ARCHITECTURE.md](ARCHITECTURE.md#operation-addresses)).
 
-## 1. Speak like a product, not a platform
+## Language and presentation
 
-- Say "your assistant", "your name", "settings", "memory", "starting up".
-- Friendly, plain, second person: "What should I call you?", not "Enter a
-  user identity".
-- Errors are human — "Tau couldn't start up; details are in the logs" —
-  never a stack trace or a `did:key:…` in the face.
+Prefer “your assistant”, “your name”, “memory” and “starting up”. An error
+should explain the failed action and a useful next step; put diagnostic detail
+in the logs or an expandable view.
 
-## 2. Hide the machinery, don't remove it
+Settings pages show controls, not introductory essays. Place an explanation
+beside the control it explains. Keep a visible warning when someone needs to
+understand a consequence before acting; fold one-time setup instructions away.
+Use grouping, labels and icons to make choices legible rather than adding
+more tiles or banners.
 
-The power underneath is real; keep it reachable for those who want it, just
-not in the way. The dashboard, the identity and DIDs, the local address, the
-settings file and the logs live under **Settings**, and the raw model context
-under **Sessions**, where a curious or technical person can pull back the
-curtain and the everyday person never has to.
+## Identity and first use
 
-Settings pages are for someone who already knows what they want, so they show
-controls, not essays. A page has no opening paragraph. Each explanation lives
-at the control it explains: in the control's own words, in a hint or tooltip,
-or as a short visible note only where a consequence must be seen before
-acting. A step needed only once, such as creating a Discord bot, folds away.
-The why behind security choices belongs in [SECURITY.md](SECURITY.md), not on
-the page.
+The owner chooses a display name. Renaming it must not change the principal
+that owns their data ([IDENTITY.md](IDENTITY.md)). First run establishes the
+vault and recovery phrase before chat. Returning users unlock and reach a
+clean Home chat; saved conversations remain available
+([ONBOARDING.md](ONBOARDING.md)).
 
-Every screen is clean, not crammed: the aim is structure and presentation,
-never more on the screen. Shape, colour or an icon replaces words where it
-can, and fewer, well-grouped elements beat extra tiles, chips or banners.
+## The assistant
 
-## 3. Identity
+Keep identity, runtime facts and working methods separate: the system prompt
+defines the role, per-turn context supplies current facts, and skills supply
+task-specific methods. Memory holds useful preferences and decisions rather
+than duplicating the conversation archive ([SKILLS.md](SKILLS.md)).
 
-The person picks a **name**. Internally it becomes a principal on their own
-venue; they only ever see the name. The slug behind the principal is fixed
-once chosen, so renaming never changes which assistant, memory and skills they
-are talking to. Name, slug and DID are kept apart from the hand-edited
-settings file. The model is in [IDENTITY.md](IDENTITY.md).
-
-## 4. The assistant itself
-
-- **It has a memory.** It carries what the owner prefers and has decided
-  across conversations, so it feels like *their* assistant. It remembers quietly and never narrates the
-  mechanics.
-- **Identity, runtime context and skills have separate jobs.** The configured
-  system prompt owns the assistant's name and role. Facts about the owner and
-  the runtime are assembled fresh each turn. Working methods and optional
-  behaviour are skills, loaded only when a task calls for them.
-- **It can grow.** The assistant creates, refines and removes its own skills.
-  The power to do so is gated the way a good product gates power: reachable
-  on demand, reversible, and never in context until deliberately reached for.
-- **It can work on itself.** Tau's own source is a Claude Code
-  project out of the box, cloned into Tau's own directory on first
-  use, so the owner can have the assistant fix and extend Tau; a
-  change takes effect once Tau is relaunched into the new build, by
-  the owner or by Odin on their behalf.
-- **It learns from misses.** Concrete skill failures go to a private backlog
-  through a narrow operation; ordinary task failures do not.
-- **It asks when it must.** A decision, approval or missing detail goes to the
-  owner's Inbox; an agent can never approve its own request.
-
-How this is built is in [SKILLS.md](SKILLS.md).
-
-## 5. Onboarding
-
-First launch is a warm welcome, not a dialog box: the person starts typing
-their name while the venue boots. A returning person unlocks and lands on a
-clean Home chat; saved conversations stay available, and nothing resumes or
-starts a session until they send a message. The flows are in
-[ONBOARDING.md](ONBOARDING.md).
-
-## 6. Defaults that just work
-
-Sensible defaults for everything; loopback only; state on the owner's own
-disk; nothing to configure before the first conversation beyond a model key.
+The assistant can author skills and work on Tau's source through Claude Code.
+Changes should be bounded, reviewable and tested. A new build takes effect
+only when the owner, or Odin on their behalf, relaunches into it
+([SELF_IMPROVEMENT.md](SELF_IMPROVEMENT.md)). Requests for decisions belong in
+the [Inbox](INBOX.md); exposing a tool through a skill does not itself require
+or establish approval.

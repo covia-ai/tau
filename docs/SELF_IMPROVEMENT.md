@@ -1,26 +1,21 @@
 # Self-improvement
 
-Tau improves itself in a daily loop: Claude Code brings it up to date with
-Covia when that is worth it, makes small improvements chosen with Tau's own
-improvement agent, relaunches Tau into the new build, checks it, and reports
-to the owner. This is the loop's design; the procedure for one run is the
-`improvement-loop` Claude Code skill (`.claude/skills/improvement-loop/`).
+The self-improvement workflow uses Claude Code and Tau's Improver agent to
+choose, implement, test and check changes. It runs when explicitly invoked or
+scheduled on the owner's machine; installing Tau does not establish a daily
+schedule. The procedure is the
+[improvement-loop skill](../.claude/skills/improvement-loop/SKILL.md).
 
-- **Rapid and frugal.** One run a day, measured by elapsed time and tokens.
-  A run works in chunks: a Covia upgrade when one is due, which is
-  maintenance, then feature work. After the first improvement it starts
-  another only while it is under an hour and going well, with two hours as a
-  soft ceiling.
-- **A collaboration.** Claude Code and Tau's improvement agent agree what to
-  do, from the owner's issues, the backlog and their own ideas; Claude Code
-  makes the change in Tau's own checkout.
-- **The owner settles open design questions.** Bug fixes and minor tweaks go
-  straight in; a question the evidence does not settle is a GitHub issue
-  that tags the owner.
-- **Machines check, not opinions.** Health is a scripted smoke check, and a
-  backlog item closes when its failing action works again.
-- **Every relaunch can be undone.** The last good build is kept, and a failed
-  check relaunches it.
+- **Bound the work.** Choose useful changes within the procedure's time and
+  token limits; treat dependency upgrades as separate checked chunks.
+- **Consult before design changes.** Routine fixes proceed; authority,
+  startup and other unresolved design questions belong to the owner.
+- **Verify behaviour.** Tests and smoke checks decide whether a build works;
+  retry a reported failing action before closing its backlog entry.
+- **Keep a last good build.** Rollback also requires a compatible store.
+  A jar alone cannot undo a data migration.
+- **Do not publish code autonomously.** Pushes and releases remain the owner's
+  decision. The invoked procedure separately authorises issue reporting.
 
 ## Who does what
 
@@ -39,25 +34,14 @@ the skill's `agent.json`; each run applies it.
 
 ## A run
 
-1. **Preflight.** Fetch; bring the loop branch up to date with `develop`;
-   run the smoke check.
-2. **Covia.** Claude Code judges whether Covia's `develop` has moved enough
-   to upgrade: main code Tau uses, a new version, or a week since the last.
-   An upgrade is relaunched and checked on its own, so a failure is the
-   upgrade's alone, and the run then goes on to improve. A failed upgrade is
-   debugged in the same run: Tau's own breakage is fixed in Tau, and a Covia
-   regression is reported upstream with a reproduction and the upgrade rolled
-   back until Covia fixes it. A change to Covia's store
-   formats stops the upgrade for the owner, since a migrated store cannot go
-   back without a backup.
-3. **Improve.** Open issues first, then the backlog, then Claude Code's own
-   ideas, agreed with Improver before building. One substantial item and any
-   trivial ones per chunk, each a commit one revert undoes.
-4. **Relaunch and check.** Build, ask Odin to relaunch into it, run the smoke
-   check. On failure, relaunch the last good build; a failed improvement
-   ends the run's chunks, a failed upgrade is debugged as above.
-5. **Merge and report.** Fast-forward `develop` to the loop branch; report
-   what needs the owner, then what changed.
+The skill owns the commands and thresholds. A run checks the installation,
+upgrades Covia when justified, consults Improver on a bounded change, tests and
+commits it, then asks Odin to relaunch and runs the smoke checks. Successful
+work is integrated into local `develop`; failures are rolled back where the
+store remains compatible and reported to the owner.
+
+Store-format changes stop an automatic upgrade. Backups and a migration plan
+are needed before moving a store that the last good build cannot read.
 
 ## What needs the owner
 
@@ -87,7 +71,7 @@ and history ([GODS.md](GODS.md), [LAUNCH.md](LAUNCH.md#the-startup-pass)).
 | Work and design questions | GitHub issues on `covia-ai/tau` |
 | The last good build | `~/.tau/code/last-good.jar` (`file://code/last-good.jar` to Odin) |
 | The Covia commit last installed | `~/.tau/code/.covia-installed`, built from `../covia`'s committed `develop`, never its working tree |
-| The schedule | a local scheduled task, `tau-improve`, daily at 21:00 |
+| The schedule | configured separately on the owner’s computer; no schedule is installed by this repository |
 
 Relaunching through Odin means Tau starts its successor itself, so the
 running app does not depend on the Claude session that asked. Odin keeps the
@@ -103,8 +87,8 @@ loop redacts.
 
 ## Known limits
 
-- The schedule runs only while the Claude desktop app is open; a missed run
-  happens at its next start.
+- Run availability and missed-run handling depend on the scheduler the owner
+  configures, not on Tau's venue scheduler.
 - There is no store backup: a store-format change waits for the owner, and
   the last good build cannot read a store a newer Covia has migrated.
 - Covia snapshot jars in `~/.m2` are shared with other work on the machine,

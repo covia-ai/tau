@@ -1,8 +1,8 @@
 # Identity
 
-Three principals, one key. Tau has exactly one secret, a 32-byte
-Ed25519 seed, and everything that can act, own or be addressed is named
-relative to it.
+Tau's venue, users and agents are named from one root identity: a 32-byte
+Ed25519 seed. Provider credentials and treasury signing keys are separate
+secrets; the root seed does not replace them.
 
 - **The venue** is the seed's `did:key`: it signs tokens, owns the store's
   encryption key, and is what other venues will know Tau by.
@@ -27,7 +27,7 @@ relative to it.
 The seed comes from the BIP39 recovery phrase chosen or imported at onboarding
 (key hierarchy in [SECURITY.md](SECURITY.md)). The venue's DID is the
 `did:key` of its public key, fixed the moment the seed exists and reproduced by
-the phrase on any machine; Tau binds to loopback, so there is no
+the phrase on any machine; Tau defaults to loopback and does not assign a
 `did:web` alias. The venue key signs the bearer tokens the venue trusts,
 identifies the venue to other venues ([NETWORK.md](NETWORK.md)), and derives
 the key that encrypts the store. It is Convex-capable, but Tau does not
@@ -64,9 +64,11 @@ venue itself and has no slug or user DID. Every launch starts as the user.
 **The treasury** is a user too, kept by Njord, the treasurer
 ([NJORD.md](NJORD.md)). A user and its agents use only their own secrets, so the
 signing keys in the treasury's store can be used by nothing but a context
-acting as the treasury, and only Njord's bridge may act as it: no assistant
-and no other god can sign with them. Its slug, `njord--treasury`, is one no
-name can produce, since `Identity` collapses runs of separators.
+acting as the treasury, and Tau's bridges reserve that context for Njord.
+This is a venue permission boundary, not isolation from native code running
+in the same process ([SECURITY.md](SECURITY.md#assumptions-and-limitations)).
+Its slug, `njord--treasury`, is one no name can produce, since `Identity`
+collapses runs of separators.
 
 ## Agent identity
 
@@ -92,13 +94,16 @@ Settings and `config.json`, and a god's is fixed. What it knows of the owner
 in `w/memory` it shares with their other agents. Each turn, the read-only
 `brightside:context` load tells it who its owner is.
 
-An agent has no key and cannot sign for itself or hold funds. Authority is
-delegated to it with a UCAN whose audience is the agent DID. The owner's
-approval is such a grant: an Inbox answer that echoes the grant an agent
-offered has the venue mint it a UCAN for exactly that, with an expiry.
-Approval confers authority; nothing intercepts an agent's calls to hold them
-for sign-off. Per-agent keys and accounts, agents as economic actors, are the
-direction in [NETWORK.md](NETWORK.md).
+An agent has no independent identity key. It acts within its configured
+capabilities and its owner's authority, which may include using that owner's
+credentials. Tau's default owner agent has unrestricted caps within that
+authority; loading skills does not narrow it.
+
+Covia can issue a UCAN to an agent DID after an Inbox approval, but the agent
+cannot yet present that grant on later calls (see below). Tau's `hitl` skill
+therefore offers no grants. An Inbox answer is not a general interception or
+approval mechanism for tool calls. Per-agent keys and accounts are a proposal
+in [NETWORK.md](NETWORK.md).
 
 ## Known limits
 

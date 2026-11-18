@@ -1,6 +1,8 @@
 # Security Policy
 
-Tau is a personal agent that runs a complete Covia venue inside its own process, on the owner's own computer, under the owner's own identity. It holds the owner's identity seed, conversations, memory and skills locally. We take security reports seriously and appreciate the time researchers spend to make it safer.
+Tau stores identity keys and personal agent data on the owner's computer.
+Use this policy to report vulnerabilities; implementation details and limits
+are in [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Reporting a vulnerability
 
@@ -56,4 +58,4 @@ If you are unsure where a problem lives, report it to us and we will route it.
 
 ## Security properties as implemented
 
-[docs/SECURITY.md](docs/SECURITY.md) describes the vault, the recovery invariant, the loopback-only venue and the separation of principals as implemented. It is the reference for reviewers and for anyone testing whether an installation can be recovered.
+[docs/SECURITY.md](docs/SECURITY.md) describes the vault, the recovery invariant, the authenticated loopback defaults and the separation of principals as implemented. It is the reference for reviewers and for anyone testing whether an installation can be recovered.

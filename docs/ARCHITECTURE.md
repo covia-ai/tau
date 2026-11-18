@@ -31,8 +31,7 @@ also keeps `v/ops/brightside/<operation>` and its existing MCP tool names, so
 stored jobs, skills and integrations can migrate calls individually. Both
 names use the same implementation, state and authorisation checks. The internal
 dispatch id stays `brightside:<operation>`; it is independent of the public
-catalogue path. The adapter's
-catalogue view remains under `v/adapters/brightside`, and its state and
+catalogue path. The adapter's catalogue view remains under `v/adapters/brightside`, and its state and
 per-user view retain the same id ([APP_STATE.md](APP_STATE.md)). Java classes
 and packaged resources use `tau` independently of these public addresses.
 
@@ -75,124 +74,54 @@ projects its state rather than maintaining a separate application model.
 
 ## Key decisions
 
-**Threading.** Swing on the event thread only. Venue launch and close, agent
-calls, disk and desktop integration run on background threads. A view works
-only while it is showing: its timers and feeds run, and a stale view renders,
-only on screen, so an update or a theme switch costs nothing for what is out
-of sight.
+**Keep I/O off Swing's event thread.** Launch, shutdown, model calls, file
+access and desktop integration run in the background. Deliver UI changes on
+the event thread and discard results belonging to a previous selection or
+principal.
 
-**Views follow the lattice through one watcher.** A view wraps the Covia
-lattice component it shows and is told on the event thread when its value
-changes; what must keep up off screen, such as noticing a new request,
-observes instead. One shared thread does all the reading, and nothing off
-screen is read ([WATCHER.md](WATCHER.md)). The Jobs page
-([JOBS.md](JOBS.md)) and the Inbox ([INBOX.md](INBOX.md)) are built this way.
+**Views follow venue state.** Visible views use the shared
+[watcher](WATCHER.md); explicit observers, such as the [Inbox](INBOX.md),
+continue off screen. The UI owns presentation and selection, not a second
+copy of the application model. [Jobs](JOBS.md) uses Covia's job records.
 
-**Storage is managed where it is browsed, and distinguishes installation
-access from personal data.** `FileRoots` persists folder access for the next
-launch; `PersonalDrives` uses the acting user's DLFS operations and prepares
-their initial drive once. The Files screen reaches both through its small
-`ui/files/Places` host and changes them off the event thread. See
-[CONFIGURATION.md](CONFIGURATION.md#files-and-personal-drives) for their scope
-and restart behaviour.
+**Files retain their access boundary.** The file browser works through Covia's
+file and DLFS adapters as the acting user. Reads create no jobs; changes use
+operations and leave records. Folder access and personal drives have different
+scopes ([CONFIGURATION.md](CONFIGURATION.md#files-and-personal-drives)).
 
-**The file browser separates presentation from storage.** `ui/files/FileBrowser`
-uses the small, provider-independent `files/FileSource` boundary; `VenueFiles`
-works through Covia's running file and DLFS adapters with their access checks.
-Reads are job-free. Changes run as the person's own file operations, so each
-leaves a record; bytes brought in from the computer or saved out to it stream
-through the adapters' content API under the same checks. `FileChanges` runs
-each change as a batch off the event thread: it never replaces an item,
-carries on past one that fails, and names the folders that changed.
-Navigation and bounded previews run off the event thread. A lazy directory
-cache shares reads between tree expansion and folder selection; a change
-forgets the folders it touched and what is in them, refresh invalidates it
-all, and principal
-changes replace the entire binding. Stale results
-are discarded after selection, principal changes or logout. The browser uses
-the shared Tau cards, labels, icons and readouts. Sharing this
-component with Convex GUI is future work; the first implementation lives in
-Tau without a Convex GUI dependency.
+**Recovery follows typed conditions.** A missing saved session starts a new
+conversation only for the agent adapter's recognised unknown-session code.
+Other failures preserve the selection and surface the error; message wording
+never decides recovery.
 
-**The chat session reflects the agent framework.** The session view represents
-Covia agent state and allows user interactions through the embedded APIs.
-Its close coupling to the framework is intentional: the venue owns execution,
-history and memory, while the view owns selection, rendering and subscriptions.
+**The venue owns conversation execution.** Chat displays its history and live
+events. A turn has no overall deadline; individual tool calls have the
+configured timeout ([CONFIGURATION.md](CONFIGURATION.md#chat)). In-flight
+status shows reported facts, not an invented account of the model's thinking.
 
-**Session recovery requires a recognised condition.** When resuming a saved
-conversation, Tau starts a fresh one only for the agent adapter's
-optional unknown-session code. Missing or unfamiliar codes leave the saved
-conversation in place and surface the failure; message wording never decides
-recovery. The code contract belongs to [Covia Jobs](https://github.com/covia-ai/covia/blob/develop/venue/docs/JOBS.md).
+**Speech is an explicit choice.** Voice typing writes into the draft and uses
+the chosen send rule. Reading aloud is separately enabled. Both use the
+venue's speech adapter; engine settings and data handling belong in
+[CONFIGURATION.md](CONFIGURATION.md#voice-typing). Assistant Markdown renders
+through Covia Workbench; the owner's text stays as typed.
 
-**A reply has no deadline.** A turn takes as long as its model and tool calls
-take; each tool call may run for up to an hour ([CONFIGURATION](CONFIGURATION.md#chat)).
-
-**The assistant writes Markdown.** Assistant bubbles render through
-Covia Workbench's `covia.gui.markdown`: commonmark-java's AST becomes a styled
-document. Tau supplies its theme, bubble appearance and link actions;
-the shared Swing components install no application styling. The owner's own
-words stay as typed.
-
-**Voice typing writes into the draft, and sends only when told.**
-`ui/chat/VoiceInput` is the composer's microphone, holding its place in the
-draft while it is on; `voice/Microphone` records off the event thread,
-`voice/Voice` transcribes through Covia's speech adapter as the owner,
-`voice/LiveDictation` streams the recording to the in-process engine's live
-dictation so the words show as they are said, and `voice/Dictation` recognises
-a closing "go", said as its own sentence, or a pause as long as the owner
-chose, as Enter. Finding
-pauses and decoding belong to the engine, not the app: it says how long the
-speaker has been quiet. Sending does not close the microphone: each message is
-a dictation of its own on one open recording, and `voice/Relay` holds the
-audio between them so no word lands in the wrong message. A message with spoken words goes to the agent as a
-structured `{text, via}` message, as a channel's does, so the agent knows it
-was heard rather than typed from the message itself, not from prompt text.
-The engine is the venue's,
-configured as data, and by default runs on this computer; its model is fetched
-only once the owner agrees. Transcription is a read: the recording travels
-inline and is stored nowhere ([CONFIGURATION](CONFIGURATION.md#voice-typing)).
-
-**Replies are read aloud only when the owner chooses.** `ui/chat/ReadAloud`
-reads a reply the chat waited for when the owner's `voice.readRepliesAloud`
-preference is on (off by default), and any reply they ask to hear.
-`voice/SpokenText` keeps the prose of the Markdown, `voice/Voice` has it said
-through the speech adapter's `say` — a read, so neither words nor audio are
-kept — and `voice/Speaker` plays the WAV off the event thread, one reply at a
-time. While it plays, `voice/Microphone` hears silence, so an open dictation
-never takes the reply for the owner's words
-([CONFIGURATION](CONFIGURATION.md#reading-replies-aloud)).
-
-**In-flight activity shows facts only.** The thinking bubble presents what
-Tau has been told: preparing, running, elapsed time, and tool calls as
-the venue reports them.
-
-**Conversations are switchable, and a change never yanks you elsewhere.** The
-session view owns the selected conversation, live subscription and refreshes.
-`SessionFeed` reads and projects lattice state off the event thread; changing
-the selection invalidates pending results, and leaving a binding closes its
-feed and subscription. `Tau` owns application lifecycle and principal
-binding, not conversation watching. The agent record remains authoritative.
-
-**The tray is best-effort.** Without a tray the window still behaves sensibly,
-and a tray failure never takes the app down.
-
-**Shutdown flushes state.** Exit closes the venue before the process ends, and
-a shutdown hook covers Ctrl-C and SIGTERM.
+**Lifecycle must preserve state.** Tray support is optional. Shutdown closes
+the venue before process exit, with a shutdown hook for process termination.
+Takeover and recovery rules live in [LAUNCH.md](LAUNCH.md).
 
 ## Packaging
 
 The Covia version is selected in `pom.xml`; the snapshot build instructions
 are in [README.md](../README.md#try-it). Every in-process Covia module is
 the same version. Integration follows Covia's
-[embedder contract](../../covia/venue/docs/EMBEDDING.md): live-user components
+[embedder contract](https://github.com/covia-ai/covia/blob/develop/venue/docs/EMBEDDING.md): live-user components
 for reads, explicit workspace paths and transactions for writes, and the
 venue clock for timestamps and short-lived grants. Expected operation
 refusals use Covia's typed exceptions so their reason reaches the caller.
 
 The runnable jar is built by `maven-shade-plugin` with the services
 transformer, because Jetty, Javalin and LangChain4j rely on
-`META-INF/services`, and drops the venue's bundled OpenAPI plugin so the venue
+`META-INF/services`, and drops convex-restapi's bundled OpenAPI plugin so the venue
 serves its own document. Logging is configured programmatically from
 `tau/logback.xml` because the venue jar ships a root `logback.xml` of
 its own.

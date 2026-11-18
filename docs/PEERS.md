@@ -3,8 +3,8 @@
 How the Peers tab gets from sample data to the real network: what Tau
 holds about other nodes, where that comes from, and how the map's own settings
 are kept apart from it. The model is `tau.peers`; the map and its
-screen are `ui/peers`, drawing a sample source today. Past the first step the
-doc is ahead of the code. The networked product it serves is in
+screen are `ui/peers`. The home venue and its agents are live; remote nodes
+are samples. Local service and P2P sources remain proposed. The networked product it serves is in
 [NETWORK.md](NETWORK.md).
 
 - **Two structures, never mixed.** *Peer data* is what is known about other
@@ -15,7 +15,7 @@ doc is ahead of the code. The networked product it serves is in
   how it relates to you, its status, what it belongs to, and an open set of
   facts. Everything else is expected to change as the network's records do.
 - **One source, many kinds.** The map reads peer data from a source: the
-  samples today, then local services, then the P2P network. Which orbit a node
+  live home venue plus samples today, then local services and the P2P network. Which orbit a node
   sits on is a setting over its relation, not code.
 - **Settings are local and disposable.** They live with this installation,
   never travel to peers, and can be reset at any time without touching
@@ -55,14 +55,9 @@ the plane, and every other node orbits its owner. So:
 - **Anything attached further down** orbits whatever it belongs to, the same
   way.
 
-Distances round an owner are in the owner's radii and a body's size is a
-fraction of its owner's, so a system looks alike at any depth; with equal
-density, Kepler's law makes the period depend on that distance alone. A body
-on no named ring is packed outwards clear of its neighbours. A node may say
-how many children it has by a fact named for them ("Users" on a venue); those
-nobody has introduced are drawn as dim, unnamed bodies. How each depth looks,
-its size, glow, lines and labels, is configuration; the structure has no
-levels.
+Rendering geometry belongs to `MapLayout`, not the peer-data model. Missing
+children may be drawn as unnamed placeholders; they must not imply a known
+identity or an active connection.
 
 The operator acts as the venue itself, so the network knows both by the
 venue's DID. On the map the operator is keyed by a DID URL under it,
@@ -73,10 +68,10 @@ venue's DID. On the map the operator is keyed by a DID URL under it,
 The map reads one source, which can be swapped or combined, and refreshes
 when the source says something changed:
 
-1. **Samples**, as today. They stay as a demo mode for screenshots once live
-   sources exist. The "Preview" chip goes when every source is live.
-2. **Your venue.** The embedded venue, its operator, you, and each one's
-   agents, read in-process. This needs nothing upstream.
+1. **Samples**, currently used for remote nodes. Keep the preview indication
+   while any source is synthetic.
+2. **Your venue**, live now: the embedded venue, its operator, you and their
+   agents, read in-process.
 3. **Local services.** Tau already talks to real services: the model
    provider, Discord, Moltbook, the Convex peer, Claude Code, and MCP clients
    connected to the venue. Each can be a system of its own with its live
@@ -84,39 +79,21 @@ when the source says something changed:
 4. **The P2P network.** Venues and agents discovered and connected through a
    node run inside the venue, with real DIDs and names.
 
-The relation comes from what the venue already knows about the node, not from
-the map. Users you hold capability grants with, or follow, are people you
-trust. Users running work for you are services. Nodes vouched for, or found
-in a directory, are known but not connected. Everything else is unknown, and
-is drawn unlabelled far out.
+Relations come from the source, not the map. A follow, an introduction and a
+capability grant express different facts; a visual “trusted” relation must not
+imply permissions that were never granted. The network relationship model
+remains a decision in [NETWORK.md](NETWORK.md#shared-spaces-and-contacts).
 
 ## Map settings
 
-Map settings are how this installation draws the peer data. They live in a
-structure of their own:
+Map settings contain ring sizes, placements keyed by DID, zoom, tracking and
+pause preferences. They hold no node names, statuses or permissions. Defaults
+give unplaced nodes stable positions; invalid stored settings fall back to
+defaults. Resetting the map changes presentation only.
 
-- **Rings**: each one's name, the relations it holds, and its distance in the
-  radii of the body it circles. They apply under any body: by default the
-  admin is on the inner ring and users, you among them, on the outer, which
-  is where your venue's users sit. Dragging a ring's line resizes it, kept
-  between its neighbours.
-- **Placements**, keyed by DID, the same for every body: a root's position on
-  the plane, or, for anything else, its distance from its owner in the
-  owner's radii and its angle. A node with no placement is placed from a hash
-  of its DID, so the same node lands in the same place on every launch
-  without anything being stored; unplaced roots are pushed apart as they are
-  drawn, so no two systems overlap.
-- **View:** the zoom to open on, whether the map is paused, and the body the
-  view tracks, if any (your own planet, most likely). Panning while tracking
-  keeps tracking, from where the body was panned to.
-- **A version**, so the structure can evolve. Anything stored that does not
-  make sense, from another version or none, falls back to the defaults.
-
-Settings never hold a node's name, status or facts. A placement for a DID the
-source no longer reports is pruned when the tab opens; resetting clears
-placements and ring sizes and nothing else. The map's clock is the wall
-clock, so bodies keep moving while Tau is closed and placements hold
-across launches.
+Settings are versioned separately from peer data. Placements for absent nodes
+are pruned when the tab opens. Geometry and serialisation details belong in
+`MapSettings` and its tests.
 
 **Where they live.** In Tau's own adapter state on the venue, under the
 acting person's DID: encrypted with the store, outside the person's own
@@ -142,8 +119,8 @@ the operator keeps a separate arrangement.
    venue's identity, off by default and joined from Settings, with a
    read-only peers operation and change events. Tau reads it through
    the embedded API, as it reads everything else.
-5. **Relations.** Grants and follows mark the people you trust and link their
-   venues to yours; introductions arrive through people you trust.
+5. **Relations.** Show introductions, follows and granted permissions without
+   conflating them; the underlying authority model needs agreement first.
 6. **Agents and traffic.** Moons from the agents a peer lets you see; packets
    from real remote jobs and messages.
 7. **Actions.** The card's Message and Manage access become real.

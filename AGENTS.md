@@ -32,7 +32,7 @@ owns it.
 | Topic | See |
 |---|---|
 | Product principles | `DESIGN.md` |
-| Process shape, reads versus actions, source map, packaging | `ARCHITECTURE.md` |
+| Process shape, reads versus actions, boundaries, packaging | `ARCHITECTURE.md` |
 | Skills, tools and memory | `SKILLS.md` |
 | Startup, takeover, restart and relaunch, store repair, tray, exit | `LAUNCH.md` |
 | Venue, user and agent principals | `IDENTITY.md` |

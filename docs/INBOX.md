@@ -37,12 +37,9 @@ and goes to the log.
 
 ## Showing
 
-The Inbox screen renders its latest snapshot when it is shown, keeping
-unchanged cards and the drafts in them by owner and request id; a switch of
-principal discards those drafts. The badge counts the requests waiting for a
-decision. While any are, the tray icon carries a small red dot, cleared when
-none are left or on lock (`ui/TrayManager`). A newly arrived open request also
-shows a notification from the tray.
+The screen keeps unchanged cards and drafts by request owner and ID; switching
+principal discards drafts. The badge and tray mark reflect open requests, and
+only newly arrived requests trigger notifications. Lock clears the tray mark.
 
 ## Answering
 

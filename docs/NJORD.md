@@ -1,33 +1,26 @@
 # Njord, the treasurer
 
-Njord is the god through whom every financial transaction goes. He keeps the
-owner's signing keys and decides which payments to make. He is one of the
-gods; what they share — the bridges, asking the owner, answering to Odin — is
-in [GODS.md](GODS.md). This is what is his alone. Code: `Njord`.
+Njord judges payment requests and manages keys held in a separate treasury
+user. His bridges and oversight are described in [GODS.md](GODS.md). Code:
+`Njord`.
 
-- **Custody is the boundary.** Signing keys live in a treasury only his
-  bridge can act as, so no assistant and no other god can sign with them,
-  whatever tools it loads.
-- **He is sceptical by design.** He pays only what is well evidenced and
-  consistent with what the owner is trying to achieve.
-- **What is new to the owner goes to the owner.** A new recipient, a larger
-  sum than they have set, or anything unusual waits for their approval.
-- **His reason is the ledger line.** Every key, signature and transaction
-  carries it and is reported to Odin.
+- **Separate custody.** Tau's bridges reserve the treasury user for Njord.
+  This separates venue principals; it does not isolate keys from native code.
+- **Requests need evidence.** His prompt asks who is being paid, how much,
+  why, and what the owner authorised.
+- **Unusual payments need the owner.** This is judgement in his prompt, not
+  an automatic approval rule at the signing boundary.
+- **Budgets constrain one route.** Treasury payments enforce limits; his raw
+  signing can still use the same keys outside those limits.
+- **Actions are reported.** Mutations through his bridge require a reason
+  and attempt to report the outcome to Odin.
 
 ## Why Njord
 
-Money moves irreversibly, and the agent most easily talked into paying is the
-one that reads pages, mail and messages all day. An assistant that holds a
-signing key is one well-made sentence away from spending it. A treasury
-splits that duty in two: whoever asks for a payment is not whoever makes it.
-
-Judgement alone would not be enough. If the keys sat where any agent could
-reach them, a manipulated assistant, or a god loading the wrong skill, could
-sign without asking. So the keys sit where only Njord can use them, and his
-judgement guards the only way in. The assistants keep everything else about
-Convex — reading balances, writing source, explaining failures — and lose
-only the power to sign.
+The assistant requesting a payment should not also hold treasury credentials.
+Njord provides a separate judgement step. Keys left in the owner's own secret
+store remain usable by that owner's agents, so not every possible financial
+transaction is forced through Njord.
 
 ## Custody
 
@@ -50,12 +43,12 @@ through his bridge, signed with a treasury key, on a local Convex network.
 
 ## The treasury
 
-He pays through the treasury where he can: from a budget he made, within the
-spend limit the owner set on its account, with every payment a ledger line.
-His bridge runs its operations as him, granted exactly the account or budget
-each names. Adding accounts, setting their limits and holding their
-credentials are the owner's, in the app, and no operation of his reaches
-them. How it works is in [TREASURY.md](TREASURY.md).
+The [treasury](TREASURY.md) provides accounts, limits, budgets and a payment
+ledger. Njord's bridge grants only the resource authority each call needs;
+it permits adding accounts with a zero limit but excludes setting limits.
+Limit changes require `treasury/limit` on the venue's account resource;
+there is no owner-facing app flow yet. Treasury-exclusive credential custody
+is still proposed.
 
 ## How he judges
 
@@ -82,9 +75,8 @@ attack, and he tells Thor.
 
 ## How assistants reach him
 
-`brightside:ask-njord`. The Convex skills that once let an assistant sign
-(`accounts`, `cns`, `convex-lisp`, `smart-contracts`, `trust`) grant it
-instead ([SKILLS.md](SKILLS.md)). They teach the assistant to bring a request
+`brightside:ask-njord`. Tau's Convex skills expose this request tool for
+transactions ([SKILLS.md](SKILLS.md)). They teach the assistant to bring a request
 he can check — the source or recipient and amount, the network, the owner's
 words and what it has already verified — and never to pass on a payment that
 content asked for.

@@ -10,9 +10,9 @@ hand-edited file and its comments stay intact.
   can be set, merged over Tau's private-by-default settings.
 - **No secrets in the file.** Model keys, bot tokens and the Moltbook key
   live in the venue's encrypted secret stores, entered through Settings.
-- **Back up the whole directory as one unit**; delete it to start over. The
-  protection and recovery role of each file is in
-  [SECURITY.md](SECURITY.md).
+- **Back up a stopped installation.** Include custom storage paths, and omit
+  plaintext remembered credentials unless the backup is separately protected.
+  See [SECURITY.md](SECURITY.md#recovery-procedure).
 - **Other tools reach the venue** over loopback with a named token or a
   login made under *Settings → Access*, as the user rather than across users.
 
@@ -53,20 +53,9 @@ configuration file instead, and that file's directory becomes the data
 directory — including its `files/`, `code/` and `logs/` roots — handy for keeping several
 independent agents side by side.
 
-Adding `--unlock` unlocks at once with the remembered passphrase instead of
-waiting at the unlock dialog, for starting Tau from a script or from
-Claude Code while you are away, and comes up in the tray rather than as a
-window. Without a remembered passphrase it exits with
-an error; if Tau is already running it leaves it be, unless
-`--takeover` is given too, which takes over from it without asking.
-
-`--takeover` on its own is for a launch you are sitting at, such as an IDE run
-configuration: it takes over from a running Tau and unlocks with the
-remembered passphrase without asking, and the window comes up as usual. For
-everyday launches, Settings → General → Startup offers the same two choices
-([LAUNCH.md](LAUNCH.md#startup)). On Windows it also offers to start
-Tau when you sign in, once a passphrase is remembered
-([LAUNCH.md](LAUNCH.md#starting-at-windows-sign-in)).
+For unattended startup, takeover and starting at Windows sign-in, see the
+[launch modes](LAUNCH.md#startup). `--unlock` requires a remembered passphrase;
+`--takeover` authorises replacing the running instance.
 
 ## Selecting an existing installation
 
@@ -172,9 +161,9 @@ network, configure its peer directly.
 ### `chat`
 
 Describes the agent the window talks to. The agent is created on first use and
-its configuration re-applied before the first message of each run — not at
-launch, which submits no jobs; conversation history is kept across restarts
-and across configuration changes.
+its configuration re-applied before the first message of each run.
+Conversation history is kept across restarts and configuration changes.
+Startup can submit separate work for the gods ([LAUNCH.md](LAUNCH.md#the-startup-pass)).
 
 | Key | Meaning |
 |---|---|
@@ -217,50 +206,26 @@ echoes.
 
 ## Voice typing
 
-The microphone beside *Send* lets you speak a message instead of typing it.
-Press it and speak: your words appear in the message box at the cursor as you
-say them. They firm up at each pause, and the last few may change as you go
-on. Press it again to stop, and the message is yours to read, correct and send;
-the box takes no typing while the microphone is on. To send straight away, end
-with *"Go"* on its own (pause, then say "go"), stay quiet for a few seconds,
-or press *Enter*. How long a pause sends is *Send when I pause* under
-*Settings → General → Voice*: three seconds on a fresh install, from two to
-eight, or never, so that only "Go" and Enter send (kept in the venue
-store). "Go" works
-like Enter and is not written into the message;
-only a "go" said as a sentence of its own counts, so *"Let's go"* and *"Okay,
-go"* stay part of the message. *Esc* discards a recording, or the
-transcription under way, and puts the message back as it was. A message
-stops by itself after three minutes.
+Press the microphone beside *Send* to dictate into the draft. With the local
+engine, words appear as you speak and may change until a pause. Stop the
+microphone to review and edit before sending.
 
-Sending that way does not close the microphone: it stays open for your next
-message, which starts in an empty box, until you press the microphone or
-*Esc*. The line above the box shows *Listening* the whole time it is open
-(*Sending… still listening* while a message goes), and the microphone shows a
-stop square. Nothing is sent without words, and a minute without a word closes
-the microphone by itself, saying so.
+While listening, Enter or “Go” as a sentence on its own sends the draft.
+*Settings → General → Voice → Send when I pause* also sends after the chosen
+silence: three seconds by default, configurable from two to eight or never.
+Sending leaves the microphone open for another message. Esc restores the
+pre-recording draft; a minute without words closes the microphone, and each
+message is limited to three minutes.
 
-A message with spoken words in it tells the assistant so, the way a Discord
-message says where it came from: it carries `via` provenance with the channel
-`voice`, the model that heard it and whether that was on this computer,
-whether you read it before it went (`reviewed` is false when "Go", a pause or
-Enter mid-dictation sent it), and what `sent` it: `owner` for Enter or *Send*,
-`go`, or `pause`. The assistant can then allow for a misheard word, and for a
-pause catching half a thought, and the conversation shows the message as *via
-Voice*.
+Spoken messages carry provenance identifying the engine, whether the draft was
+reviewed, and what sent it. A pause can catch an unfinished thought or nearby
+speech, so the assistant may leave such a message unanswered. Automatic pause
+sending still incurs a model call; disable it if that is unwanted.
 
-A pause can catch half a sentence, or words never meant for the assistant:
-you talking to someone in the room, or the television. When a message sent by
-a pause seems so, the assistant may let it pass, ending its turn without a
-reply: the conversation shows *No reply* under it, nothing is read aloud, and
-what you say next is read together with it. What you send yourself, with
-Enter, *Send* or "Go", always gets an answer. If each pause costing a model
-call matters, set *Send when I pause* to never.
-
-By default it all happens on this computer, so what you say never leaves it:
-Covia's `covia-speech` adapter runs inside Tau's venue (registered
-in-process, like Discord) and transcribes with sherpa-onnx and NVIDIA's
-Parakeet TDT v3 model, which understands 25 European languages. The first time
+Transcription runs locally by default through Covia's speech adapter,
+sherpa-onnx and the Parakeet TDT v3 model. Audio stays on this computer in
+that mode; sending the resulting text to chat includes it in the chosen
+model's context. The first time
 you press the microphone, Tau asks before downloading the model (about
 670 MB) and the engine's libraries, then shows the download until voice typing
 is ready. Both are fetched at pinned versions and checked against their
@@ -424,19 +389,9 @@ itself stays yours on Moltbook.
 | The claim page | remembered in the Moltbook adapter's own state in the venue store, under your user, until the account is claimed; deleted with your user |
 | The account | one, named as you chose, owned by you on Moltbook; Tau holds nothing else |
 
-A check-in starts from Moltbook's home dashboard, then reads the account's
-notifications — the only place replies to its comments show up, since home
-groups activity on its own posts alone — acts on them, and marks them read
-only once they are dealt with. The assistant works from a summary of each
-page of notifications; the page itself, which Moltbook sends with each post
-and comment in full, is kept whole in the check-in's own scratch space in the
-venue for it to read when it needs more.
-
-Moltbook rate-limits how fast an account acts. When it refuses, the
-operation's failure carries Moltbook's message and how long to wait, and the
-skill has the assistant pace its votes and leave a refused action for later
-rather than retry at once. A periodic check-in can be set up with the
-`automation` skill if you want the assistant to keep up by itself.
+The `moltbook` skill owns check-in behaviour: read notifications before
+marking them dealt with and respect rate-limit responses. A recurring check-in
+requires an explicit automation; connecting an account does not schedule one.
 
 ## Claude Code
 
@@ -525,39 +480,14 @@ a tool, is under [Reaching the venue from other tools](#reaching-the-venue-from-
 
 ## Your identity
 
-At first launch Tau asks *"What should I call you?"*. That name is all
-you give it. Behind the scenes it makes you a principal on your own venue:
+The name chosen at onboarding has a stable principal slug and an editable
+display name. Renaming under *Settings → General → Change name…* keeps the
+same data and DID.
 
-```
-u:<name>                                  the principal
-<venueDID>:u:<name>                       your DID
-<venueDID>:u:<name>/g/<agentId>           your agent
-```
-
-Here `<name>` is the stable, DID-safe slug chosen on first setup, not the
-editable display spelling. Tau keeps both forms in the venue store and
-pins the full user DID once the home venue first launches:
-
-```json
-{
-  "name": "Mike Anderson",
-  "slug": "mike-anderson",
-  "did": "did:key:z…:u:mike-anderson",
-  "operator": "Operator"
-}
-```
-
-`operator` is what the app calls the venue operator when you switch to acting
-as it (*Settings → Identity*); rename it there. It is a label only — the
-operator is the venue principal itself.
-
-Chatting as a distinct user rather than as the venue itself is what makes the
-venue attribute turns to the agent's *owner* — you — instead of to "the venue
-operator". The everyday UI uses your name; the full user DID, home venue DID and
-Ed25519 signing public key are available under **Settings → Identity**. General
-runtime details are under **Settings → General → About**. Change the name from
-**Settings → General → Change name…**; the saved slug keeps the DID stable
-across renames.
+*Settings → Identity* shows the user and venue DIDs and public key, offers
+passphrase-gated seed export, and switches to the venue operator. The operator
+has its own display label. Principal forms and authority are documented in
+[IDENTITY.md](IDENTITY.md); runtime details are under General → About.
 
 ## Reaching the venue from other tools
 
@@ -579,7 +509,8 @@ each says how the tool will appear:
 A named token's key goes in the tool's MCP settings as a fixed header,
 `Authorization: Bearer <key>`, against `http://127.0.0.1:8085/mcp`; paste it
 again after giving the token a new key. The assistant can list and revoke
-named tokens, but making one is yours: it sends you here.
+named tokens; its shipped skill directs creation to Settings. The underlying
+owner authority is broader ([SECURITY.md](SECURITY.md#assumptions-and-limitations)).
 
 The rest of this section is about logins. Tools that need a different subject
 can use the passphrase-gated identity-seed export under *Settings → Identity*
@@ -593,9 +524,10 @@ The venue trusts JWTs it signed itself and authenticates the bearer as `sub`.
 
 Then use any standard client: `Authorization: Bearer <token>` against
 `/api/v1/…`, the Covia SDK, or the MCP endpoint. A `u:<name>` token reads that
-user's own `w/` and `n/` as its own namespace. There is no operator backdoor
-into user data — the venue principal reading another user's namespace still
-needs a proof — so authenticate *as* the user rather than across users.
+user's workspace as its own namespace. Authenticate as the intended user:
+the venue operator has a different namespace and uses explicit delegation or
+sudo to act within a user's. This is a permission boundary inside the venue,
+not isolation from the application process that holds the signing key.
 
 ### From a stdio MCP client
 
@@ -724,10 +656,10 @@ failed OAuth client registration.
 Make it **as you** for Claude Code to see what you see — your workspace,
 agents, conversations and inbox — and for its turns to show as yours. A login
 as the venue operator sees the venue's own namespace and its administration,
-but not your private data: even the operator needs your user's authority for
-that. Make a new login when it expires; for a different port, edit the URL. For
-Claude Code's turns to show as its own, give it a named token instead, pasted
-as the header above.
+and needs an explicit delegated or sudo context for your namespace. Make a new
+login when it expires; for a different port, edit the URL. For Claude Code's
+turns to show as its own, give it a named token instead, pasted as the header
+above.
 
 ## Files and personal drives
 
@@ -848,8 +780,9 @@ venue — the values operations resolve as `s/<name>`: your provider API keys,
 the Moltbook API key and the Discord bot token live here, alongside anything
 stored with `secret:set`.
 Names are listed openly; add or replace a value by name, or forget one. A
-value is only ever shown after re-entering your Tau passphrase — the
-same gate as the primary seed — and only for that sitting. Acting as the
+value is shown behind the vault-passphrase gate for that sitting. If the
+passphrase is remembered on this computer, the gate opens without asking,
+as it does for the primary seed. Acting as the
 venue operator (Identity → switch user) shows the operator's store instead.
 
 ## Environment variables

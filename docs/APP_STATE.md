@@ -19,37 +19,29 @@ in the Covia repository).
   they are removed when the person is deleted.
 - **Readable by their agents where that helps.** `x/brightside` shows a person
   their own part, read-only, through the ordinary read tools.
-- **Files only for what acts before launch.** A file outside the store holds
-  only configuration and policy overrides read before the store opens; secrets
-  go in the vault, everything else here.
+- **Separate application state from external files.** Pre-launch settings,
+  vault envelopes, logs and the owner's ordinary files remain outside the
+  store ([CONFIGURATION.md](CONFIGURATION.md#where-things-live)).
 
 ## What it holds
 
-| State | Where | Adapter |
-|---|---|---|
-| The owner's identity (display name, slug, user DID, operator label) | `owner` | `brightside` |
-| Chosen model | `model` | `brightside` |
-| The Tau and Covia versions the store last started under ([LAUNCH.md](LAUNCH.md#the-startup-pass)) | `startup/versions` | `brightside` |
-| A fingerprint of the agent setup and shipped skills the store last started with ([SKILLS.md](SKILLS.md#what-the-assistant-starts-with)) | `startup/setup` | `brightside` |
-| The startup problems Eir was last asked about, so the same ones do not ask her again ([EIR.md](EIR.md)) | `startup/asked` | `brightside` |
-| Voice preferences (read aloud, send after a pause) | `voice` | `brightside` |
-| Minimise to the tray, keep the tool token | `tray`, `toolToken` | `brightside` |
-| Peers map settings | `users/<did>/peers-map` | `brightside` |
-| Moltbook account record (name, claim page) | `users/<did>/record` | `moltbook` |
-| The treasury's accounts, budgets and ledger of payments ([TREASURY.md](TREASURY.md)) | `accounts`, `budgets`, `ledger` | `treasury` |
+| State | Owning adapter |
+|---|---|
+| Identity, model, startup checks and app preferences | `TauAdapter`, retaining the `brightside` state id |
+| Per-principal Peers map settings | `TauAdapter` |
+| Moltbook account metadata | `MoltbookAdapter` |
+| Treasury accounts, budgets and payment ledger | `TreasuryAdapter` |
+
+The adapters own their schemas. Call their methods rather than duplicating
+storage keys in views or operations.
 
 The skill-feedback backlog stays in the person's Covia workspace, because the
 assistant reads and writes it there with its ordinary tools. Secrets stay in
 the person's secret store; adapter state holds no credentials.
 
-**Staying outside.** The vault files (`identity.enc`, `vault.salt`,
-`keys.enc`, `unlock.passphrase`) unlock the store, so they cannot be in it.
-`config.json` is the operator's hand-edited configuration and names the store
-itself. Logs, `files/`, `code/` and `skills/` are the owner's files on disk.
-`prefs.properties` and `file-roots.json` hold only overrides read before the
-store opens: unlocking without asking, taking over a running instance, whether
-closing the unlock window keeps Tau in the tray, the look the unlock
-window is drawn in, and the folder roots the venue is configured with.
+File roles and protection are documented once in
+[CONFIGURATION.md](CONFIGURATION.md#where-things-live) and
+[SECURITY.md](SECURITY.md#files-and-their-recovery-role).
 
 ## Rules
 

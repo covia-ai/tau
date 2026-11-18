@@ -182,7 +182,7 @@ public final class OnboardingWizard extends JPanel {
 	private JComponent welcomeCard() {
 		JPanel c = column();
 		c.add(copy("Your own agent, on your own machine, under your own identity. "
-			+ "Nothing leaves this computer except the model calls you ask for.<br><br>"
+			+ "Your data is stored here. Models and connected services may receive data when you use them.<br><br>"
 			+ "This takes about a minute."));
 		return c;
 	}

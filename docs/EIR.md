@@ -14,29 +14,19 @@ alone. Code: `Eir`.
   model calls, so she comes in only when that has not worked.
 - **She diagnoses before she repairs**, and fixes the cause: the agent's
   record and error, its session and context, the venue's setup, Tau's log.
-- **What loses nothing she repairs and reports; anything else she asks
-  first.** Replacing or discarding the owner's work, or changing how an agent
-  behaves, waits for the owner's yes in the Inbox.
+- **Her prompt favours the smallest repair.** It requires asking before
+  discarding work or changing owner-controlled behaviour. This is judgement,
+  not an approval check enforced for every permitted repair.
 - **Some things are never hers**: secrets, grants, the owner's Inbox,
   creating or deleting agents, and the gods. Every change she makes is
   reported to Odin.
 
 ## Why Eir
 
-Tau runs unattended: scheduled work at night, assistants on channels while
-the owner is out. When something in the harness breaks — a model route
-retired, a skill renamed under a pinned load, an adapter that will not
-start — the assistant that hit it cannot mend itself, and the owner may not
-be there to notice. Tau already cures what a re-applied configuration
-cures. What is left needs diagnosis: reading the error and the log, working
-out the cause, and choosing a repair. That is judgement, so it is a god's.
-
-She is a god rather than a skill for the same reason Thor is: the repair
-has to come from outside the broken agent, and needs reach across the
-owner's agents, skills and the venue's setup that an assistant must not hold.
-She is not Odin because Odin's job is change the owner asks for, with the
-venue's whole authority; repair is narrower and frequent, and is better
-bounded by an allowlist and checked by Odin after the fact.
+A broken agent may be unable to diagnose itself. Tau first tries deterministic
+configuration repair; Eir investigates what remains. Her role is narrower
+than Odin's administration, with an allowlist of repairs and reports to Odin
+after action. She is not a general reviewer of task quality.
 
 ## What reaches her
 
@@ -74,7 +64,7 @@ one, refresh an MCP server, compact the store at the next start, and restart
 or relaunch Tau — the start that brings the gods back, since they are beyond
 her reach.
 
-Repairs that lose nothing she makes and reports: resuming an agent stopped by
+Her prompt permits routine repairs without asking: resuming an agent stopped by
 a fault, re-applying its configuration, reloading context, re-importing a
 skill unchanged, refreshing an MCP server, restarting or relaunching into the
 same build. A restart cuts short whatever is running, so she prefers the
@@ -89,8 +79,9 @@ After a new version, or a change to Tau's agent setup or shipped skills, she
 brings the owner's account up to date. Each agent Tau made goes onto Tau's
 current setup through `brightside:upgrade-agent`, which changes only Tau's
 own parts and keeps the agent's prompt, model, name, caps and the owner's
-pins ([SKILLS.md](SKILLS.md#what-the-assistant-starts-with)); that loses
-nothing, so she does it and reports. A skill of the owner's in `w/skills` with the name of one Tau ships
+pins ([SKILLS.md](SKILLS.md#what-the-assistant-starts-with)). App-owned tools
+and context are replaced, so the upgrade can change behaviour; she reports it.
+A skill of the owner's in `w/skills` with the name of one Tau ships
 shadows it ([SKILLS.md](SKILLS.md#namespaces)); when the owner's looks like an
 older copy rather than their own variant, she offers to replace it, showing
 what differs. An agent whose tools or loads name something that no longer

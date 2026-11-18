@@ -1,27 +1,23 @@
 # The gods
 
-Tau gives its owner a team of super-user agents, the gods, working for
-them beside their everyday assistants. Each god holds a power the assistants
-deliberately lack, and the judgement to use it on the owner's behalf. This
-doc is the idea and what the gods share; each god has its own doc for its
-design and motivation.
+The gods are venue-owned agents with specialist authority. They handle
+administration, reported threats, treasury requests and repair. Their roles
+and judgement live in the individual documents below; shared mechanisms live
+here in `God` and `Gods`.
 
-- **Assistants stay ordinary on purpose.** They act with the owner's
-  authority inside the owner's namespace, and they read untrusted content all
-  day. Anything beyond that — administering the venue, fighting an attack,
-  moving money — sits with a god instead.
-- **A god is the venue's own agent.** It belongs to the venue principal, not
-  to the owner's user, and answers to the owner alone.
-- **Power is caps; know-how is skills; judgement is a prompt.** What a god
-  *can* do is its standing Covia caps, which Covia checks at every point of
-  action. Its tools come with the skills its job calls for, and a tool its
-  caps do not cover does nothing. What a god *should* do is its system
-  prompt.
-- **They check one another.** Gods that act on their own judgement report
-  every change to Odin straight after. He takes a disagreement to the owner,
-  who breaks the tie.
-- **The owner decides what is theirs to decide**, through the Inbox, with the
-  decision laid out for them.
+- **Separate authority by role.** Ordinary agents act within their user's
+  authority. Gods have selected venue capabilities and narrow bridges into
+  user namespaces.
+- **Caps enforce; skills expose; prompts guide.** Loading a tool does not grant
+  its authority. Conversely, a prompt restriction does not remove authority
+  already held.
+- **Ask for the owner's decisions.** Gods use the venue Inbox, which the
+  desktop combines with the user's Inbox.
+- **Review after action.** Thor, Njord and Eir report changes made through
+  their run bridges to Odin. A reporting failure is logged; it does not undo
+  the change.
+- **Respect the process boundary.** Capabilities do not confine native code
+  loaded into the JVM or launched as the OS user. See [SECURITY.md](SECURITY.md).
 
 ## The team
 
@@ -29,7 +25,7 @@ design and motivation.
 |---|---|---|
 | Odin, the administrator | changes that need administrator rights; the wiser head the others answer to | [ODIN.md](ODIN.md) |
 | Thor, the guardian | responds to reported threats; can stop and restrict agents at once | [THOR.md](THOR.md) |
-| Njord, the treasurer | keeps the signing keys; every financial transaction goes through him | [NJORD.md](NJORD.md) |
+| Njord, the treasurer | manages treasury keys and judges payment requests | [NJORD.md](NJORD.md) |
 | Eir, the healer | repairs faults in Tau itself; Tau calls her when its own cure fails | [EIR.md](EIR.md) |
 
 They work as one team. An assistant that meets an attack tells Thor. One that
@@ -40,27 +36,11 @@ what they do.
 
 ## When a job deserves a god
 
-A job earns a god only if it needs one of three things: authority the
-assistants should not hold, independence from the agents it acts on, or a
-reach across the whole venue rather than one conversation. Everything else
-belongs in a skill or an ordinary agent. Every god turn is a model call, so
-the team stays small and its work lean. A report that changes nothing
-should trouble no one, and a god that would mostly be idle waits until its
-job exists. Anything that makes a god act on its own, such as a watch or a
-schedule, starts as one rule that is nearly certain when it fires: each
-firing is a turn, and turns cascade from god to god and on to the owner's
-Inbox.
-
-Ideas that may join when their job arrives, none of them built:
-
-- **Heimdall**, the gatekeeper: who may reach the venue from outside, once
-  venues meet venues ([NETWORK.md](NETWORK.md)).
-- **Idunn**, upkeep: store health, old sessions and failed jobs. A duty of
-  Odin's until it outgrows him.
-- **Mímir**, memory: consolidation across agents, if memory grows beyond
-  what each agent keeps ([ADVANCED_MEMORY.md](ADVANCED_MEMORY.md)).
-- **Loki**, the red team: probing the gods' and assistants' defences. Only
-  ever on a sandbox venue.
+Use a god only for authority ordinary agents should not hold, independence
+from agents it acts on, or responsibility across the venue. Otherwise use a
+skill or ordinary agent. Every god turn costs a model call; automatic triggers
+should identify a concrete problem and avoid repeated requests for the same
+condition. Additional roles remain proposals until such a need exists.
 
 ## What every god shares
 
@@ -68,7 +48,7 @@ Ideas that may join when their job arrives, none of them built:
 |---|---|
 | Owner | the venue principal, not the user |
 | Address | `<venueDID>/g/<name>` |
-| Created | when first needed — the first message, acting as the operator, a model change — never at launch, which submits no jobs; once configured, keeping a god current costs no job |
+| Created | at startup when a stored model is available, and when needed by chat or a model change; startup may also request Eir’s help |
 | Model | the chat's chosen model |
 | Memory | `n/memory` under the venue: the owner's decisions, and what the god has learnt |
 | Skills | the venue's own library, `v/skills/root`, and by name the skills its job calls for |
@@ -105,20 +85,10 @@ launch, before any god can act ([LAUNCH.md](LAUNCH.md#the-startup-pass)), and
 whenever the model changes (`God`). `GodCapsTest` shows Covia refusing what
 they leave out.
 
-A god's tools are the few it always needs (its bridges, the Inbox, its jobs,
-the reads its job turns on) and those of the skills it loads. Beside the
-venue's library it is offered, by name, the skills its job calls for: Covia's
-users, adapters, secrets, MCP and capabilities skills for Odin; users for
-Thor; Tau's log and session skills, adapters and MCP for Eir; Convex
-for Njord. A skill may bring tools its caps do not cover; Covia refuses them.
-
-Whatever can be worked out deterministically is an operation, not
-reasoning. Where a god's job needs a particular read or action, Tau
-gives it an operation shaped for that task, such as `brightside:storage` or
-`brightside:info`, rather than leaving the model to piece it together from
-general tools. One call returns what the god needs, so its reasoning goes
-on judgement alone. The operation checks its caller's authority like any
-other.
+A god starts with the tools and skills its role needs and can discover others.
+Covia refuses calls outside its caps regardless of the skill that exposes them.
+Keep deterministic diagnosis and validation in operations; use the model for
+judgement, not for reconstructing facts the application can read directly.
 
 ### The bridges
 
@@ -163,7 +133,7 @@ caps are the owner's design call, so the improvement loop leaves them alone.
 
 ### Answering to an overseer
 
-A god may have an overseer; Thor's, Njord's and Eir's is Odin. Then anything the
+A god may have an overseer; Thor's, Njord's and Eir's is Odin. Then a call through its run bridge that the
 venue does not declare read-only needs a reason. Once it is done, the run
 bridge reports it — operation, input, outcome and reason — to the overseer
 through the overseer's ask bridge, as the god, without waiting for a

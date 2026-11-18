@@ -11,37 +11,23 @@ stops — is in [GODS.md](GODS.md). This is what is his alone. Code: `Odin`.
   faults is Eir's ([EIR.md](EIR.md)).
 - **He judges each request on the owner's interest.** He does it, asks the
   owner first, or declines.
-- **He is the wiser head.** Every change Thor, Njord or Eir makes is reported
-  to him, and he takes a disagreement to the owner rather than undoing it.
+- **He reviews the other gods.** Their run bridges report changes to him;
+  his prompt requires taking disagreements to the owner.
 - **His caps are the venue's administration and no more**: Covia's
   administrative abilities over users, adapters and modules, peers, the
   venue's own secrets, its process and its store. They leave out money, the
   gods themselves, the venue's other state and the owner's Inbox, and Covia
-  refuses those whatever tool he loads. His run bridge lends the venue's
-  authority only for what caps cannot yet say.
+  refuses those direct operation calls. Loading modules and relaunching new
+  code bypass this capability boundary; see Known limits. His run bridge
+  handles checks that standing caps cannot yet express.
 
 ## Why Odin
 
-The owner's assistants act with the owner's authority, inside the owner's
-namespace, and that is all they should hold. Administering the venue — an
-integration switched on, a user added, access granted — needs the venue's
-own authority, which Covia gives an agent only when its caps say so, and for
-good reason: an
-assistant reads untrusted content all day, and an assistant that could widen
-its own access could be talked into it.
-
-So the authority sits with a god whose only job is to judge such requests.
-An assistant that needs something administrative asks for it and says why,
-and Odin decides on the owner's behalf. Asking the owner about everything
-would make them do the administration themselves; letting the assistants do
-it would make the venue only as safe as the least careful of them. Odin sits
-between: routine, reversible changes happen at once, and the rest go to the
-owner with the decision already laid out.
-
-The same role makes him the natural overseer. Thor, Njord and Eir act on their
-own judgement, because waiting would defeat their purpose. Someone should check
-that judgement after the fact, and Odin, who already weighs requests on the
-owner's interest, is that someone.
+Venue administration needs authority beyond an ordinary user's namespace.
+Odin judges those requests separately from the assistant that encounters
+untrusted content. His prompt favours routine, reversible changes and sends
+uncertain or consequential decisions to the owner. He also reviews the other
+gods' reports; that review follows their actions.
 
 ## What he can do
 
@@ -96,7 +82,7 @@ the owner breaks the tie.
 
 ## How assistants reach him
 
-`brightside:ask-odin`, which the `administration` skill grants
+`brightside:ask-odin`, which the `administration` skill exposes
 ([SKILLS.md](SKILLS.md)). The skill teaches what is administration rather
 than the assistant's own business, how to write a request he can judge, and
 that a slow answer is normal while the owner is being asked.

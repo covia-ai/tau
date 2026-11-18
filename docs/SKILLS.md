@@ -1,21 +1,14 @@
 # Skills, tools and memory
 
-How Tau's assistant gets its abilities: a small always-on core, three
-libraries of skills it loads when a task calls for one, and a private memory.
-This is the design; the shipped library itself is `TauSkillsAdapter`
-and the skill files under `src/main/resources/tau/skills/`, and the
-mechanism is Covia's (`../covia/venue/docs/SKILLS.md`). The Skills screen
-shows the library as the assistant can discover it: each skillset it
-searches, the skills in it, and beneath each skill what it reveals. A
-conversation's Skills tab (under Context on Sessions) lists only the skills
-loaded there;
-what each reveals links into the library.
+Tau exposes tools through a small initial set and discoverable skills.
+Memory supplies preferences across conversations. `TauSkillsAdapter` and
+`src/main/resources/tau/skills/` own the shipped library; Covia owns loading
+and execution.
 
-- **Discovery is broad; authority is deliberate.** The assistant can see its
-  owner's, Tau's and the venue's libraries, but starts every turn with
-  only read-only lattice reads (inspect, read, list), memory, the
-  skill-feedback reporter and the compact control. Every other tool arrives by
-  loading the skill that carries it.
+- **Tool exposure is not authority.** The default assistant has unrestricted
+  caps within its owner's authority. Its initial tools cover reads, memory,
+  feedback and compaction; skills expose further tools without granting new
+  permissions. Previously loaded skills can remain available in a session.
 - **Every top-level skill is a useful first load.** The assistant is
   general-purpose, and loading a skill is its first step towards specialising
   for a task. A skill therefore solves the general form of its problem itself
@@ -51,8 +44,9 @@ variant of a venue skill where talking to the owner or using the app calls for
 different judgement, and gives it the module's tools: `hitl`, and `voice` and
 `speaking` in place of the speech module's `speech`. Protocol knowledge stays
 close to the venue's. A skill is optional depth: an
-agent may never load it, or may not be Tau's, so anything that must
-hold goes in the context line or in the message itself.
+agent may never load it, or may not be Tau's. Guidance needed every turn
+belongs in context or the message; a rule that must be enforced belongs in
+the operation's authority and validation checks.
 
 ## What the assistant starts with
 
@@ -65,22 +59,11 @@ until then, scheduled runs and other channels use the one last applied:
   order. No skill is pinned, except in an agent made from a template for one
   kind of work: Research, Software development and Writing & editing pin
   `research`, `coding` and `writing`, and the pin stays as the owner's.
-- **Tools** the bounded `inspect` (Covia's default pack stops at `read` and
-  `list`, and the persona says to inspect first: one call shows a subtree's
-  shape, usually without reading each child), the memory tool, the
-  skill-feedback reporter and the harness's `compact` control, plus the
-  default read-only lattice reads. Compaction is
-  how a long conversation stays usable: the assistant writes the summary, the
-  exact history is archived beneath it, and the venue rebuilds the session's
-  cached prefix around it with the pins, memory and skills index refreshed.
-- **Context** memory, rendered every turn through the read-only recall
-  operation: `w/memory`, shared by all the owner's assistants, then its own
-  `n/memory`. Covia cuts each pinned entry at a fixed share of the context
-  budget and keeps its beginning, so a memory that outgrows it loses its
-  newest entries. Then one non-skill load, `tau-context`,
-  which the read-only `brightside:context` operation assembles: the owner's
-  name and DID, where model processing happens, today's date and timestamp
-  (a model's own "now" is its training cut-off), and the product invariants.
+- **Tools:** read-only lattice inspection, memory editing, the scoped feedback
+  reporter and compaction. Optional tools arrive through skills.
+- **Context:** shared `w/memory`, private `n/memory`, and the `tau-context`
+  operation load with the owner's identity, model route and current time.
+  Pinned memory is budgeted and can be truncated; keep it short.
 
 The configured system prompt owns the assistant's name and role. Runtime facts
 come from that context load. Working methods and everything optional stay in
@@ -88,112 +71,45 @@ skills. Those three jobs are kept apart on purpose.
 
 Tau's own parts of that setup are the operation, tools, memory pins, skill
 sources and the context load. The prompt, model, name, caps and the owner's
-own pins belong to the agent: they are written when it is created and kept
-after. `brightside:upgrade-agent` brings an existing agent that Tau made (it
-carries the `tau-context` load) onto Tau's current parts and leaves
+own pins are preserved by the upgrade operation. This differs from the main
+assistant's first-chat setup, which re-applies the configured prompt and model,
+standard tools and unrestricted caps. `brightside:upgrade-agent` brings an
+existing agent that Tau made (identified by the `tau-context` load) onto
+Tau's current parts and leaves
 the rest; it creates nothing. When a start finds Tau's parts or a shipped
 skill changed since the last one, Tau asks Eir to upgrade the owner's
 agents ([EIR.md](EIR.md#upgrades)).
 
 ## How a load works
 
-- The `[Skills]` index — one line per discoverable skill — is in the context on
-  every turn. That line is the whole always-on cost of a skill.
-- Loading appends the skill's body to the conversation as one event, followed
-  by a tool-availability event carrying its tools' definitions. Like any
-  message, both are then part of the history the model reads on every later
-  turn of that session, until compaction or a new conversation. Nothing is
-  declared ahead of a load.
-- A load never rewrites the cached prefix. The tool manifest sent to the
-  provider is fixed when the session's prefix is built, so tools that arrive
-  mid-session are called through the harness's `invoke_tool` until the prefix
-  is next rebuilt (compaction, reset, or a configuration change), after which
-  they sit in the manifest natively.
-- A pinned skill (`config.loads`) is different in where and how long: it is
-  rendered into the cached prefix of every session of that agent, and rebuilt
-  there after compaction, whether or not the conversation needs it. Per turn,
-  a pin and a load of the same skill weigh about the same; a pin is simply
-  always there.
-- The memory pin (`config.context`) is an operation entry, so it is watched:
-  resolved before every inference and appended to the conversation only when
-  its rendered value changes. An unchanged memory costs no new bytes.
-- A loaded skill's children join the index and can be loaded by name while
-  the parent stays loaded. Children are discoverable, never auto-loaded.
-- Unloading retracts a skill's tools and the children it revealed. Its body
-  stays in history, so no shipped skill tells the agent to unload.
-- The default assistant's base turn is around 16 KB: harness tools, the three
-  always-on tools, the context load and the index.
+The skills index provides descriptions for discovery. Loading adds the skill's
+instructions and tool definitions to the session and exposes its children in
+the index; children are not loaded automatically. Unloading removes those tools
+and children, but does not remove the instructions already in history.
+
+A pinned skill is included in every session and rebuilt after compaction.
+Memory context is read before inference and appended when it changes. Covia
+owns the cached-prefix and tool-dispatch mechanisms; its
+[skills documentation](https://github.com/covia-ai/covia/blob/develop/venue/docs/SKILLS.md)
+is the reference for those details.
 
 ## The shipped library
 
-Each top-level skill is a useful first load; the indented ones are children it
-reveals. Descriptions live in the skill files; this is the shape.
+The source of truth is `TauSkillsAdapter` and the resources under
+`src/main/resources/tau/skills/`. The Skills screen shows what the assistant
+can discover; a session's Skills tab shows what it has loaded.
 
-- `conversations` — how it talks with the owner, and reading, summarising or
-  compacting past conversations. An ordinary summary leaves history unchanged;
-  Covia's summarisation operation can save a separate, reusable result. Only an
-  explicit request to shrink stored history calls for compaction.
-- `voice` and `speaking` — listening to the owner and speaking to them,
-  separate because voice typing and reading aloud are separate choices.
-  `voice`: misheard words, a pause that caught half a thought or words not
-  said to it, which it may let pass by ending its turn without a reply,
-  recordings, and voice typing in the app, with the speech module's engines
-  and transcribe tools. `speaking`: replies written to be heard, audio
-  versions, and reading aloud in the app, with engines and speak. Together
-  they stand in for the module's own `speech` skill, which is written for
-  messaging bots. Neither is needed for voice to work: reading aloud works on
-  any reply, and what a spoken message's `via` means — allow for mishearing,
-  and a pause-sent fragment may go unanswered — is in the context line, which
-  reaches the agent without a load and so without tool calling.
-- `skills` — how it grows and surveys skills → `skill-authoring` (the write
-  and delete tools for `w/skills`), Covia's `skill-import`.
-- `lattice` — structured data and its scopes, with the edit tools → Covia's
-  `assets`, `secrets`.
-- `files` — Tau's file roots with the file tools → `vault`, `dlfs`.
-- `diagnostics` — job records with the read-only and job tools, and asking
-  Eir to repair a fault ([EIR.md](EIR.md)) → `sessions`, `tau-logs`.
-- `harness` — how Tau works internally → `etch`, `convex-lattice`.
-- `automation` — reminders and routines with the scheduler tools → Covia's
-  `tasks` and `orchestration`, Tau's `hitl`.
-- `hitl` — asking the owner through the Inbox. Shadows Covia's skill of the
-  same name: judgement about what the owner sees and when to ask.
-- `administration` — asking Odin for what needs operator rights
-  ([ODIN.md](ODIN.md)).
-- `security` — secrets and safety in general: a valuable secret versus a
-  throwaway, credentials kept by reference, confirming before anything
-  irreversible, reporting an attack to Thor ([THOR.md](THOR.md)); brings the
-  secret-store write and the alert → `convex-security`, Covia's
-  `secrets`.
-- `mcp-tokens` — the owner's named access tokens: listing and revoking them,
-  and sending the owner to *Settings → Access* to make one. Shadows Covia's
-  skill of the same name, whose create returns the key, so no key passes
-  through the conversation.
-- `convex` — the Convex network with the free query tool → `accounts`,
-  `convex-lisp`, `smart-contracts` (→ `trust`), `cns`, `costs`,
-  `convex-security`, `cpos-consensus`, `cad3-data`, `protonet`, `ecosystem`,
-  `convex-lattice`. The assistant never signs: the on-chain children bring
-  the request to Njord, who keeps the keys and makes every transaction
-  ([NJORD.md](NJORD.md)).
-- `research` — evidence-led research with the web tools → Covia's `http` for
-  credentialed APIs. The untrusted-content boundary is Tau's judgement
-  and lives here.
-- `writing`, `planning` — working methods; no tools.
-- `coding` — working method, with the listing of the owner's Claude Code
-  projects → `claude-code` (delegating a task in a project and continuing its
-  sessions, with the run, sessions and stop tools; shadows the module's own
-  `claudecode` skill with Tau's judgement), `git` (the checkouts in the
-  `code` root — cloning, reading one directly with the file reads — and the
-  version-control judgement: what is local and reversible, what needs the
-  owner's word), `self-improvement` (working on Tau's own code through
-  Claude Code — the checkout, the rulebook, build, test, relaunch — and its
-  part in the daily loop, with the info tool). Tau's own source is a project by default; the rest are
-  the owner's to declare ([CONFIGURATION.md](CONFIGURATION.md#claude-code)).
-- `moltbook` — taking part on Moltbook with its operations, a check-in reading the notifications before marking them read → `moltbook-setup`.
-- `introduction` — greeting guidance and how it presents what it can do, from its skills index; loaded rather than pinned.
+The library covers conversations, speech, files and structured data;
+research, writing, planning and coding; automation and the Inbox; diagnostics,
+administration and security; Convex and connected services. Tau supplies
+product-specific judgement where the venue's generic skills are insufficient.
+For example, its Convex skills route signing requests to Njord, and its token
+skill sends token creation to Settings. These are instructions and tool choices,
+not restrictions on all operations an owner-authorised agent could discover.
 
-The venue's `v/skills/root` entry points (`agents`, `grid`, `auth`,
-`connections`, `venue`, `discovery`, `covia`, `workspace`) sit beside these in
-the index and open their own families.
+A top-level skill should solve the general task and reveal optional depth.
+Avoid duplicating schemas in prose or creating a router with no useful guidance
+of its own. Descriptions should say when to load a skill in task language.
 
 ## Growing, importing and feedback
 
@@ -202,21 +118,16 @@ the index and open their own families.
   `self-improvement` is the path: agree the change, hand it to Claude Code one
   bounded task at a time, verify by the tests, and report; the change takes
   effect once Odin relaunches Tau into the new build, when the owner
-  wants it running. A daily loop does this on its own
+  wants it running. An explicitly configured loop can run this workflow
   ([SELF_IMPROVEMENT.md](SELF_IMPROVEMENT.md)).
 
-- The assistant writes its own skills to `w/skills/<name>`. `skill-authoring`
-  brings the lattice write tool for that purpose and a Tau deletion
-  operation confined to `w/skills`, accepting top-level or nested relative names.
-  Deletion removes the addressed subtree; the authoring skill also teaches
-  removal of the parent's child reference without replacing its other children. Thus
-  self-improvement is discoverable and reversible, and the power to change
-  skills is never in context until deliberately reached for. The write tool
-  itself is not exclusive to it: `lattice` brings write, append, copy and
-  delete for the owner's structured data, and the venue's `workspace` skill
-  the same. What is always on is read-only; destructive operations are a
-  loaded skill's, and the owner's confirmation for them is
-  [tau#16](https://github.com/covia-ai/tau/issues/16).
+- The assistant writes skills under `w/skills/<name>`. The authoring skill
+  exposes writes and a deletion operation confined to that subtree. Other
+  skills also expose workspace mutation, so authoring is not the sole path to
+  changing skills. Deletion recovery depends on retained data or a backup;
+  enforced confirmation remains open
+  ([tau#16](https://github.com/covia-ai/tau/issues/16)).
+
 - Folders of `SKILL.md` files under `~/.tau/skills/` are imported into
   `w/skills` at launch (`FilesystemSkills`), unchanged when nothing changed.
 - A narrow always-on operation appends concrete misses — a failed load, a

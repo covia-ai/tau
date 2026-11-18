@@ -26,13 +26,7 @@ mistake or make a fresh one for the same payment. An ID handed out in the
 reply to `pay` would be lost with the reply. So the treasury hands out the ID
 before anything can be paid, and paying takes it.
 
-This is how payments are run elsewhere. In accounts payable a payment
-settles invoices already on record, and duplicates are stopped by checking
-the invoice, since paying one twice is the classic failure. One person
-prepares a payment and another releases it, under thresholds that say who
-may release how much. Card processors create a payment with an ID of their
-own and confirm it in a second call. The treasury follows the same shape:
-Njord prepares, and a budget or the owner releases.
+
 
 ## Payables
 
@@ -43,8 +37,9 @@ evidence:
   payment request's own identifier. It is copied, never made up.
 - **What it rests on**: the request Njord was given, or the owner's approval.
 
-A payment the owner asked for with no invoice behind it has no reference;
-its payable's own ID is then its only guard against repeats.
+A payment without an external reference has only its payable ID to guard
+against repeats. If the reply creating that payable is lost, creating another
+can still duplicate the obligation. The proposal does not yet resolve this.
 
 Recording a payable checks it against its budget and the account's limit and
 moves nothing. The reply repeats every detail, so Njord sees exactly what he
@@ -67,9 +62,10 @@ sends it. The payable then stands as paid, unknown, or open again:
 - **Unknown**, when the rail cannot say: it stays drawn, and asking again
   returns that, until settling finds out what the rail did.
 
-The rail's reference is what settling works from. It is made when the
-payment is sent, not when the payable is recorded, so a payable left unpaid
-holds nothing up at the rail.
+The rail's reference is what reconciliation works from. At-most-once payment
+requires a durable reference and a rail-specific retry or lookup contract;
+the payable ID alone does not establish that guarantee across a crash during
+submission. That protocol remains to be designed before implementation.
 
 Each ledger line names the payable it settled.
 
@@ -88,6 +84,8 @@ budget ([TREASURY.md](TREASURY.md#grants)). Reading payables is
 
 ## Not yet decided
 
+- How creating a payable can be retried safely when there is no external reference.
+- How each rail handles a crash between reservation, submission and recording the result.
 - Whether an open payable reserves its amount in the budget, or reserves
   nothing until it is paid.
 - Whether an open payable lapses after a while, or stays until it is

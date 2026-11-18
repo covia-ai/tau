@@ -20,39 +20,17 @@ job model is in [Covia Jobs](https://github.com/covia-ai/covia/blob/develop/venu
 
 ## The list
 
-The window hands the page the acting principal's `Jobs` component when a
-principal is bound, and nothing on lock. The list watches it, and each new
-index is filtered off the event thread into a view of row positions
-(`JobList`).
-
-- **When** is a seek: the id of the first job in range is the start time
-  shifted into an id's high bits, so the rows run from that position to the
-  newest.
-- **How it stands** groups Covia's statuses: active, waiting for the owner,
-  failed, completed and cancelled. The page offers one group at a time, or
-  all.
-- **Who started it** is read from the record's caller: the owner, one of their
-  agents, or another principal acting for them, such as a god.
-
-A filter on status or starter has to read records, so it scans the range from
-the newest back; a time range alone reads none. The list is a `JList` over
-`JobListModel`, which projects a row's `JobList.Job` only when the list asks
-for it and keeps a few hundred recently asked for. A fixed cell size makes the
-list ask only for the rows on screen. The selection follows its job by id
-across new indexes.
+`JobList` filters the acting principal's job index off the event thread. A
+time range seeks by time-ordered job ID without reading records. Status and
+caller filters must scan records within that range. Row summaries are built
+on demand, and selection follows the job ID across refreshed indexes.
 
 ## The detail
 
-Opening a job builds a `JobDetail` around its `JobRecord`, which watches it and
-lays itself out again whenever the record changes: status, actions, times, who
-started it, the agent and its conversation, the job it ran inside, tokens, and
-input, output, error and history in full. A breadcrumb leads back to the list
-and through the jobs it ran inside.
-
-Whether a job exists is decided when it is opened, from the jobs the list last
-read: a link to one the principal does not hold shows it as not found. A job
-deleted while its detail is open stays as it was, since a record that has gone
-tells the view nothing, and leaves the list when the list next reads.
+`JobDetail` follows a `JobRecord` and shows its status, attribution, input,
+result, error and history. Reading an unavailable job shows “not found”. A
+record deleted after opening can leave stale detail visible; see
+[Watcher’s absent values](WATCHER.md#absent-values-and-failures).
 
 ## Actions
 

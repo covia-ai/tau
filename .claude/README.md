@@ -2,7 +2,7 @@
 
 Claude Code's per-project directory. The agent instructions themselves live in
 [`../AGENTS.md`](../AGENTS.md) (with [`../CLAUDE.md`](../CLAUDE.md) as the pointer
-Claude Code reads); nothing here changes what the agent is told to do.
+Claude Code reads). The skills here add task-specific procedures.
 
 What git keeps and ignores here (`../.gitignore`):
 

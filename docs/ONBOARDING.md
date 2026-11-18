@@ -1,22 +1,17 @@
 # Onboarding, unlock and recovery
 
-How a new person goes from launching Tau to talking to their agent, and
-how a returning one gets back in. Three things become true on the way, without
-it ever feeling like a crypto tutorial:
+First run creates the identity and vault before the venue starts. Returning
+users unlock the same installation; recovery restores access using the phrase
+and retained store.
 
-- **An identity that is theirs alone**: an Ed25519 key, with an offline BIP39
-  recovery phrase they can write down.
-- **An encrypted vault on their own disk**, unlocked by a passphrase only they
-  know. The recovery phrase, not the passphrase, is what reproduces the
-  identity and reopens the store.
-- **A model to think with**: a provider chosen and its key stored encrypted on
-  the venue.
-
-The tone is [DESIGN.md](DESIGN.md)'s: warm and jargon-free, the crypto felt
-rather than explained, every technical surface reachable under Settings. What
-is on disk and how each file is protected is in
-[CONFIGURATION.md](CONFIGURATION.md) and [SECURITY.md](SECURITY.md); the key
-hierarchy and the recovery procedure are SECURITY.md's.
+- **Explain the choices.** Keep the flow short, but make recovery and any
+  plaintext remembered passphrase an informed decision.
+- **Save the phrase offline.** It restores the identity; it cannot recreate a
+  lost store.
+- **Choose the processing provider.** Model calls send context to that provider;
+  the echo bot needs no key.
+- **Keep later changes in Settings.** Key and file protection belong in
+  [SECURITY.md](SECURITY.md), configuration in [CONFIGURATION.md](CONFIGURATION.md).
 
 ## Three entry states
 
@@ -33,25 +28,15 @@ the wizard and unlock both run before it. The code is `OnboardingWizard`,
 
 ## First run
 
-1. **Welcome** — one line of promise (your own agent, on your own machine,
-   under your own identity; nothing leaves this computer except the model
-   calls you ask for) and one button.
-2. **Passphrase** — choose and confirm, with a live strength meter and a
-   minimum length, and a warning that the recovery phrase is what rescues a
-   forgotten passphrase. The salt is created and the passphrase key derived in
-   memory; nothing is written yet.
-3. **Identity** — create a new one, or import a recovery phrase. Creating shows
-   twelve words to write down and asks for two of them back; importing accepts
-   twelve or twenty-four words with live validation, and an advanced fold takes
-   a raw seed. The seed is then derived and written encrypted, and the venue's
-   DID is fixed.
-4. **Model** — provider and model from the venue's catalogue (for OpenRouter
-   and Ollama, any model id typed in), an API key with
-   a link to that provider's console, an optional test call, and a keyless
-   "use the offline echo bot" escape so the app works end to end without a
-   key. The key is staged encrypted and moved into the venue's secret stores at
-   first launch.
-5. **Name** — "What should I call you?", then straight into the chat.
+1. **Welcome:** introduce the local agent and proceed to setup.
+2. **Passphrase:** choose and confirm the vault passphrase.
+3. **Identity:** save a new twelve-word phrase and confirm the requested words,
+   or import a twelve- or twenty-four-word phrase. Advanced import accepts a
+   raw seed.
+4. **Model:** choose a provider and model, enter a key and optionally test it,
+   or use the offline echo bot. The key is staged encrypted until the venue
+   starts.
+5. **Name:** choose what the assistant should call the owner, then enter chat.
 
 ## Unlock
 
@@ -87,10 +72,6 @@ restores the identity only.
 - **Advanced** — change passphrase, view the recovery phrase behind the
   passphrase.
 
-Providers, their models and their secret names are listed in
-`model/Providers`; each listed model is one the venue catalogues. Settings and
-the new-agent dialog also offer every model the venue catalogues at
-`v/models/<provider>`, and those it reports a provider serving right now, such
-as the ones installed in Ollama. For a provider that runs only catalogued
-models, a listed model the venue no longer catalogues is left out, unless it
-is the one in use.
+The model catalogue and discovery rules are owned by `model/Providers` and
+the venue. The app also offers provider-discovered models, including installed
+Ollama models, and preserves the current selection if it leaves the catalogue.

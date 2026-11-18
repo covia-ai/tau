@@ -5,19 +5,20 @@ operators and anyone testing whether an installation can be recovered. It is
 not a claim that the host computer, the Java process, the model provider or
 user-installed skills are trusted in all circumstances.
 
-- **One secret.** A 32-byte Ed25519 seed is both the venue's signing identity
-  and, through a domain-separated hash, the key that opens the store.
-- **The recovery invariant.** Recovery phrase plus the retained store equals
-  the same identity and the same conversations, memory, skills and secrets.
-  The phrase reproduces the seed; the passphrase does not.
-- **Nothing sensitive is plaintext at rest**, except a passphrase the owner
-  explicitly chose to remember, and a day-long login for local tools they
-  chose to keep.
-- **Loopback only, authenticated only.** The venue binds to `127.0.0.1` with
-  anonymous access off; the only outbound traffic is the model call the owner
-  asked for.
-- **The UI is a separate principal.** The chat acts as the owner's user, and
-  Covia's capability checks are the boundary between principals.
+- **One root seed.** It establishes the venue's signing identity and derives
+  the key that opens the store. Provider credentials and treasury keys are
+  separate secrets.
+- **Recovery needs the data.** The phrase reproduces the identity; the phrase
+  plus a retained store recovers its contents. The passphrase does not
+  reproduce either.
+- **Encryption has a scope.** The store and seed envelope are encrypted.
+  Logs, configuration, ordinary files and optional remembered credentials
+  are not all protected by that encryption.
+- **Authenticated loopback is the default.** Configuration can override it.
+  Models, tools and integrations may send data to external services.
+- **Principals separate venue authority, not processes.** Chat acts as the
+  owner's user; the desktop application and embedded venue share one JVM and
+  one trust boundary.
 
 The implementation is `Vault`, `Mnemonic` and the recovery flow in
 `Tau`; the person-facing flow is [ONBOARDING.md](ONBOARDING.md); the
@@ -139,7 +140,7 @@ The data home is the directory holding `config.json`, by default
 | `unlock.passphrase` | **plaintext**, after explicit opt-in | Anyone who reads it can unlock the vault. Exclude from ordinary backups; cleared on recovery |
 | `tool-token.json` | **plaintext** user bearer token, after explicit opt-in | Anyone who reads it can act as the user until it expires (a day at most). Not needed for recovery; removed on quit and on recovery |
 | `config.json`, `prefs.properties`, `file-roots.json` | plaintext, no secrets; folder overrides include local paths and access choices | Back up when customised |
-| `skills/`, `files/`, `code/` | plaintext, the owner's own | Outside the encrypted store; back up if they matter. Treat third-party skills as executable authority; `code/tau` is a checkout Claude Code works in without asking (auto mode), as your OS user ([CONFIGURATION.md](CONFIGURATION.md#claude-code)) |
+| `skills/`, `files/`, `code/` | plaintext, the owner's own | Outside the encrypted store; back up if they matter. Review third-party skill instructions and the tools they expose; `code/tau` is a checkout Claude Code works in without asking (auto mode), as your OS user ([CONFIGURATION.md](CONFIGURATION.md#claude-code)) |
 | `logs/` | plaintext, rotated | Not needed; may contain operational detail |
 | `cache/speech/` | public downloads, each pinned by SHA-256: the speech model and sherpa-onnx's native libraries, which load into the process | Not needed; fetched again only once the owner agrees ([CONFIGURATION.md](CONFIGURATION.md#voice-typing)) |
 
@@ -236,9 +237,9 @@ A message that reaches the assistant from anywhere but the owner directly — a
 connected channel such as Discord, another user or agent, a tool connected
 through an access token — was let in by whoever admitted it, so the assistant
 acts on it with its own authority. Caution follows provenance instead: the
-venue labels each turn with where it came from, and the assistant's standing
-instructions and `security` skill treat anyone but the owner as an outside
-party, helped within reason but shown nothing private, and with nothing
+venue labels each turn with where it came from. The main assistant's default
+instructions and `security` skill direct it to treat anyone but the owner as
+an outside party, helped within reason but shown nothing private, and with nothing
 irreversible, outward-facing, costly or access-widening done on its word
 without the owner. Agents made from templates, and the gods, have their own
 instructions without this guidance. Routes that act for the owner, and how
@@ -284,6 +285,11 @@ trust is granted and withdrawn, are in [TRUST.md](TRUST.md).
   operations would let it make a token and read its key. Asking the owner to
   make one, approved in the Inbox, waits for an ask that runs one exact call
   on approval ([covia#592](https://github.com/covia-ai/covia/issues/592)).
+- Capabilities constrain venue operations, not native code. Odin can load
+  modules and relaunch into another jar; Claude Code runs as the OS user.
+  Those paths can reach data and keys outside venue capability checks.
+- External-message caution is prompt policy. Route-specific delegated
+  authority is proposed in [TRUST.md](TRUST.md), not enforced today.
 - Separating the signing seed from the store key, and transactional rekey, are
   [tau#5](https://github.com/covia-ai/tau/issues/5).
 
