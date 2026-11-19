@@ -57,6 +57,8 @@ condition. Additional roles remain proposals until such a need exists.
 
 `God` is one god's definition and `Gods` lists them. A new god is a
 definition, its two bridge resources and a place in that list.
+Their memory follows the same data boundary as the owner's assistants
+([SKILLS.md](SKILLS.md)).
 
 ### Caps and skills
 

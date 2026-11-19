@@ -88,11 +88,13 @@ public final class AgentSetup {
 			"context", Vectors.of(
 				Maps.of(
 					"op", ChatSession.MEMORY_RECALL_OP,
+					"trusted", CVMBool.FALSE,
 					"input", Maps.of("path", ChatSession.SHARED_MEMORY_PATH),
 					"label", "What you know about the user, shared with their other assistants and empty until one "
 						+ "records something — edit with path " + ChatSession.SHARED_MEMORY_PATH),
 				Maps.of(
 					"op", ChatSession.MEMORY_RECALL_OP,
+					"trusted", CVMBool.FALSE,
 					"input", Maps.of("path", ChatSession.MEMORY_PATH),
 					"label", "Your private memory of the user, empty until you record something — edit with path "
 						+ ChatSession.MEMORY_PATH)),

@@ -65,6 +65,11 @@ until then, scheduled runs and other channels use the one last applied:
   operation load with the owner's identity, model route and current time.
   Pinned memory is budgeted and can be truncated; keep it short.
 
+Mutable memory, including the gods' memory, enters the model as structured
+tool-result data, not system instructions. Recording a claim in memory does
+not make it an instruction from the owner. Tau's application context remains
+trusted configuration.
+
 The configured system prompt owns the assistant's name and role. Runtime facts
 come from that context load. Working methods and everything optional stay in
 skills. Those three jobs are kept apart on purpose.

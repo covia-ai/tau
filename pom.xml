@@ -46,7 +46,7 @@
 		     as a Central release, so ../convex needs installing first only
 		     while Covia's own convex.version is a SNAPSHOT. -->
 		<covia.version>0.12.0-SNAPSHOT</covia.version>
-		<!-- Integration baseline: Covia develop 33a61e3e83ebb6300ad3b4b7e285768ab604149d.
+		<!-- Integration baseline: Covia develop 5055c1e9c6d205669f6901d9501d0ddf56460938.
 		     Install that checkout's required modules; SNAPSHOT coordinates are mutable. -->
 		<flatlaf.version>3.8</flatlaf.version>
 		<bouncycastle.version>1.87</bouncycastle.version>

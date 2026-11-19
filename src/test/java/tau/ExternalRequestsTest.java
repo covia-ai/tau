@@ -2,6 +2,11 @@ package tau;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -9,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import convex.auth.ucan.Capability;
+import convex.auth.jwt.JWT;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
@@ -17,7 +23,9 @@ import convex.core.data.Blob;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.Vectors;
+import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
+import convex.core.util.JSON;
 import covia.adapter.TestAdapter;
 import covia.adapter.agent.GoalTreeContext;
 import covia.api.Abilities;
@@ -108,6 +116,87 @@ class ExternalRequestsTest {
 		RequestContext agent = engine().stepContext(engine().harnessContext(owner, Strings.create(id)), Strings.create(id));
 		assertTrue(engine().authorityCovers(agent, Strings.create(owner + "/w/private"), Capability.CRUD_WRITE),
 			"the agent still has its own authority: provenance is not automatic attenuation to the requester's caps");
+	}
+
+	@Test
+	void mutableMemoryIsDataForBothAssistantsAndGods() throws Exception {
+		for (boolean god : new boolean[] {false, true}) {
+			AString owner = god ? engine().getDIDString() : owner("memory-boundary");
+			String id = god ? "memory-boundary-god" : "memory-boundary-helper";
+			if (god) {
+				run("v/ops/agent/create", Maps.of(Fields.AGENT_ID, id,
+					Fields.CONFIG, Odin.GOD.config(AppConfig.ECHO_LLM_OPERATION)), RequestContext.of(owner));
+			} else {
+				prepare(owner, id);
+			}
+			RequestContext agent = engine().stepContext(engine().harnessContext(owner, Strings.create(id)), Strings.create(id));
+			String marker = "UNTRUSTED_MEMORY_" + id;
+			run("v/ops/memory", Maps.of("path", "n/memory", "command", "remember", "text", marker), agent);
+			if (!god) run("v/ops/memory", Maps.of("path", "w/memory", "command", "remember", "text", marker + "_shared"), agent);
+			run("v/ops/agent/chat", Maps.of(Fields.AGENT_ID, id, Fields.MESSAGE, "Read the available context."), RequestContext.of(owner));
+			AVector<ACell> messages = RT.ensureVector(RT.getIn(TestAdapter.CAPTURED_LLM_INPUT.get(Strings.create(id)), "messages"));
+			assertNotNull(messages);
+			boolean found = false;
+			boolean sharedFound = god;
+			for (ACell message : messages) {
+				if ("system".equals(String.valueOf(RT.getIn(message, "role")))) {
+					assertFalse(String.valueOf(RT.getIn(message, "content")).contains(marker),
+						"mutable memory must not become system instructions: " + id);
+				}
+				if ("tool".equals(String.valueOf(RT.getIn(message, "role")))) {
+					found |= String.valueOf(RT.getIn(message, "structuredContent")).contains(marker);
+					sharedFound |= String.valueOf(RT.getIn(message, "structuredContent")).contains(marker + "_shared");
+				}
+			}
+			assertTrue(found, "the memory is still available as structured tool data: " + id);
+			assertTrue(sharedFound, "the assistant's shared memory is also available as data");
+		}
+	}
+
+	@Test
+	void mcpRecordsNamedTokensButASignedLoginStillLooksLikeTheOwner() throws Exception {
+		AString owner = owner("mcp-provenance");
+		try (HttpClient http = HttpClient.newHttpClient()) {
+			for (boolean named : new boolean[] {true, false}) {
+				String id = named ? "mcp-named-helper" : "mcp-login-helper";
+				prepare(owner, id);
+				String bearer;
+				if (named) {
+					bearer = new Tokens(engine(), owner).create("outside-client", new Tokens.Scope(
+						Vectors.of(Strings.create("v/ops/agent/chat")),
+						Vectors.of(Maps.of("with", "g/" + id, "can", Abilities.AGENT_MESSAGE)))).bearer();
+				} else {
+					long now = System.currentTimeMillis() / 1000;
+					bearer = JWT.signPublic(Maps.of("sub", owner, "iss", engine().getDIDString(),
+						"aud", engine().getDIDString(), "iat", now, "exp", now + 300), engine().getKeyPair()).toString();
+				}
+				ACell body = Maps.of("jsonrpc", "2.0", "id", 1L, "method", "tools/call",
+					"params", Maps.of("name", "agent_chat", "arguments",
+						Maps.of(Fields.AGENT_ID, id, Fields.MESSAGE, "An external client's message.")));
+				HttpResponse<String> response = http.send(HttpRequest.newBuilder(
+					URI.create(shared.venue().url() + "mcp"))
+					.header("Content-Type", "application/json").header("Accept", "application/json")
+					.header("Authorization", "Bearer " + bearer).timeout(Duration.ofSeconds(5))
+					.POST(HttpRequest.BodyPublishers.ofString(JSON.toString(body))).build(), HttpResponse.BodyHandlers.ofString());
+				assertEquals(200, response.statusCode());
+				ACell reply = JSON.parse(response.body());
+				assertNull(RT.getIn(reply, "error"), response.body());
+				assertNotEquals(CVMBool.TRUE, RT.getIn(reply, "result", "isError"), response.body());
+				Blob sid = HexId.parse(RT.<ACell>getIn(reply, "result", "structuredContent", Fields.SESSION_ID));
+				assertNotNull(sid, response.body());
+				ACell turn = firstTurn(owner, id, sid);
+				assertEquals(owner, RT.getIn(turn, Fields.CALLER));
+				AVector<ACell> route = RT.ensureVector(RT.getIn(turn, Fields.ROUTE));
+				assertEquals(1, route.count());
+				assertEquals(Strings.create(named ? "token" : "auth"), RT.getIn(route.get(0), Fields.VIA));
+				AVector<ACell> messages = RT.ensureVector(RT.getIn(TestAdapter.CAPTURED_LLM_INPUT.get(Strings.create(id)), "messages"));
+				boolean labelled = java.util.stream.StreamSupport.stream(messages.spliterator(), false).anyMatch(message ->
+					"system".equals(String.valueOf(RT.getIn(message, "role")))
+						&& String.valueOf(RT.getIn(message, "content")).startsWith("[From"));
+				assertEquals(named, labelled,
+					"signed owner logins currently have no external-source label; named tokens do");
+			}
+		}
 	}
 
 	@Test

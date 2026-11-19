@@ -241,6 +241,13 @@ principals and handovers through tokens, channels, agents and sudo. A token
 identifies its issuer, not the person holding it. A copied label in message
 text cannot replace the recorded route. Unreadable routes are marked unknown.
 
+**A signed owner login does not identify an external tool.** An MCP request
+using one, including Tau's optional local-tool login, has the same `auth`
+route as the owner speaking directly. The model receives no external-source
+label for an initial message on that route. Use a named access token when
+the agent needs to distinguish the tool from the owner; a copied login
+cannot prove the owner's presence or intent.
+
 Tau's shared context and the gods' instructions require the whole route to
 be considered: an external sender does not become the owner merely because
 an intermediate call acts with the owner's authority. Token use, scheduled

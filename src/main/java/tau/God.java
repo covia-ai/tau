@@ -16,6 +16,7 @@ import convex.core.data.AVector;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.Vectors;
+import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
 import covia.api.Fields;
 import covia.grid.Job;
@@ -216,6 +217,7 @@ public record God(String id, String ask, String run, String overseer, String kee
 			// the read-only recall op (a context entry may run nothing else).
 			"context", Vectors.of(Maps.of(
 				"op", MEMORY_RECALL_OP,
+				"trusted", CVMBool.FALSE,
 				"input", Maps.of("path", MEMORY_PATH),
 				"label", "Your memory of " + remembers + ", empty until you record something — edit with path "
 					+ MEMORY_PATH)),
