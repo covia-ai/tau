@@ -1,0 +1,21 @@
+{
+	"name": "Read a Room",
+	"description": "Reads the posts in one of the owner's collaboration rooms after post number `after` (from the start when omitted), oldest first. Each post has its number n, time ts, author from, the token it came through as via, its text, and the thread it belongs to. `next` is the number to pass as `after` next time.",
+	"dateCreated": "2026-11-20T00:00:00Z",
+	"operation": {
+		"adapter": "brightside:room-read",
+		"readOnly": true,
+		"internal": false,
+		"input": {
+			"type": "object",
+			"properties": {
+				"room": { "type": "string" },
+				"after": { "type": "integer", "description": "The last post already read; -1 or omitted for the start" },
+				"limit": { "type": "integer", "minimum": 1, "maximum": 200 }
+			},
+			"required": ["room"],
+			"additionalProperties": false
+		},
+		"output": { "type": "object", "additionalProperties": true }
+	}
+}

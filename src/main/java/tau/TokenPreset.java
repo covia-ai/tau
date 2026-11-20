@@ -37,6 +37,22 @@ public enum TokenPreset {
 	},
 
 	/**
+	 * Read the owner's workspace and talk in its collaboration rooms
+	 * ({@link Rooms}), where a mention asks one of the owner's own agents,
+	 * never a god: for an outside agent working alongside the owner's.
+	 */
+	COLLABORATE("Collaborate", "Read your workspace, talk in its rooms, and ask your own agents there") {
+		@Override
+		public Tokens.Scope scope(String agentId) {
+			return new Tokens.Scope(
+				Vectors.of(OP_ROOM_POST, OP_ROOM_READ, OP_ROOM_WAIT, OP_READ, OP_LIST),
+				Vectors.of(
+					Capability.create(AGENTS, Abilities.AGENT_REQUEST),
+					Capability.create(WORKSPACE, Capability.CRUD_READ)));
+		}
+	},
+
+	/**
 	 * All of the owner's authority. Its tools include {@code grid_run}, which
 	 * runs any operation, so it reaches everything the owner can without the
 	 * token naming every tool.
@@ -64,7 +80,11 @@ public enum TokenPreset {
 	private static final AString OP_JOB_RESULT = Strings.intern("v/ops/job/result");
 	private static final AString OP_READ = Strings.intern("v/ops/covia/read");
 	private static final AString OP_LIST = Strings.intern("v/ops/covia/list");
+	private static final AString OP_ROOM_POST = Strings.intern("v/ops/tau/room-post");
+	private static final AString OP_ROOM_READ = Strings.intern("v/ops/tau/room-read");
+	private static final AString OP_ROOM_WAIT = Strings.intern("v/ops/tau/room-wait");
 	private static final AString JOBS = Strings.intern("j/");
+	private static final AString AGENTS = Strings.intern("g/");
 	private static final AString WORKSPACE = Strings.intern("w/");
 
 	private final String label;

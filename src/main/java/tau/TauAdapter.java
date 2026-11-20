@@ -373,11 +373,20 @@ public class TauAdapter extends AAdapter {
 	@Override
 	protected void installAssets() {
 		for (String op : List.of("info", "context", "delete-skill", "report-skill-feedback",
-			"shutdown", "restart", "relaunch", "storage", "upgrade-agent")) installAppOperation(op);
+			"shutdown", "restart", "relaunch", "storage", "upgrade-agent",
+			"room-post", "room-read", "room-wait")) installAppOperation(op);
 		for (God god : Gods.ALL) {
 			installAppOperation(god.ask());
 			installAppOperation(god.run());
 		}
+	}
+
+	/** The owners' collaboration rooms, made with the engine on first use. */
+	private Rooms rooms;
+
+	synchronized Rooms rooms() {
+		if (rooms == null) rooms = new Rooms(engine);
+		return rooms;
 	}
 
 	/** Both public names dispatch to the same adapter and state, with distinct tool names. */
@@ -429,6 +438,15 @@ public class TauAdapter extends AAdapter {
 		}
 		if ("upgrade-agent".equals(op)) {
 			return handleUpgradeAgent(ctx, input);
+		}
+		if ("room-post".equals(op)) {
+			return rooms().post(ctx, input);
+		}
+		if ("room-read".equals(op)) {
+			return rooms().read(ctx, input);
+		}
+		if ("room-wait".equals(op)) {
+			return rooms().await(ctx, input);
 		}
 		God god = Gods.byBridge(op);
 		if (god != null) {

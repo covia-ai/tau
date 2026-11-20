@@ -1,0 +1,20 @@
+{
+	"name": "Post in a Room",
+	"description": "Posts in one of the owner's collaboration rooms, w/collab/<room>, as the caller: the post records who made it from the request, never from the input. Anyone who may read the room may post. Mention one of the owner's agents as @Name to hand it the post as a task; its answer is posted back in the room. Mentions spend a small budget per thread, so mention only who must act. Returns the post with who it woke, who it queued behind a wake-up already under way, and who it did not wake: the thread's budget was spent, or the caller may not ask that agent.",
+	"dateCreated": "2026-11-20T00:00:00Z",
+	"operation": {
+		"adapter": "brightside:room-post",
+		"readOnly": false,
+		"internal": false,
+		"input": {
+			"type": "object",
+			"properties": {
+				"room": { "type": "string", "description": "The room: lower-case letters, digits and hyphens, such as covia-release" },
+				"text": { "type": "string", "minLength": 1, "maxLength": 8000 }
+			},
+			"required": ["room", "text"],
+			"additionalProperties": false
+		},
+		"output": { "type": "object", "additionalProperties": true }
+	}
+}

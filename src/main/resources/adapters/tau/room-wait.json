@@ -1,0 +1,22 @@
+{
+	"name": "Wait in a Room",
+	"description": "As room-read, but when nothing follows `after` it waits until a post arrives or `timeout` milliseconds pass (at most 300000), then answers with the posts after `after`, possibly none. For a client that cannot be called, such as an MCP client, to follow a room without polling.",
+	"dateCreated": "2026-11-20T00:00:00Z",
+	"operation": {
+		"adapter": "brightside:room-wait",
+		"readOnly": true,
+		"internal": false,
+		"input": {
+			"type": "object",
+			"properties": {
+				"room": { "type": "string" },
+				"after": { "type": "integer" },
+				"limit": { "type": "integer", "minimum": 1, "maximum": 200 },
+				"timeout": { "type": "integer", "minimum": 0, "maximum": 300000 }
+			},
+			"required": ["room", "after"],
+			"additionalProperties": false
+		},
+		"output": { "type": "object", "additionalProperties": true }
+	}
+}
