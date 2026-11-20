@@ -40,8 +40,8 @@ public final class Odin {
 	 * <li>{@code admin/sudo}, {@code admin/user/export} and
 	 *     {@code admin/user/import}: acting as a user goes through his bridge,
 	 *     and copying one whole carries their secrets;</li>
-	 * <li>{@code admin/user/authentication-manage}, which adds a way to sign in
-	 *     as someone as well as revoking one;</li>
+	 * <li>{@code admin/user/authentication-add}, which adds a way to sign in
+	 *     as someone;</li>
 	 * <li>{@code admin/venue/gc}, which collects the store while it runs:
 	 *     {@code brightside:storage} compacts at the next start instead;</li>
 	 * <li>{@code secret/extract}, and {@code outbound/any}.</li>
@@ -50,6 +50,7 @@ public final class Odin {
 	static final AVector<ACell> POWERS = Vectors.of(
 		God.cap("users", "admin/user/create"),
 		God.cap("users", "admin/user/read"),
+		God.cap("adapters", "admin/adapter/read"),
 		God.cap("adapters", "admin/adapter/manage"),
 		God.cap("p2p", "p2p/read"),
 		God.cap("p2p", "p2p/manage"),
@@ -68,8 +69,10 @@ public final class Odin {
 	 * <li>the venue's MCP servers reach local hosts and authenticate with the
 	 *     venue's secrets, and a standing cap for either would reach every
 	 *     host and every secret;</li>
-	 * <li>{@code user/authentication-revoke}, since Covia's one ability for it
-	 *     also adds a way to sign in as someone;</li>
+	 * <li>{@code user/authentication-revoke}, a user's sign-in key, which
+	 *     Covia now also grants on its own as
+	 *     {@code admin/user/authentication-revoke}, so it could become a
+	 *     standing cap;</li>
 	 * <li>{@code ucan/issue} signs as the venue, and a standing
 	 *     {@code grant/...} cap would let him grant whatever it names to
 	 *     anyone.</li>
