@@ -171,7 +171,7 @@ Startup can submit separate work for the gods ([LAUNCH.md](LAUNCH.md#the-startup
 | `agentId` | The agent's id under your namespace — `<venueDID>:u:<name>/g/<agentId>`. Fresh and implicit defaults are described in [Agent identity](IDENTITY.md#agent-identity). |
 | `operation` | The transition operation driving each turn. Default `v/ops/llmagent/chat`. |
 | `llmOperation` | The model operation. Default `v/models/anthropic/claude-sonnet-5-5`. OpenRouter and Ollama serve more models than the venue catalogues: `v/models/openrouter/<vendor>/<model>` or `v/models/ollama/<model>` names any of them, and one the catalogue lacks runs through the provider's own operation with that model. |
-| `systemPrompt` | The assistant's identity, role and tone. Dynamic owner/model context comes from Tau's read-only context operation; task detail belongs in on-demand skills. |
+| `systemPrompt` | The assistant's identity, role and tone; absent, the default persona under the name the app shows for the assistant, not its `agentId`. Dynamic owner/model context comes from Tau's read-only context operation; task detail belongs in on-demand skills. |
 
 A reply has no time limit. A turn takes as long as its model and tool calls
 take: the venue bounds each model call, and Tau lets each tool call run

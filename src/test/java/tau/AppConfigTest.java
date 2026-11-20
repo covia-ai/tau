@@ -65,6 +65,18 @@ class AppConfigTest {
 	}
 
 	@Test
+	void defaultPersonaFollowsTheShownNameNotTheAgentId() {
+		AppConfig old = AppConfig.parse("{chat:{agentId:\"Brightside\"}}", home);
+		assertEquals(AppConfig.DEFAULT_SYSTEM_PROMPT, old.chat().systemPrompt(),
+			"a pre-rename agent id does not name the persona");
+		assertEquals(AppConfig.parse("{}", home).systemPromptFor("Freya"), old.systemPromptFor("Freya"));
+		assertFalse(old.systemPromptFor("Freya").equals(old.systemPromptFor("Tau")), "the persona takes the name it is given");
+		AppConfig own = AppConfig.parse("{chat:{systemPrompt:\"Be brief.\"}}", home);
+		assertEquals("Be brief.", own.chat().systemPrompt());
+		assertEquals("Be brief.", own.systemPromptFor("Freya"), "the owner's own prompt is kept whatever the name");
+	}
+
+	@Test
 	void authOptionsPreservePrivateDefaults() {
 		for (String auth : new String[] {"{}", "{tokenExpiry:3600}", "{public:{caps:[]}}"}) {
 			Config venue = new Config(AppConfig.parse("{venue:{auth:" + auth + "}}", home).venueConfig());

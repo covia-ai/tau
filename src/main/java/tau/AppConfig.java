@@ -146,6 +146,8 @@ public final class AppConfig {
 	private final boolean repairStore;
 	private final AMap<AString, ACell> venue;
 	private final Chat chat;
+	/** The system prompt config.json sets, or null for the default persona. */
+	private final String configuredSystemPrompt;
 
 	private AppConfig(AMap<AString, ACell> raw, Path home) {
 		this.home = home;
@@ -153,12 +155,12 @@ public final class AppConfig {
 		this.repairStore = bool(raw, "repairStore", true);
 		this.venue = FileRoots.apply(merge(defaultVenue(home), RT.ensureMap(raw.get(Strings.create("venue")))), home);
 		AMap<AString, ACell> c = RT.ensureMap(raw.get(Strings.create("chat")));
-		String agentId = string(c, "agentId", DEFAULT_AGENT_ID);
+		this.configuredSystemPrompt = string(c, "systemPrompt", null);
 		this.chat = new Chat(
-			agentId,
+			string(c, "agentId", DEFAULT_AGENT_ID),
 			string(c, "operation", DEFAULT_OPERATION),
 			string(c, "llmOperation", DEFAULT_LLM_OPERATION),
-			string(c, "systemPrompt", defaultSystemPrompt(agentId)));
+			systemPromptFor(APP_NAME));
 	}
 
 	/**
@@ -321,5 +323,15 @@ public final class AppConfig {
 
 	public Chat chat() {
 		return chat;
+	}
+
+	/**
+	 * The configured assistant's system prompt when it goes by {@code name}:
+	 * config.json's own prompt if it sets one, else the default persona under
+	 * that name. The name is the one the app shows, never the agent id, which
+	 * on older installs is still {@code Brightside}.
+	 */
+	public String systemPromptFor(String name) {
+		return (configuredSystemPrompt != null) ? configuredSystemPrompt : defaultSystemPrompt(name);
 	}
 }
