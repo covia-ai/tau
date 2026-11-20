@@ -1073,6 +1073,13 @@ public final class Tau {
 		ensureGods(venue);
 		ChatSession c = chat;
 		if (c == null) return;
+		if (!appliesModelLive(actingAsOperator, agentId, config.chat().agentId())) {
+			// The gods took it above, and the owner's assistant takes it when it is
+			// next opened; reconfiguring this session would point it at the
+			// assistant's id under whoever is signed in, creating it there.
+			SwingUtilities.invokeLater(() -> window.showSystemMessage("Saved: the assistant will use " + op + "."));
+			return;
+		}
 		Thread t = new Thread(() -> {
 			String note;
 			try {
@@ -1090,6 +1097,15 @@ public final class Tau {
 		}, "tau-model");
 		t.setDaemon(true);
 		t.start();
+	}
+
+	/**
+	 * Whether a model chosen in Settings re-configures the open chat: only when
+	 * it is the owner's standard assistant ({@code standardId}). Another agent
+	 * keeps its own model, and the operator has no standard assistant.
+	 */
+	static boolean appliesModelLive(boolean actingAsOperator, String openAgentId, String standardId) {
+		return !actingAsOperator && standardId != null && standardId.equals(openAgentId);
 	}
 
 	/**

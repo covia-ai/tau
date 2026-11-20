@@ -106,4 +106,13 @@ final class TauTest {
 	private static List<String> ids(List<AgentRef> agents) {
 		return agents.stream().map(AgentRef::id).toList();
 	}
+
+	@Test
+	void settingsModelReconfiguresOnlyTheOwnersAssistant() {
+		assertTrue(Tau.appliesModelLive(false, "Brightside", "Brightside"));
+		assertFalse(Tau.appliesModelLive(true, "Brightside", "Brightside"), "the operator has no standard assistant");
+		assertFalse(Tau.appliesModelLive(true, "Odin", "Brightside"));
+		assertFalse(Tau.appliesModelLive(false, "Freya", "Brightside"), "another agent keeps its own model");
+		assertFalse(Tau.appliesModelLive(false, null, "Brightside"));
+	}
 }
