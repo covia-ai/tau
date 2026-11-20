@@ -2,12 +2,17 @@
 # Calls one of Tau's MCP tools as the owner and prints its text result.
 #   mcp.sh <tool> '<json arguments>'
 # Exit status 1 when the tool reports an error (its text is still printed),
-# 2 when Tau cannot be reached. Reads the owner's tool token from
-# ~/.tau/tool-token.json (Settings: keep the tool token), never prints it.
+# 2 when Tau cannot be reached. Reads the owner's login from
+# ~/.tau/tool-token.json (Settings > Access: keep a login as you for local
+# tools), never prints it. AS=operator calls as the venue operator instead,
+# from ~/.tau/operator-token.json (keep a venue operator login).
 # MCP_TIMEOUT (seconds, default 900) bounds a long agent turn.
 home="${TAU_HOME:-$HOME/.tau}"
-token="$home/tool-token.json"
-[ -f "$token" ] || { echo "Tau is not running (no tool token at $token)" >&2; exit 2; }
+case "${AS:-owner}" in
+	operator) token="$home/operator-token.json" ;;
+	*) token="$home/tool-token.json" ;;
+esac
+[ -f "$token" ] || { echo "Tau is not running, or this login is not kept (no $token)" >&2; exit 2; }
 command -v cygpath >/dev/null 2>&1 && token=$(cygpath -w "$token")
 python -I - "$1" "${2:-{\}}" "$token" "${MCP_URL:-http://127.0.0.1:8085/mcp}" "${MCP_TIMEOUT:-900}" <<'EOF'
 import json, sys, urllib.request

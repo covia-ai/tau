@@ -604,6 +604,16 @@ public final class MainWindow extends JFrame {
 			public void keepToolToken(boolean keep) {
 				app.setKeepToolToken(keep);
 			}
+
+			@Override
+			public boolean keepingOperatorToken() {
+				return app.keepOperatorToken();
+			}
+
+			@Override
+			public void keepOperatorToken(boolean keep) {
+				app.setKeepOperatorToken(keep);
+			}
 		});
 		settingsScreen = new SettingsScreen(generalPanel, themePanel, modelPanel, profilePanel, integrationsPanel,
 			schedulePanel, jobsScreen, secretsPanel, vaultPanel, accessPanel);

@@ -185,7 +185,7 @@ final class McpStdio {
 			long port = configuredPort == null ? AppConfig.DEFAULT_PORT
 				: configuredPort instanceof CVMLong value ? value.longValue() : -1;
 			if (port < 1 || port > 65535) throw new IOException("Invalid port");
-			Path token = ToolToken.file(config.toAbsolutePath().getParent());
+			Path token = ToolToken.USER.file(config.toAbsolutePath().getParent());
 			McpStdio bridge = new McpStdio((int) port, token, output);
 			try (HttpClient probe = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()) {
 				McpStartup.ensureRunning(config, (int) port, () -> bridge.ready(probe, (int) port, token));

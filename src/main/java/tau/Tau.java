@@ -954,10 +954,15 @@ public final class Tau {
 				// venue store itself is keyed to the seed, so it stays and reopens intact.
 				Files.deleteIfExists(home.resolve(Vault.KEYS_FILE));
 				forgetRememberedPassphrase();
-				// Like the remembered passphrase, the tool token is something to opt back into.
-				if (appState() != null) setFlag(TauAdapter.KEEP_TOOL_TOKEN, false);
-				else toolTokenWithdrawn = true; // the store is not open yet: withdrawn once it is
-				ToolToken.clear(home);
+				// Like the remembered passphrase, the logins for local tools are something to opt back into.
+				if (appState() != null) {
+					setFlag(TauAdapter.KEEP_TOOL_TOKEN, false);
+					setFlag(TauAdapter.KEEP_OPERATOR_TOKEN, false);
+				} else {
+					toolTokenWithdrawn = true; // the store is not open yet: withdrawn once it is
+				}
+				ToolToken.USER.clear(home);
+				ToolToken.OPERATOR.clear(home);
 				v.storeSeed(seedHex); // re-encrypt the seed under the new passphrase
 				this.vault = v;
 				this.venueSeedHex = seedHex;
@@ -1484,11 +1489,12 @@ public final class Tau {
 
 	/**
 	 * Mints a venue-signed access-token JWT authenticating the bearer as the
-	 * current named user, valid for {@code expiresInSeconds}. The home venue is
-	 * the signing authority ({@code iss}) and audience, but the stable user DID is
-	 * the subject ({@code sub}); Settings must not silently hand a user the venue
-	 * operator's authority. Returns null if the venue isn't up yet or no seed is
-	 * available.
+	 * current named user, or with {@code asOperator} as the venue operator,
+	 * valid for {@code expiresInSeconds}. The home venue is the signing
+	 * authority ({@code iss}) and audience, and the subject ({@code sub}) is the
+	 * stable user DID unless the operator was asked for by name: nothing hands
+	 * a user the operator's authority silently. Returns null if the venue isn't
+	 * up yet or no seed is available.
 	 */
 	public String mintAccessToken(long expiresInSeconds, boolean asOperator) {
 		if (identity == null || vault == null) return null;
@@ -2702,6 +2708,7 @@ public final class Tau {
 		}
 		if (toolTokenWithdrawn) {
 			app.saveFlag(TauAdapter.KEEP_TOOL_TOKEN, false);
+			app.saveFlag(TauAdapter.KEEP_OPERATOR_TOKEN, false);
 			toolTokenWithdrawn = false;
 		}
 	}
@@ -2769,6 +2776,21 @@ public final class Tau {
 
 	public void setKeepToolToken(boolean value) {
 		setFlag(TauAdapter.KEEP_TOOL_TOKEN, value);
+		renewToolToken();
+	}
+
+	/**
+	 * Whether a venue operator login for local tools is kept fresh in a file
+	 * while Tau runs (default false), so a tool on this computer can do what
+	 * the venue's own authority allows, such as relaunching Tau. See
+	 * {@link ToolToken#OPERATOR}.
+	 */
+	public boolean keepOperatorToken() {
+		return flag(TauAdapter.KEEP_OPERATOR_TOKEN);
+	}
+
+	public void setKeepOperatorToken(boolean value) {
+		setFlag(TauAdapter.KEEP_OPERATOR_TOKEN, value);
 		renewToolToken();
 	}
 
@@ -2864,15 +2886,20 @@ public final class Tau {
 		}
 	}
 
-	/** A fresh tool token if the owner keeps one and the venue can sign it; otherwise none at all. */
+	/** Each login for local tools fresh if the owner keeps it and the venue can sign it; otherwise none at all. */
 	private void refreshToolToken() {
+		refreshToolToken(ToolToken.USER, keepToolToken(), false);
+		refreshToolToken(ToolToken.OPERATOR, keepOperatorToken(), true);
+	}
+
+	private void refreshToolToken(ToolToken kind, boolean keep, boolean asOperator) {
 		Path home = config.home();
 		try {
-			String jwt = (keepToolToken() && !exiting.get()) ? mintAccessToken(ToolToken.LIFETIME_SECONDS, false) : null;
-			if (jwt == null) ToolToken.clear(home);
-			else ToolToken.write(home, jwt);
+			String jwt = (keep && !exiting.get()) ? mintAccessToken(ToolToken.LIFETIME_SECONDS, asOperator) : null;
+			if (jwt == null) kind.clear(home);
+			else kind.write(home, jwt);
 		} catch (Exception e) {
-			log.warn("Could not write the token for local tools: {}", e.toString());
+			log.warn("Could not write the {} for local tools: {}", kind.file(home).getFileName(), e.toString());
 		}
 	}
 
@@ -3080,7 +3107,8 @@ public final class Tau {
 	private void exit(int status) {
 		if (!exiting.compareAndSet(false, true)) return;
 		toolTokens.shutdownNow(); // no refresh may write it back
-		ToolToken.clear(config.home()); // nothing left to connect to
+		ToolToken.USER.clear(config.home()); // nothing left to connect to
+		ToolToken.OPERATOR.clear(config.home());
 		chatBindings.incrementAndGet();
 		log.info("Exit requested");
 		java.util.concurrent.CountDownLatch viewsClosed = new java.util.concurrent.CountDownLatch(1);

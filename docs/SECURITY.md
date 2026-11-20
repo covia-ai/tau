@@ -139,6 +139,7 @@ The data home is the directory holding `config.json`, by default
 | `keys.enc` | transient onboarding key staging, AES-GCM | Normally absent; provider keys live in the stores inside `venue.etch` |
 | `unlock.passphrase` | **plaintext**, after explicit opt-in | Anyone who reads it can unlock the vault. Exclude from ordinary backups; cleared on recovery |
 | `tool-token.json` | **plaintext** user bearer token, after explicit opt-in | Anyone who reads it can act as the user until it expires (a day at most). Not needed for recovery; removed on quit and on recovery |
+| `operator-token.json` | **plaintext** venue operator bearer token, after explicit opt-in | Anyone who reads it can act as the venue itself until it expires (a day at most): its users, adapters and secrets, and relaunching Tau into any jar. Not needed for recovery; removed on quit and on recovery |
 | `config.json`, `prefs.properties`, `file-roots.json` | plaintext, no secrets; folder overrides include local paths and access choices | Back up when customised |
 | `skills/`, `files/`, `code/` | plaintext, the owner's own | Outside the encrypted store; back up if they matter. Review third-party skill instructions and the tools they expose; `code/tau` is a checkout Claude Code works in without asking (auto mode), as your OS user ([CONFIGURATION.md](CONFIGURATION.md#claude-code)) |
 | `logs/` | plaintext, rotated | Not needed; may contain operational detail |
@@ -206,12 +207,14 @@ a reviewer inspects the effective configuration first.
 - **A login** is an Ed25519-signed bearer token for the current user or, as an
   advanced option, the venue operator: `iss = aud = <venueDID>`, `sub` the
   chosen principal. Its requests are that principal's. It is shown for copying
-  and never persisted. The one exception is opt-in: *Keep a login as you for
-  local tools* writes a user login, never an operator one, to
-  `tool-token.json`, valid for a day and replaced every hour while Tau
-  runs, so a tool on this computer can read it at each connect; it is deleted
-  on quit, on *Log out* (or Lock) until the next unlock, when the option is
-  turned off, and on recovery. Treat a copied login as a password until it
+  and never persisted. The exceptions are opt-in, each by its own setting:
+  *Keep a login as you for local tools* writes a user login to
+  `tool-token.json`, and *Keep a venue operator login for local tools* writes
+  an operator login to `operator-token.json`. Each is valid for a day and
+  replaced every hour while Tau runs, so a tool on this computer can read it
+  at each connect; each is deleted on quit, on *Log out* (or Lock) until the
+  next unlock, when its option is turned off, and on recovery, which also
+  turns both options off. Treat a copied login as a password until it
   expires.
 - **A named token** is a Covia access token for the venue's MCP endpoint: its
   requests are the user's, but only with the tools and caps set on it, and the

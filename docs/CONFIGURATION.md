@@ -30,6 +30,7 @@ hand-edited file and its comments stay intact.
 | `~/.tau/keys.enc` | Transient: stages an onboarding API key until the first launch moves it into the venue's encrypted secret stores; absent afterwards. |
 | `~/.tau/unlock.passphrase` | Optional remembered passphrase, stored as plaintext after explicit opt-in; exclude it from ordinary vault backups. |
 | `~/.tau/tool-token.json` | Optional: while Tau runs, a login as you for local tools, renewed hourly, after explicit opt-in ([From Claude Code](#from-claude-code)). |
+| `~/.tau/operator-token.json` | Optional: while Tau runs, a venue operator login for local tools, renewed hourly, after its own explicit opt-in ([From Claude Code](#from-claude-code)). |
 | `~/.tau/files/` | Tau-managed local files; exposed to the assistant as the confined writable `files` root. |
 | `~/.tau/code/` | Source checkouts the assistant works on, as the writable `code` root; `code/tau` is Tau's own source, a [Claude Code](#claude-code) project by default. The self-improvement loop keeps `last-good.jar` and `.covia-installed` beside it ([SELF_IMPROVEMENT.md](SELF_IMPROVEMENT.md)). |
 | `~/.tau/logs/` | Plaintext rolling logs; exposed to the assistant as the server-enforced read-only `logs` root. |
@@ -660,6 +661,14 @@ and needs an explicit delegated or sudo context for your namespace. Make a new
 login when it expires; for a different port, edit the URL. For Claude Code's
 turns to show as its own, give it a named token instead, pasted as the header
 above.
+
+**As the venue operator.** Tick *Settings → Access → Keep a venue operator
+login for local tools* and Tau also keeps an operator login, on the same
+terms, in `~/.tau/operator-token.json`. A tool that reads it can do whatever
+the venue's own authority allows: manage users, adapters and the venue's
+secrets, and relaunch Tau into a build, as the self-improvement loop does
+([SELF_IMPROVEMENT.md](SELF_IMPROVEMENT.md)). Anyone who can read your files
+can use it, so keep it only on a computer nobody else signs in to.
 
 ## Files and personal drives
 

@@ -319,6 +319,7 @@ public class TauAdapter extends AAdapter {
 	static final String READ_ALOUD = "voice/readRepliesAloud";
 	static final String MINIMISE_TO_TRAY = "tray/minimise";
 	static final String KEEP_TOOL_TOKEN = "toolToken/keep";
+	static final String KEEP_OPERATOR_TOKEN = "toolToken/operator";
 	/** How long a pause after speaking sends the message, in seconds. */
 	static final String SEND_AFTER_PAUSE = "voice/sendAfterPauseSeconds";
 

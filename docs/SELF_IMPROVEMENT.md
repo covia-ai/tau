@@ -23,7 +23,7 @@ schedule. The procedure is the
 |---|---|
 | Claude Code, from a scheduled task on the owner's computer | runs the loop: upgrades, implements, tests, relaunches, merges, reports |
 | Improver, the improvement agent | keeps the backlog honest, says what hurts most, weighs Claude Code's ideas, tries things |
-| Tau's assistant and gods | report misses and ideas to the backlog as they meet them; Odin relaunches Tau |
+| Tau's assistant and gods | report misses and ideas to the backlog as they meet them |
 | The owner | files issues, answers design questions, pushes, releases |
 
 Improver is an agent in the owner's namespace, forked from Tau's main agent
@@ -36,7 +36,7 @@ the skill's `agent.json`; each run applies it.
 
 The skill owns the commands and thresholds. A run checks the installation,
 upgrades Covia when justified, consults Improver on a bounded change, tests and
-commits it, then asks Odin to relaunch and runs the smoke checks. Successful
+commits it, then relaunches Tau into the new build and runs the smoke checks. Successful
 work is integrated into local `develop`; failures are rolled back where the
 store remains compatible and reported to the owner.
 
@@ -69,17 +69,18 @@ and history ([GODS.md](GODS.md), [LAUNCH.md](LAUNCH.md#the-startup-pass)).
 | The loop's checkout | `~/.tau/code/tau`, Tau's own Claude Code project: on the owner's machine a worktree on branch `improve` |
 | The backlog | `w/skill-feedback`, written by the skill-feedback operation: misses under their category, ideas under `improvement`; the loop marks entries `resolved` |
 | Work and design questions | GitHub issues on `covia-ai/tau` |
-| The last good build | `~/.tau/code/last-good.jar` (`file://code/last-good.jar` to Odin) |
+| The last good build | `~/.tau/code/last-good.jar` (`file://code/last-good.jar` to Tau's relaunch) |
 | The Covia commit last installed | `~/.tau/code/.covia-installed`, built from `../covia`'s committed `develop`, never its working tree |
 | The schedule | configured separately on the owner’s computer; no schedule is installed by this repository |
 
-Relaunching through Odin means Tau starts its successor itself, so the
-running app does not depend on the Claude session that asked. Odin keeps the
-owner's standing decision that the loop's relaunches are approved, and still
-judges each one: every request says why, with what changed and how it was
-tested, or what failed for a rollback. When relaunches come without reasons,
-or thrash between builds, he holds and asks the owner through the Inbox, and
-the loop reports what he asked rather than asking again.
+The loop relaunches by calling Tau's relaunch operation with the venue
+operator login Tau keeps for local tools while the owner has it ticked
+([CONFIGURATION.md](CONFIGURATION.md#from-claude-code)). A relaunch is a
+deterministic step of the loop, so no agent judges it; it is a recorded job of
+the venue's, and the report says what changed and how it was tested, or what
+failed for a rollback. Tau starts its successor itself, so the running app
+does not depend on the Claude session that asked. Without the operator login
+the loop cannot relaunch, and reports the build for the owner to relaunch.
 
 Reports and issues quote the backlog and logs as they are. An owner whose
 data is not test data says so in the repository's `CLAUDE.local.md`, and the

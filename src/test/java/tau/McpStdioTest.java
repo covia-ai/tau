@@ -50,7 +50,7 @@ class McpStdioTest {
 		String token = JWT.signPublic(Maps.of("sub", user, "iss", venue.did(), "aud", venue.did(),
 			"iat", now, "exp", now + 300), venue.engine().getKeyPair()).toString();
 		config(venue.port());
-		ToolToken.write(home, token);
+		ToolToken.USER.write(home, token);
 		try (Client client = new Client()) {
 			client.send(request(1, "initialize", initialise()));
 			ACell init = client.read();
@@ -129,11 +129,11 @@ class McpStdioTest {
 		server.start();
 		try {
 			config(server.getAddress().getPort());
-			ToolToken.write(home, "first");
+			ToolToken.USER.write(home, "first");
 			try (Client client = new Client()) {
 				client.send(request(1, "initialize", initialise()));
 				assertNotNull(RT.getIn(client.read(), "result"));
-				ToolToken.write(home, "second");
+				ToolToken.USER.write(home, "second");
 				client.send(request(2, "tools/call", Maps.of("name", "slow", "arguments", Maps.empty(),
 					"_meta", Maps.of("progressToken", "work"))));
 				assertEquals("notifications/progress", RT.getIn(client.read(), "method").toString());
@@ -153,7 +153,7 @@ class McpStdioTest {
 	@Test
 	void rejectedAuthenticationEndsTheProcessEvenWithStdinOpen() throws Exception {
 		config(shared.venue().port());
-		ToolToken.write(home, "not-a-valid-token");
+		ToolToken.USER.write(home, "not-a-valid-token");
 		try (Client client = new Client()) {
 			client.send(request(1, "initialize", initialise()));
 			assertEquals(1, client.exit());

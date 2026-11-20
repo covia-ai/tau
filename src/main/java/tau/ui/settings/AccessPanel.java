@@ -89,6 +89,10 @@ public final class AccessPanel extends SettingsPage {
 		boolean keepingToolToken();
 
 		void keepToolToken(boolean keep);
+
+		boolean keepingOperatorToken();
+
+		void keepOperatorToken(boolean keep);
 	}
 
 	/** A kind of access, with how it appears to the venue. */
@@ -139,6 +143,7 @@ public final class AccessPanel extends SettingsPage {
 	private final TextArea issued = new TextArea(3, 34).placeholder("The new key or login appears here");
 	private final JButton copy = Buttons.small("Copy");
 	private final JCheckBox keepToolToken = new JCheckBox("Keep a login as you for local tools");
+	private final JCheckBox keepOperatorToken = new JCheckBox("Keep a venue operator login for local tools");
 	/** The form's parts for each kind, shown and hidden as one. */
 	private Rows tokenRows, customRows, loginRows;
 	private Watcher.Watch<?> watch;
@@ -151,6 +156,8 @@ public final class AccessPanel extends SettingsPage {
 		build();
 		keepToolToken.setSelected(host.keepingToolToken());
 		keepToolToken.addActionListener(e -> host.keepToolToken(keepToolToken.isSelected()));
+		keepOperatorToken.setSelected(host.keepingOperatorToken());
+		keepOperatorToken.addActionListener(e -> host.keepOperatorToken(keepOperatorToken.isSelected()));
 	}
 
 	private void build() {
@@ -209,6 +216,15 @@ public final class AccessPanel extends SettingsPage {
 		addField("Login", "While " + APP_NAME + " runs, keeps a login as you, valid for a day, in tool-token.json in "
 			+ "your data folder, for tools on this computer such as Claude Code to read when they connect. Their turns "
 			+ "show as you. Like a remembered passphrase, anyone who can read your files can use it.", keepToolToken);
+		keepOperatorToken.setOpaque(false);
+		keepOperatorToken.setToolTipText("Renewed every hour while " + APP_NAME + " runs, and removed when it quits");
+		addField("Operator", "While " + APP_NAME + " runs, keeps a venue operator login, valid for a day, in "
+			+ "operator-token.json in your data folder. A tool that reads it can do whatever the venue itself may: "
+			+ "manage users, adapters and the venue's secrets, and relaunch " + APP_NAME + ", as the daily "
+			+ "self-improvement loop does.", keepOperatorToken);
+		JLabel operatorWarning = new JLabel("Acts as the venue itself: anyone who can read your files can use it");
+		warn(operatorWarning, "Keep it only on a computer nobody else signs in to");
+		addSpan(operatorWarning);
 
 		fillPresets();
 		showKind();
