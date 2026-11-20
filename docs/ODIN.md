@@ -89,11 +89,12 @@ that a slow answer is normal while the owner is being asked.
 
 ## Known limits
 
-- Four things still go through his bridge, each because Covia cannot yet
+- Four things still go through his bridge, three because Covia cannot yet
   say it with a standing cap: deleting a user, which must never take the
   owner's account or a user a god keeps
   ([covia#703](https://github.com/covia-ai/covia/issues/703)); revoking a
-  sign-in key, since Covia's one ability for it also adds one; the venue's
+  sign-in key, which Covia now also grants on its own
+  (`admin/user/authentication-revoke`), so it could become a standing cap; the venue's
   MCP servers, which reach local hosts and authenticate with the venue's
   secrets, where a cap for either would reach every host or every secret;
   and issuing grants, which Covia signs as the venue, so a standing
