@@ -158,14 +158,14 @@ class V0Install {
 		return (s == null) ? "-" : s.replace("\\", "\\\\").replace("\r", "\\r").replace("\n", "\\n");
 	}
 
-	/** Compacts once the session is idle: the venue refuses compaction mid-cycle. */
+	/** Compacts the whole conversation, keeping no exchange, once the session is idle: the venue refuses compaction mid-cycle. */
 	static void compact(EmbeddedVenue venue, Venue client, String userDID, String sid, String summary)
 			throws Exception {
 		for (int attempt = 0; attempt < 100; attempt++) {
 			if (!SessionHistory.isSessionActive(venue.agentRecord(userDID, NOTES_AGENT), sid)) {
 				try {
 					invoke(client, "v/ops/agent/compact-session",
-						Maps.of("agentId", NOTES_AGENT, "sessionId", sid, "summary", summary));
+						Maps.of("agentId", NOTES_AGENT, "sessionId", sid, "summary", summary, "keep", 0L));
 					return;
 				} catch (Exception e) {
 					if (!String.valueOf(e.getMessage()).contains("active")) throw e;

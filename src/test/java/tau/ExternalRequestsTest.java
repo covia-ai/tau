@@ -193,8 +193,7 @@ class ExternalRequestsTest {
 				boolean labelled = java.util.stream.StreamSupport.stream(messages.spliterator(), false).anyMatch(message ->
 					"system".equals(String.valueOf(RT.getIn(message, "role")))
 						&& String.valueOf(RT.getIn(message, "content")).startsWith("[From"));
-				assertEquals(named, labelled,
-					"signed owner logins currently have no external-source label; named tokens do");
+				assertTrue(labelled, "every request over MCP names its source to the agent, a signed owner login's included");
 			}
 		}
 	}

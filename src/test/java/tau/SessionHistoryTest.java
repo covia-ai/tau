@@ -2,6 +2,7 @@ package tau;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -298,9 +299,9 @@ class SessionHistoryTest {
 		String sid = s.send("the opening question").sessionId();
 		s.send("a second message");
 
-		// The owner compacts the idle session under a summary (in the app the
-		// assistant writes it, through its compact control).
-		compact(client, userDID, "compact-agent", sid, "We discussed the opening question.");
+		// The owner compacts the whole idle session under a summary (in the app
+		// the assistant writes it, through its compact control).
+		compact(client, userDID, "compact-agent", sid, "We discussed the opening question.", 0);
 
 		SessionHistory.Snapshot snap = SessionHistory.load(client, "compact-agent", sid);
 		assertEquals(1, snap.items().size(), "the archived turns are replaced by one item: " + snap.items());
@@ -330,15 +331,39 @@ class SessionHistoryTest {
 		assertTrue(hasUserMessage(after, "and a third"), "new turns follow it");
 	}
 
-	/** Compacts once the session is idle: the venue refuses compaction mid-cycle. */
-	private static void compact(Venue client, String userDID, String agentId, String sid, String summary)
+	@Test
+	void exchangesACompactionKeepsFollowItsSummaryOnce() throws Exception {
+		String userDID = Identity.of("keeper").userDID(venue.did());
+		Venue client = venue.clientAs(userDID);
+		AppConfig.Chat chat = new AppConfig.Chat("keep-agent",
+			AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo the user.");
+		ChatSession s = new ChatSession(client, chat, "Keeper");
+		String sid = s.send("the opening question").sessionId();
+		s.send("the latest question");
+
+		compact(client, userDID, "keep-agent", sid, "We discussed the opening question.", 1);
+
+		List<SessionHistory.Item> items = SessionHistory.load(client, "keep-agent", sid).items();
+		SessionHistory.Summary summary = assertInstanceOf(SessionHistory.Summary.class, items.get(0), "the summary leads");
+		assertTrue(summary.earlier().contains(new SessionHistory.Message("user", "the opening question")));
+		List<SessionHistory.Message> after = items.subList(1, items.size()).stream()
+			.filter(SessionHistory.Message.class::isInstance).map(SessionHistory.Message.class::cast).toList();
+		assertEquals(List.of("the latest question", "the latest question"), after.stream().map(SessionHistory.Message::text).toList(),
+			"the kept exchange follows the summary once, as it was: " + items);
+	}
+
+	/**
+	 * Compacts once the session is idle, keeping its last {@code keep}
+	 * exchanges word for word: the venue refuses compaction mid-cycle.
+	 */
+	private static void compact(Venue client, String userDID, String agentId, String sid, String summary, long keep)
 			throws Exception {
 		Exception refused = null;
 		for (int attempt = 0; attempt < 50; attempt++) {
 			if (!SessionHistory.isSessionActive(venue.agentRecord(userDID, agentId), sid)) {
 				try {
 					invoke(client, "v/ops/agent/compact-session",
-						Maps.of("agentId", agentId, "sessionId", sid, "summary", summary));
+						Maps.of("agentId", agentId, "sessionId", sid, "summary", summary, "keep", keep));
 					return;
 				} catch (Exception e) {
 					if (!String.valueOf(e.getMessage()).contains("active")) throw e;

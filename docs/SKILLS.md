@@ -75,7 +75,8 @@ come from that context load. Working methods and everything optional stay in
 skills. Those three jobs are kept apart on purpose.
 
 Tau's own parts of that setup are the operation, tools, memory pins, skill
-sources and the context load. The prompt, model, name, caps and the owner's
+sources, the context load and taking tasks (`acceptTasks`), so a request,
+a schedule or another agent can hand the agent work. The prompt, model, name, caps and the owner's
 own pins are preserved by the upgrade operation. This differs from the main
 assistant's first-chat setup, which re-applies the configured prompt, model
 and standard tools, while preserving existing caps. Changing authority needs
