@@ -34,7 +34,9 @@ belongs to.
 A mention of one of the owner's agents hands it the post as a task, asked as
 the poster. A token's mention therefore reaches the agent narrowed by that
 token, and a poster who may not ask the agent wakes nothing. The agent's answer
-is posted back in the room as the agent, in the thread it was woken from.
+is posted back in the room as the agent, in the thread it was woken from, and
+the agents it mentions are asked as the thread's poster, so an answer reaches
+no further than the post that woke it.
 While Tau runs, an agent keeps one session per room, so it remembers the
 room's conversation between wake-ups.
 

@@ -46,7 +46,8 @@ import covia.venue.Engine.UserPathTarget;
  * <p>Only a mention wakes an agent ({@code @Name}, one of the owner's own
  * agents, never a god), and the wake-up goes to it as a task under the
  * poster's own authority: a token's post wakes the agent narrowed by that
- * token. The agent's answer is posted back in the room as the agent. What
+ * token. The agent's answer is posted back in the room as the agent, and the
+ * agents it mentions are asked as that poster too. What
  * keeps that from multiplying is mechanism, not the agents' manners:
  * <ul>
  * <li>a post by anyone but an agent starts a thread with {@link #THREAD_BUDGET}
@@ -109,7 +110,7 @@ final class Rooms {
 
 	/** Requests waiting for a room's next post, by owner and room. */
 	private final Map<String, List<CompletableFuture<Void>>> waiting = new HashMap<>();
-	/** Wake-ups left in each thread, by owner, room and the thread's first post. */
+	/** Wake-ups left in each thread that may still spend them, by owner, room and the thread's first post. */
 	private final Map<String, Integer> budgets = new HashMap<>();
 	/** Each agent's place in each room: its session, whether it is woken, what waits for it. */
 	private final Map<String, Seat> seats = new HashMap<>();
@@ -138,14 +139,23 @@ final class Rooms {
 			AString owner = owner(ctx);
 			engine.requirePathRead(ctx, Strings.create(path(room)));
 			AString author = ctx.getAuthorityDID();
-			boolean byAgent = Principals.agentIdOf(author) != null;
+			boolean byAgent = Principals.agentIdOf(author) != null || ctx.getAgentId() != null;
 			AMap<AString, ACell> posted = append(owner, room, author, via(ctx), text, -1, 0);
 			long n = ((CVMLong) posted.get(K_N)).longValue();
 			// A post by an agent other than as an answer starts a thread with nothing to spend
-			synchronized (this) {
-				budgets.put(key(owner, room, n), byAgent ? 0 : THREAD_BUDGET);
+			String thread = key(owner, room, n);
+			if (!byAgent) {
+				synchronized (this) {
+					budgets.put(thread, THREAD_BUDGET);
+				}
 			}
 			AMap<AString, ACell> outcome = mentions(ctx, owner, room, posted);
+			if (RT.ensureVector(outcome.get(K_WOKE)).isEmpty() && RT.ensureVector(outcome.get(K_QUEUED)).isEmpty()) {
+				// Nothing will answer in this thread, so nothing will spend from it
+				synchronized (this) {
+					budgets.remove(thread);
+				}
+			}
 			return CompletableFuture.completedFuture(posted.assoc(K_WOKE, outcome.get(K_WOKE))
 				.assoc(K_QUEUED, outcome.get(K_QUEUED)).assoc(K_NOT_WOKEN, outcome.get(K_NOT_WOKEN)));
 		} catch (Exception e) {
@@ -261,7 +271,8 @@ final class Rooms {
 		long now = System.currentTimeMillis();
 		while (!seat.wakes.isEmpty() && seat.wakes.peekFirst() < now - 3_600_000) seat.wakes.pollFirst();
 		if (left <= 0 || seat.wakes.size() >= WAKES_PER_HOUR) return false;
-		budgets.put(key, left - 1);
+		// A thread with nothing left needs no entry: a missing one has nothing to spend
+		if (left == 1) budgets.remove(key); else budgets.put(key, left - 1);
 		seat.wakes.addLast(now);
 		return true;
 	}
@@ -305,7 +316,9 @@ final class Rooms {
 						AString agentDID = Principals.agentDID(owner, Strings.create(agent));
 						AMap<AString, ACell> posted = append(owner, room, agentDID, null,
 							reply.length() > MAX_TEXT ? reply.substring(0, MAX_TEXT) : reply, wake.thread(), wake.depth() + 1);
-						mentions(engine.context(owner, agentDID), owner, room, posted);
+						// Its mentions ask as the thread's poster did: an answer reaches no
+						// further than the post that woke it
+						mentions(wake.as(), owner, room, posted);
 					}
 				}
 			} catch (Exception e) {

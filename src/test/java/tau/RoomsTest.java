@@ -128,6 +128,63 @@ class RoomsTest {
 		assertEquals(3, all.count(), "the agent answered the collaborator: " + all);
 	}
 
+	@Test
+	void anAnswersMentionsAskAsTheThreadsPosterNotAsTheAgent() throws Exception {
+		AString owner = owner("rooms-narrow");
+		agent(owner, "near");
+		agent(owner, "far");
+		String bearer = new Tokens(engine(), owner).create("narrow", new Tokens.Scope(
+			convex.core.data.Vectors.of(Strings.create("v/ops/tau/room-post")),
+			convex.core.data.Vectors.of(
+				convex.auth.ucan.Capability.create(Strings.create("g/near"), covia.api.Abilities.AGENT_REQUEST),
+				convex.auth.ucan.Capability.create(Strings.create("w/"), convex.auth.ucan.Capability.CRUD_READ)))).bearer();
+		RequestContext narrow = engine().tokenContext(tokens().tokens().lookup(bearer));
+		// near's echoed answer mentions far again, which the token may not ask
+		AMap<AString, ACell> sent = post(narrow, "narrow", "hello, @near @far");
+		assertEquals(List.of("near"), names(sent.get(Strings.create("woke"))));
+		rooms().whenIdle().get(WAIT, TimeUnit.SECONDS);
+		AVector<ACell> all = posts(run("room-read", Maps.of("room", "narrow"), RequestContext.of(owner)));
+		assertEquals(2, all.count(), "far is never woken in the token's thread: " + all);
+	}
+
+	@Test
+	void aCollaborateTokenOverMcpSeesTheRoomToolsAndItsMentionWakesAnAgent() throws Exception {
+		AString owner = owner("rooms-mcp");
+		agent(owner, "mcp-helper");
+		post(RequestContext.of(owner), "mcp", "the owner speaks first, @mcp-helper");
+		rooms().whenIdle().get(WAIT, TimeUnit.SECONDS);
+		String bearer = new Tokens(engine(), owner).create("grok", TokenPreset.COLLABORATE.scope("Tau")).bearer();
+		try (java.net.http.HttpClient http = java.net.http.HttpClient.newHttpClient()) {
+			ACell listed = mcp(http, bearer, Maps.of("jsonrpc", "2.0", "id", 1L, "method", "tools/list"));
+			List<String> tools = java.util.stream.StreamSupport.stream(
+				RT.ensureVector(RT.getIn(listed, "result", "tools")).spliterator(), false)
+				.map(t -> String.valueOf(RT.getIn(t, "name"))).toList();
+			assertTrue(tools.stream().filter(t -> t.contains("room")).count() == 3, "the room tools: " + tools);
+			String postTool = tools.stream().filter(t -> t.contains("room") && t.contains("post")).findFirst().orElseThrow();
+			ACell called = mcp(http, bearer, Maps.of("jsonrpc", "2.0", "id", 2L, "method", "tools/call",
+				"params", Maps.of("name", postTool, "arguments", Maps.of("room", "mcp", "text", "and now, @mcp-helper"))));
+			ACell result = RT.getIn(called, "result", "structuredContent");
+			assertEquals(Strings.create("grok"), RT.getIn(result, "via"), String.valueOf(called));
+			assertEquals(List.of("mcp-helper"), names(RT.getIn(result, "woke")), String.valueOf(called));
+		}
+		rooms().whenIdle().get(WAIT, TimeUnit.SECONDS);
+		AVector<ACell> all = posts(run("room-read", Maps.of("room", "mcp"), RequestContext.of(owner)));
+		assertEquals(4, all.count(), "the agent answered the owner and then the token, in one session: " + all);
+		assertEquals(Principals.agentDID(owner, Strings.create("mcp-helper")), RT.getIn(all.get(3), "from"));
+	}
+
+	private static ACell mcp(java.net.http.HttpClient http, String bearer, ACell body) throws Exception {
+		var response = http.send(java.net.http.HttpRequest.newBuilder(java.net.URI.create(shared.venue().url() + "mcp"))
+			.header("Content-Type", "application/json").header("Accept", "application/json")
+			.header("Authorization", "Bearer " + bearer).timeout(java.time.Duration.ofSeconds(WAIT))
+			.POST(java.net.http.HttpRequest.BodyPublishers.ofString(convex.core.util.JSON.toString(body))).build(),
+			java.net.http.HttpResponse.BodyHandlers.ofString());
+		assertEquals(200, response.statusCode(), response.body());
+		ACell reply = convex.core.util.JSON.parse(response.body());
+		assertNull(RT.getIn(reply, "error"), response.body());
+		return reply;
+	}
+
 	private static RequestContext tokenContext(AString owner, String name, TokenPreset preset) {
 		String bearer = new Tokens(engine(), owner).create(name, preset.scope("Tau")).bearer();
 		return engine().tokenContext(tokens().tokens().lookup(bearer));
