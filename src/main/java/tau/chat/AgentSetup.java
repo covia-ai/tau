@@ -106,9 +106,7 @@ public final class AgentSetup {
 			// read-only context operation; owner pins are preserved and shipped skills
 			// are selected from their descriptions on demand.
 			"loads", loads(existing, pinnedSkill, llmOperation, userName),
-			// Replace the old two-entry compatibility vector. Tau's complete
-			// skillset below is an explicit source, so lookup does not depend on Covia
-			// #415's unresolved operator-pin child expansion.
+			// No skill is named here: Tau's whole skillset is a source below.
 			"skills", Vectors.empty(),
 			// Discovery surface: the user's own skills plus the venue's shipped
 			// library and Tau's everyday-work skills. The agent loads only the

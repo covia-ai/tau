@@ -40,9 +40,8 @@ event thread, and then read the list and any open detail again at once.
 
 ## Known limits
 
-- The id order the time range relies on is how Covia makes ids, not yet a
-  promise of its API
-  ([covia#700](https://github.com/covia-ai/covia/issues/700)).
+- A time range can rarely include a job created just before it, whose id ran
+  ahead of the venue's clock, as Covia's `Job.lowestIDAt` allows.
 - A scheduled run's record does not say a schedule started it, so it counts as
   whoever scheduled it
   ([covia#701](https://github.com/covia-ai/covia/issues/701)).

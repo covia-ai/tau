@@ -35,11 +35,9 @@ import covia.venue.Config;
  * {@code -Dtau.tests.sharedVenue=true} the whole run shares one, and
  * every class's principals work the same venue at the same time. The run-wide
  * mode is the intended one — it is how a venue is used for real, and it costs
- * one boot instead of one per class — but under that load the venue loses
- * writes (a chat cycle reports itself superseded, a reply never comes, a
- * record written a moment ago is gone: covia-ai/covia#521), so it stays off
- * until that is fixed. The per-class default is what the suite ran as before
- * classes ran concurrently.</p>
+ * one boot instead of one per class. Covia no longer loses writes under that
+ * load, and making it the default is tau#29. The per-class default is what
+ * the suite ran as before classes ran concurrently.</p>
  *
  * <p>Use it as {@code @RegisterExtension static final SharedVenue shared = new
  * SharedVenue();} and read {@link #venue()} in {@code @BeforeAll}. A test of

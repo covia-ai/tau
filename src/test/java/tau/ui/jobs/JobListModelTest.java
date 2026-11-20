@@ -31,7 +31,7 @@ class JobListModelTest {
 		Index<Blob, ACell> index = Index.none();
 		long start = 1_790_000_000_000L;
 		for (int i = 0; i < JOBS; i++) {
-			Blob id = JobList.idAt(start + i * 1000L);
+			Blob id = covia.grid.Job.lowestIDAt(start + i * 1000L);
 			index = index.assoc(id, Maps.of("status", "COMPLETE", "created", start + i * 1000L, "op", "v/ops/test/echo"));
 		}
 		JobList.View view = JobList.view(index, "did:key:owner", JobList.Filter.ALL, start + JOBS * 1000L, 0);

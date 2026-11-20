@@ -728,8 +728,7 @@ folder all wait for a restart: until then Locations shows the folders the
 running assistants have, says beneath them that changes are waiting, and the
 right-click menu shows each folder's saved access.
 
-Drive deletion is not offered while Covia's deletion can be undone by a root
-save in flight ([covia#589](https://github.com/covia-ai/covia/issues/589)).
+Drive deletion is not offered yet.
 
 ## Schedule
 

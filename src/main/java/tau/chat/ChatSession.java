@@ -93,9 +93,9 @@ public final class ChatSession {
 	public static final String INSPECT_OP = "v/ops/covia/inspect";
 	/**
 	 * Read-only render of a memory collection. A context entry runs before every
-	 * inference, and Covia only admits an op declared {@code readOnly} there
-	 * (covia#465 asks for a warning instead); {@link #MEMORY_OP} is the
-	 * read/write tool and cannot be.
+	 * inference, so it is an op declared {@code readOnly}, which Covia runs there
+	 * without a warning; {@link #MEMORY_OP} is the read/write tool and is never
+	 * pinned.
 	 */
 	static final String MEMORY_RECALL_OP = "v/ops/memory-recall";
 	static final String SKILL_FEEDBACK_OP = "v/ops/tau/report-skill-feedback";

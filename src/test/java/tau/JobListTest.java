@@ -140,7 +140,7 @@ class JobListTest {
 		JobList.View today = JobList.view(index, userDID, new Filter(null, null, Range.TODAY), now, before);
 		assertTrue(today.rowOf(completed) >= 0 && today.rowOf(running.getID().toHexString()) >= 0,
 			"everything started since then");
-		assertTrue(JobList.idAt(before).compareTo(Blob.fromHex(completed)) <= 0, "an id is at or after its time's bound");
+		assertTrue(covia.grid.Job.lowestIDAt(before).compareTo(Blob.fromHex(completed)) <= 0, "an id is at or after its time's bound");
 	}
 
 	@Test

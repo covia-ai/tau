@@ -26,9 +26,9 @@ import covia.venue.Users;
  * Covia {@code Jobs} lattice component, read straight from the in-process
  * lattice, and viewed newest first through a {@link Filter}.
  *
- * <p>The index is keyed by job id, and ids rise with submission time: their
- * first 48 bits are the creation time in milliseconds (covia-ai/covia#700). So
- * a time range is a {@link Index#seek} for its lower bound, and a row is a
+ * <p>The index is keyed by job id, and ids rise with creation time, a
+ * contract of Covia's ({@link covia.grid.Job#lowestIDAt}). So a time range is
+ * a {@link Index#seek} for its lower bound, and a row is a
  * position counted back from the end: a {@link View} finds its rows without
  * reading the records, unless a status or starter filter needs to look at each
  * one, and then only at those two fields. A row's {@link Job} summary is
@@ -286,7 +286,7 @@ public final class JobList {
 	public static View view(Index<Blob, ACell> index, String owner, Filter filter, long now, long midnight) {
 		long end = index.count();
 		long since = filter.range().since(now, midnight);
-		long start = (since > 0) ? index.seek(idAt(since)) : 0;
+		long start = (since > 0) ? index.seek(covia.grid.Job.lowestIDAt(since)) : 0;
 		if (!filter.readsRecords()) return new View(index, owner, end - 1, end - start, null);
 		long[] matched = new long[(int) Math.min(Integer.MAX_VALUE, end - start)];
 		int n = 0;
@@ -294,20 +294,6 @@ public final class JobList {
 			if (filter.admits(RT.ensureMap(index.entryAt(p).getValue()), owner)) matched[n++] = p;
 		}
 		return new View(index, owner, end - 1, n, Arrays.copyOf(matched, n));
-	}
-
-	/**
-	 * The lowest job id Covia can give a job submitted at {@code millis}: its
-	 * 48-bit creation time followed by zeros (covia-ai/covia#700).
-	 */
-	public static Blob idAt(long millis) {
-		byte[] key = new byte[8];
-		long prefix = millis << 16;
-		for (int i = 7; i >= 0; i--) {
-			key[i] = (byte) prefix;
-			prefix >>>= 8;
-		}
-		return Blob.wrap(key);
 	}
 
 	/** Job {@code id} (hex) in {@code index}, {@code owner}'s jobs, summarised; null when it is not there. */

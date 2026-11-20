@@ -69,11 +69,6 @@
 	</dependencyManagement>
 
 	<dependencies>
-		<!-- The in-process Covia modules come BEFORE the venue on purpose: the
-		     Discord module and the venue both ship a resource at
-		     skills/discord.json (covia-ai/covia#510), and the first on the
-		     classpath wins, in a dev run and in the shaded jar alike. The
-		     module's copy is the one its adapter means to install. -->
 		<!-- Covia's Discord module, registered in-process by EmbeddedVenue rather
 		     than loaded as a module jar. Its Discord client (JDA) comes in
 		     transitively from the module's own pom. -->

@@ -66,9 +66,9 @@ class DiscordTest {
 		}
 		ACell skill = venue.engine().resolvePath(Strings.create("v/skills/adapters/discord"), ctx);
 		assertNotNull(skill, "the module's skill is installed for the assistant to discover");
-		// The venue jar ships a different skills/discord.json (covia-ai/covia#510);
-		// the module's must be the one on the venue, or the assistant is taught
-		// raw REST instead of the adapter's operations.
+		// The venue jar also ships a generic Discord skill; the module's must be
+		// the one installed, or the assistant is taught raw REST instead of the
+		// adapter's operations.
 		assertTrue(String.valueOf(RT.getIn(skill, "skill", "tools")).contains("v/ops/discord/send"),
 			"the module's own skill, not the venue's generic copy: " + RT.getIn(skill, "skill", "tools"));
 	}
