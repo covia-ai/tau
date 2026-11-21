@@ -35,11 +35,12 @@ class InboxBindingTest {
 		Users users = users();
 		String owner = did("inbox-source-owner"), operator = did("inbox-source-operator");
 		Inbox.Source source = new Inbox.Source(users, owner, operator);
-		var before = users.value();
 		var absent = source.read();
 		assertNull(absent.get(0));
 		assertNull(absent.get(1));
-		assertEquals(before, users.value(), "reading absent accounts never creates them");
+		// Only these two: other classes may add users to a shared venue meanwhile.
+		assertNull(users.value().get(Strings.create(owner)), "reading absent accounts never creates them");
+		assertNull(users.value().get(Strings.create(operator)), "reading absent accounts never creates them");
 		User own = users.ensure(owner), ops = users.ensure(operator);
 		var empty = source.read();
 		assertTrue(empty.get(0) instanceof AMap<?, ?> m && m.isEmpty(), "a present inbox reads as an empty map");
