@@ -188,7 +188,11 @@ final class JobsOperation {
 		return out;
 	}
 
-	/** The extra parts of the record to show: a list of subpaths or one comma-separated string, as {@code covia} list takes. */
+	/**
+	 * The extra parts of the record to show: a list of subpaths or one
+	 * comma-separated string, as {@code covia} list takes. A copy of its
+	 * parsing, which Covia keeps private (covia#725).
+	 */
 	private static List<AString> fields(ACell input) {
 		ACell v = RT.getIn(input, K_FIELDS);
 		List<AString> out = new ArrayList<>();
