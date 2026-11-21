@@ -27,7 +27,7 @@ import covia.grid.Job;
 import covia.grid.Venue;
 import covia.venue.RequestContext;
 
-/** The jobs operation: a user's jobs over a time range, newest first, summarised, under the right to read them. */
+/** The jobs operation: a user's jobs from a start time or the latest, summarised, under the right to read them. */
 class JobsOperationTest {
 
 	private static final long TIMEOUT_SECONDS = 30;
@@ -60,55 +60,50 @@ class JobsOperationTest {
 	}
 
 	@Test
-	void listsTheUsersJobsNewestFirstWithoutInputsOrResults() {
-		AMap<AString, ACell> page = list(RequestContext.of(user), Maps.empty());
-		assertEquals(made.reversed(), ids(page), "every job, newest first");
-		assertEquals(made.size(), num(page, "inRange"));
-		assertNull(page.get(JobsOperation.K_NEXT), "no more");
-		AMap<AString, ACell> failure = RT.ensureMap(jobs(page).get(0));
+	void withoutAStartTheLatestJobsComeOldestFirstWithoutInputsOrResults() {
+		AMap<AString, ACell> all = list(RequestContext.of(user), Maps.empty());
+		assertEquals(made, ids(all), "every job, oldest first");
+		assertEquals(made.subList(3, 5), ids(list(RequestContext.of(user), Maps.of("limit", CVMLong.create(2)))),
+			"the latest two");
+		AMap<AString, ACell> failure = RT.ensureMap(jobs(all).get(4));
 		assertEquals(Strings.create("FAILED"), failure.get(Fields.STATUS));
-		assertEquals(user, failure.get(JobsOperation.K_CALLER));
+		assertEquals(user, failure.get(JobsOperation.K_CALLER), "a job started in person is the user's");
 		assertNotNull(failure.get(Strings.create("error")), "says why it failed");
-		assertFalse(page.toString().contains(MARKER), "no input or result is shown");
+		assertFalse(all.toString().contains(MARKER), "no input or result is shown");
 		assertNull(failure.get(Fields.INPUT));
 	}
 
 	@Test
-	void aTimeRangeIsBoundedByCreation() {
+	void aStartListsTheFirstJobsCreatedFromThen() {
 		long third = created(made.get(2));
-		AMap<AString, ACell> since = list(RequestContext.of(user), Maps.of("since", CVMLong.create(third)));
-		assertTrue(ids(since).contains(made.get(2)), "since includes a job created then");
-		for (ACell job : jobs(since)) {
-			assertTrue(created(RT.ensureString(RT.getIn(job, "id")).toString()) >= third, "nothing created earlier");
-		}
-		assertEquals(jobs(since).count(), num(since, "inRange"));
+		List<String> from = ids(list(RequestContext.of(user), Maps.of("start", CVMLong.create(third))));
+		assertTrue(from.contains(made.get(2)), "a job created at the start");
+		for (String id : from) assertTrue(created(id) >= third, "nothing created earlier");
+		assertEquals(made.subList(made.size() - from.size(), made.size()), from, "and every one after, in order");
 
-		AMap<AString, ACell> until = list(RequestContext.of(user), Maps.of("until", CVMLong.create(third)));
-		assertFalse(ids(until).contains(made.get(2)), "until excludes a job created then");
-		assertTrue(ids(until).size() + ids(since).size() >= made.size(), "the two ranges cover every job");
+		List<String> two = ids(list(RequestContext.of(user), Maps.of("start", CVMLong.create(created(made.get(0))),
+			"limit", CVMLong.create(2))));
+		assertEquals(2, two.size());
+		assertEquals(made.get(0), two.get(0), "the first jobs from the start, not the latest");
+		assertEquals(from, ids(list(RequestContext.of(user),
+			Maps.of("start", Strings.create(java.time.Instant.ofEpochMilli(third).toString())))), "an ISO-8601 start");
 	}
 
 	@Test
-	void statusAndCallerNarrowAndNextPagesBack() {
+	void statusAndCallerNarrow() {
 		RequestContext me = RequestContext.of(user);
 		assertEquals(List.of(made.get(4)), ids(list(me, Maps.of("status", "FAILED"))));
-		assertEquals(made.subList(0, 4).reversed(), ids(list(me, Maps.of("status", Vectors.of("COMPLETE", "CANCELLED")))));
-		assertEquals(made.size(), ids(list(me, Maps.of("caller", user))).size(), "the user's own jobs");
+		assertEquals(made.subList(0, 4), ids(list(me, Maps.of("status", Vectors.of("COMPLETE", "CANCELLED")))));
+		assertEquals(made, ids(list(me, Maps.of("caller", user))), "the user's own jobs");
 		assertEquals(List.of(), ids(list(me, Maps.of("caller", user + ":g:someone"))), "none of an agent's");
-
-		AMap<AString, ACell> first = list(me, Maps.of("limit", CVMLong.create(2)));
-		assertEquals(made.subList(3, 5).reversed(), ids(first));
-		AString next = RT.ensureString(first.get(JobsOperation.K_NEXT));
-		assertEquals(made.get(3), next.toString(), "next is the oldest job on the page");
-		assertEquals(made.subList(1, 3).reversed(), ids(list(me, Maps.of("limit", CVMLong.create(2), "before", next))));
 	}
 
 	@Test
 	void badInputIsRefused() {
 		RequestContext me = RequestContext.of(user);
-		assertThrows(InvalidInputException.class, () -> list(me, Maps.of("since", "yesterday")));
+		assertThrows(InvalidInputException.class, () -> list(me, Maps.of("start", "yesterday")));
 		assertThrows(InvalidInputException.class, () -> list(me, Maps.of("limit", CVMLong.create(0))));
-		assertThrows(InvalidInputException.class, () -> list(me, Maps.of("before", "not a job")));
+		assertThrows(InvalidInputException.class, () -> list(me, Maps.of("status", CVMLong.create(1))));
 	}
 
 	@Test
@@ -137,11 +132,7 @@ class JobsOperationTest {
 		return out;
 	}
 
-	private static long num(AMap<AString, ACell> map, String key) {
-		return ((CVMLong) RT.getIn(map, key)).longValue();
-	}
-
-	/** When job {@code id} was created by its id, which is what a time range seeks on. */
+	/** When job {@code id} was created by its id, which is what a start seeks on. */
 	private static long created(String id) {
 		return Job.idTime(Job.parseID(id));
 	}

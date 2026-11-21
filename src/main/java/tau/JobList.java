@@ -37,7 +37,7 @@ import covia.venue.Users;
  * projected only when something asks for it, so a long history costs what is
  * on screen.
  *
- * <p>{@link #page} reads the index the same way for the jobs operation
+ * <p>{@link #from} reads the index the same way for the jobs operation
  * ({@link JobsOperation}).
  *
  * <p>Looking is a read and leaves no job record. {@link #cancel},
@@ -302,39 +302,34 @@ public final class JobList {
 	}
 
 	/**
-	 * One page of jobs ({@link #page}), newest first.
-	 *
-	 * @param jobs    the jobs on it
-	 * @param inRange how many jobs the time range holds, before any filter
-	 * @param next    the id to page on from, older than every job on it, or null at the end
-	 */
-	public record Page(List<Job> jobs, long inRange, String next) {
-	}
-
-	/**
-	 * Up to {@code limit} of {@code owner}'s jobs, newest first: those created
-	 * in {@code [since, until)} (0 for no bound), older than job {@code before}
-	 * (null for the newest), whose status is one of {@code statuses} (empty for
+	 * Up to {@code limit} of {@code owner}'s jobs, oldest first: the first
+	 * created at or after {@code start}, or the latest when {@code start} is 0,
+	 * counting only those whose status is one of {@code statuses} (empty for
 	 * any) and whose caller is {@code caller} or a principal under it, such as
-	 * its agents (null for anyone). The time range is a seek, as for a
+	 * its agents (null for anyone). The start is a seek, as for a
 	 * {@link View}; records are read only to filter and to summarise the jobs
 	 * returned.
 	 */
-	public static Page page(Index<Blob, ACell> index, String owner, long since, long until, Blob before,
-			Set<String> statuses, String caller, int limit) {
-		long start = (since > 0) ? index.seek(covia.grid.Job.lowestIDAt(since)) : 0;
-		long end = (until > 0) ? index.seek(covia.grid.Job.lowestIDAt(until)) : index.count();
-		long inRange = Math.max(0, end - start);
-		if (before != null) end = Math.min(end, index.seek(before));
+	public static List<Job> from(Index<Blob, ACell> index, String owner, long start, Set<String> statuses,
+			String caller, int limit) {
 		List<Job> jobs = new ArrayList<>();
-		for (long p = end - 1; p >= start; p--) {
-			MapEntry<Blob, ACell> entry = index.entryAt(p);
-			AMap<AString, ACell> record = RT.ensureMap(entry.getValue());
-			if (!matches(record, owner, statuses, caller)) continue;
-			if (jobs.size() == limit) return new Page(List.copyOf(jobs), inRange, jobs.get(limit - 1).id());
-			jobs.add(project(entry.getKey(), record, owner));
+		long end = index.count();
+		if (start > 0) {
+			for (long p = index.seek(covia.grid.Job.lowestIDAt(start)); p < end && jobs.size() < limit; p++) {
+				collect(index.entryAt(p), owner, statuses, caller, jobs);
+			}
+			return List.copyOf(jobs);
 		}
-		return new Page(List.copyOf(jobs), inRange, null);
+		for (long p = end - 1; p >= 0 && jobs.size() < limit; p--) {
+			collect(index.entryAt(p), owner, statuses, caller, jobs);
+		}
+		return List.copyOf(jobs.reversed());
+	}
+
+	private static void collect(MapEntry<Blob, ACell> entry, String owner, Set<String> statuses, String caller,
+			List<Job> jobs) {
+		AMap<AString, ACell> record = RT.ensureMap(entry.getValue());
+		if (matches(record, owner, statuses, caller)) jobs.add(project(entry.getKey(), record, owner));
 	}
 
 	/** Whether a record passes the filters; a job with no caller is the owner's own, as {@link Starter} counts it. */

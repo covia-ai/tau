@@ -24,16 +24,17 @@ import covia.venue.Engine;
 import covia.venue.RequestContext;
 
 /**
- * The jobs operation ({@code v/ops/tau/jobs}): a page of the jobs of the user
- * the caller acts for, newest first, over a time range, each summarised
+ * The jobs operation ({@code v/ops/tau/jobs}): the jobs of the user the caller
+ * acts for, from a start time or the latest, oldest first, each summarised
  * without its input or result; a failure's message, which may echo input, is
  * shortened.
  *
  * <p>It reads what a {@code covia} list of {@code j} reads, under the same
  * right, {@code crud/read} on the user's {@code j}, so it lends no authority:
  * an agent lists its own user's jobs, and a god lists a user's through its
- * bridge into that user's namespace. The time range is a seek in the job
- * index ({@link JobList#page}).
+ * bridge into that user's namespace. The start is a seek in the job index
+ * ({@link JobList#from}). Each request stands alone: to read on, start again
+ * from the last job's time.
  */
 final class JobsOperation {
 
@@ -42,15 +43,11 @@ final class JobsOperation {
 	/** A failure's message is cut here: enough to see what went wrong, not a dump. */
 	static final int MAX_ERROR = 300;
 
-	static final AString K_SINCE = Strings.intern("since");
-	static final AString K_UNTIL = Strings.intern("until");
-	static final AString K_BEFORE = Strings.intern("before");
+	static final AString K_START = Strings.intern("start");
 	static final AString K_STATUS = Strings.intern("status");
 	static final AString K_CALLER = Strings.intern("caller");
 	static final AString K_LIMIT = Strings.intern("limit");
 	static final AString K_JOBS = Strings.intern("jobs");
-	static final AString K_IN_RANGE = Strings.intern("inRange");
-	static final AString K_NEXT = Strings.intern("next");
 	private static final AString K_ID = Strings.intern("id");
 	private static final AString K_CREATED = Strings.intern("created");
 	private static final AString K_UPDATED = Strings.intern("updated");
@@ -68,24 +65,22 @@ final class JobsOperation {
 		this.engine = engine;
 	}
 
-	/** The page {@code input} asks for, of the jobs of the user {@code ctx} acts for. */
+	/** The jobs {@code input} asks for, of the user {@code ctx} acts for. */
 	AMap<AString, ACell> invoke(RequestContext ctx, ACell input) {
 		AString user = (ctx == null) ? null : ctx.getUserDID();
 		if (user == null) throw new AuthException("Listing jobs needs a user to act for");
 		engine.requireAuthority(ctx, Strings.create(user + "/" + Namespace.J), Capability.CRUD_READ);
-		long since = time(input, K_SINCE);
-		long until = time(input, K_UNTIL);
-		Blob before = before(input);
+		long start = start(input);
 		Set<String> statuses = statuses(input);
 		AString caller = RT.ensureString(RT.getIn(input, K_CALLER));
 		int limit = limit(input);
 		Index<Blob, ACell> index = engine.getVenueState().users().at(user).jobs().getAll();
-		JobList.Page page = JobList.page(index, user.toString(), since, until, before, statuses,
-			(caller == null || caller.count() == 0) ? null : caller.toString(), limit);
 		AVector<ACell> jobs = Vectors.empty();
-		for (JobList.Job job : page.jobs()) jobs = jobs.conj(summary(job, user));
-		AMap<AString, ACell> out = Maps.of(K_JOBS, jobs, K_IN_RANGE, CVMLong.create(page.inRange()));
-		return (page.next() != null) ? out.assoc(K_NEXT, Strings.create(page.next())) : out;
+		for (JobList.Job job : JobList.from(index, user.toString(), start, statuses,
+				(caller == null || caller.count() == 0) ? null : caller.toString(), limit)) {
+			jobs = jobs.conj(summary(job, user));
+		}
+		return Maps.of(K_JOBS, jobs);
 	}
 
 	/** What the operation shows of a job: who ran what, when, and how it ended. A job with no caller is the user's own. */
@@ -110,29 +105,21 @@ final class JobsOperation {
 		return (value == null) ? s : s.assoc(key, Strings.create(value));
 	}
 
-	/** A time as epoch milliseconds or ISO-8601; 0 when absent. */
-	private static long time(ACell input, AString key) {
-		ACell v = RT.getIn(input, key);
+	/** The start, a time as epoch milliseconds or ISO-8601; 0 when absent. */
+	private static long start(ACell input) {
+		ACell v = RT.getIn(input, K_START);
 		if (v == null) return 0;
 		if (v instanceof CVMLong l) {
-			if (l.longValue() < 0) throw new InvalidInputException(key + " must not be negative");
+			if (l.longValue() < 0) throw new InvalidInputException("start must not be negative");
 			return l.longValue();
 		}
 		AString s = RT.ensureString(v);
-		if (s == null) throw new InvalidInputException(key + " must be an ISO-8601 time or epoch milliseconds");
+		if (s == null) throw new InvalidInputException("start must be an ISO-8601 time or epoch milliseconds");
 		try {
 			return Instant.parse(s.toString().strip()).toEpochMilli();
 		} catch (DateTimeParseException e) {
-			throw new InvalidInputException(key + " is not an ISO-8601 time, such as 2026-11-21T09:00:00Z: " + s, e);
+			throw new InvalidInputException("start is not an ISO-8601 time, such as 2026-11-21T09:00:00Z: " + s, e);
 		}
-	}
-
-	private static Blob before(ACell input) {
-		AString s = RT.ensureString(RT.getIn(input, K_BEFORE));
-		if (s == null) return null;
-		Blob id = covia.grid.Job.parseID(s.toString());
-		if (id == null) throw new InvalidInputException("before is not a job id: " + s);
-		return id;
 	}
 
 	/** One status or several; empty for any. */
