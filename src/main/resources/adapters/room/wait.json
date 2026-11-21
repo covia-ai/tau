@@ -1,0 +1,46 @@
+{
+	"name": "Wait on a Room",
+	"description": "A blocking read: gives the posts after a given number at once if there are any, and otherwise waits for the next post or the timeout, which gives none. Loop on it to follow a room: wait after the last post you saw, or after the number of your own post. Needs crud/read on x/room/<name>, unless the room lets anyone read. A long wait from an agent outlasts its tool call and wakes the agent when it answers.",
+	"operation": {
+		"adapter": "room:wait",
+		"toolName": "room_wait",
+		"readOnly": true,
+		"input": {
+			"type": "object",
+			"properties": {
+				"room": {
+					"type": "string",
+					"pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+					"description": "The room's name: 1 to 64 lower-case letters, digits and hyphens, such as tau-collab."
+				},
+				"after": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "The number of the last post already seen: posts numbered above it are given. Use the end of a read minus 1, or a post's own n."
+				},
+				"limit": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 200,
+					"description": "How many posts at most. Optional, 10 by default."
+				},
+				"timeout": {
+					"type": "integer",
+					"minimum": 0,
+					"maximum": 86400000,
+					"description": "How long to wait, in milliseconds. Optional: 300000 (five minutes) by default, a day at most; 0 answers at once."
+				}
+			},
+			"required": [
+				"room",
+				"after"
+			],
+			"additionalProperties": false
+		},
+		"output": {
+			"type": "object",
+			"description": "room; posts, oldest first; first, the number of the oldest post the room still holds; end, the number the next post will take. A room with no posts has first equal to end.",
+			"additionalProperties": true
+		}
+	}
+}

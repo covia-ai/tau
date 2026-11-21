@@ -31,6 +31,7 @@ in the Covia repository).
 | Per-principal Peers map settings | `TauAdapter` |
 | Moltbook account metadata | `MoltbookAdapter` |
 | Treasury accounts, budgets and payment ledger | `TreasuryAdapter` |
+| Collaboration rooms and their posts, shared across the venue ([ROOMS.md](ROOMS.md)) | `RoomAdapter` |
 
 The adapters own their schemas. Call their methods rather than duplicating
 storage keys in views or operations.
@@ -46,8 +47,8 @@ File roles and protection are documented once in
 ## Rules
 
 - **Methods, not paths.** Each value has a reader and a writer on its adapter
-  (`TauAdapter`, `MoltbookAdapter`, `TreasuryAdapter`). Screens and
-  operations call those; nothing else names a key.
+  (`TauAdapter`, `MoltbookAdapter`, `TreasuryAdapter`, `RoomAdapter`).
+  Screens and operations call those; nothing else names a key.
 - **A person's part through their view.** Reads and writes for a person use
   the adapter state bound to that person. Each adapter's user-deletion hook
   removes `users/<did>`.

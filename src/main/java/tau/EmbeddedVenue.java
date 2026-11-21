@@ -140,6 +140,8 @@ public final class EmbeddedVenue implements AutoCloseable {
 		engine.registerAdapter(new MoltbookAdapter());
 		// The treasury Njord spends through: limits and budgets over accounts on rails.
 		engine.registerAdapter(new TreasuryAdapter());
+		// Collaboration rooms shared across the venue (docs/ROOMS.md).
+		engine.registerAdapter(new RoomAdapter());
 		// Covia's Discord module, in-process rather than as a loaded module jar:
 		// the same adapter, on Tau's own classpath. With no bots it costs
 		// nothing; the owner's bot is created from Settings (see Discord).

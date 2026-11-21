@@ -1,0 +1,34 @@
+{
+	"name": "Prune a Room",
+	"description": "Deletes a room's posts numbered below a given number; the rest keep their numbers. Only its owner may, through a request carrying admin/room on x/room/<name>. Returns how many posts went.",
+	"operation": {
+		"adapter": "room:prune",
+		"toolName": "room_prune",
+		"readOnly": false,
+		"input": {
+			"type": "object",
+			"properties": {
+				"room": {
+					"type": "string",
+					"pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+					"description": "The room's name: 1 to 64 lower-case letters, digits and hyphens, such as tau-collab."
+				},
+				"before": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "Posts numbered below this are deleted."
+				}
+			},
+			"required": [
+				"room",
+				"before"
+			],
+			"additionalProperties": false
+		},
+		"output": {
+			"type": "object",
+			"description": "room, and pruned: how many posts were deleted.",
+			"additionalProperties": true
+		}
+	}
+}

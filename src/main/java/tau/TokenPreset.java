@@ -37,17 +37,18 @@ public enum TokenPreset {
 	},
 
 	/**
-	 * Read the owner's workspace and talk in its collaboration rooms
-	 * ({@link Rooms}), where a mention asks one of the owner's own agents,
-	 * never a god: for an outside agent working alongside the owner's.
+	 * Read the owner's workspace, and read and post in the venue's
+	 * collaboration rooms ({@link RoomAdapter}): for an outside agent working
+	 * alongside the owner's, which reach it through the rooms they follow.
 	 */
-	COLLABORATE("Collaborate", "Read your workspace, talk in its rooms, and ask your own agents there") {
+	COLLABORATE("Collaborate", "Read your workspace, and read, follow and post in collaboration rooms") {
 		@Override
 		public Tokens.Scope scope(String agentId) {
 			return new Tokens.Scope(
-				Vectors.of(OP_ROOM_POST, OP_ROOM_READ, OP_ROOM_WAIT, OP_READ, OP_LIST),
+				Vectors.of(OP_ROOM_READ, OP_ROOM_WAIT, OP_ROOM_POST, OP_READ, OP_LIST),
 				Vectors.of(
-					Capability.create(AGENTS, Abilities.AGENT_REQUEST),
+					Capability.create(ROOMS, Capability.CRUD_READ),
+					Capability.create(ROOMS, RoomAdapter.ROOM_POST),
 					Capability.create(WORKSPACE, Capability.CRUD_READ)));
 		}
 	},
@@ -80,11 +81,11 @@ public enum TokenPreset {
 	private static final AString OP_JOB_RESULT = Strings.intern("v/ops/job/result");
 	private static final AString OP_READ = Strings.intern("v/ops/covia/read");
 	private static final AString OP_LIST = Strings.intern("v/ops/covia/list");
-	private static final AString OP_ROOM_POST = Strings.intern("v/ops/tau/room-post");
-	private static final AString OP_ROOM_READ = Strings.intern("v/ops/tau/room-read");
-	private static final AString OP_ROOM_WAIT = Strings.intern("v/ops/tau/room-wait");
+	private static final AString OP_ROOM_POST = Strings.intern("v/ops/room/post");
+	private static final AString OP_ROOM_READ = Strings.intern("v/ops/room/read");
+	private static final AString OP_ROOM_WAIT = Strings.intern("v/ops/room/wait");
 	private static final AString JOBS = Strings.intern("j/");
-	private static final AString AGENTS = Strings.intern("g/");
+	private static final AString ROOMS = Strings.intern("x/room");
 	private static final AString WORKSPACE = Strings.intern("w/");
 
 	private final String label;

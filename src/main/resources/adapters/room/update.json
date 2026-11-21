@@ -1,0 +1,60 @@
+{
+	"name": "Change a Room",
+	"description": "Changes a room's description, public rights or notify target. Only its owner may, through a request carrying admin/room on x/room/<name>. Fields left out stay as they are.",
+	"operation": {
+		"adapter": "room:update",
+		"toolName": "room_update",
+		"readOnly": false,
+		"input": {
+			"type": "object",
+			"properties": {
+				"room": {
+					"type": "string",
+					"pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+					"description": "The room's name: 1 to 64 lower-case letters, digits and hyphens, such as tau-collab."
+				},
+				"description": {
+					"type": "string",
+					"maxLength": 1000,
+					"description": "What the room is for, shown to everyone who can read it. An empty string removes it."
+				},
+				"public": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"enum": [
+							"read",
+							"post"
+						]
+					},
+					"uniqueItems": true,
+					"description": "Rights anyone has in the room, without a capability of their own: \"read\" lets anyone read and wait on it, \"post\" lets anyone post. Leave it out for a private room; an empty list makes the room private again."
+				},
+				"notify": {
+					"type": "object",
+					"description": "The agent session told of each post the owner did not make, as a message that wakes that agent. agentId names one of the owner's agents; sessionId (hex) picks the conversation, and when left out the first message starts one that later posts reuse. Naming an agent takes the right to message it. An empty object stops notification.",
+					"properties": {
+						"agentId": {
+							"type": "string",
+							"description": "The agent to tell, such as Brightside."
+						},
+						"sessionId": {
+							"type": "string",
+							"description": "The session to tell it in, as hex. Optional."
+						}
+					},
+					"additionalProperties": false
+				}
+			},
+			"required": [
+				"room"
+			],
+			"additionalProperties": false
+		},
+		"output": {
+			"type": "object",
+			"description": "The room: room, owner (the DID that moderates it), created (milliseconds since 1970), description, public rights, notify target, first (oldest post held) and end (the number the next post will take).",
+			"additionalProperties": true
+		}
+	}
+}
