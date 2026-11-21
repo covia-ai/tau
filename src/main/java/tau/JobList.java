@@ -1,7 +1,9 @@
 package tau;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -294,6 +296,51 @@ public final class JobList {
 			if (filter.admits(RT.ensureMap(index.entryAt(p).getValue()), owner)) matched[n++] = p;
 		}
 		return new View(index, owner, end - 1, n, Arrays.copyOf(matched, n));
+	}
+
+	/**
+	 * One page of jobs ({@link #page}), newest first.
+	 *
+	 * @param jobs    the jobs on it
+	 * @param inRange how many jobs the time range holds, before any filter
+	 * @param next    the id to page on from, older than every job on it, or null at the end
+	 */
+	public record Page(List<Job> jobs, long inRange, String next) {
+	}
+
+	/**
+	 * Up to {@code limit} of {@code owner}'s jobs, newest first: those created
+	 * in {@code [since, until)} (0 for no bound), older than job {@code before}
+	 * (null for the newest), whose status is one of {@code statuses} (empty for
+	 * any) and whose caller is {@code caller} or a principal under it, such as
+	 * its agents (null for anyone). The time range is a seek, as for a
+	 * {@link View}; records are read only to filter and to summarise the jobs
+	 * returned.
+	 */
+	public static Page page(Index<Blob, ACell> index, String owner, long since, long until, Blob before,
+			Set<String> statuses, String caller, int limit) {
+		long start = (since > 0) ? index.seek(covia.grid.Job.lowestIDAt(since)) : 0;
+		long end = (until > 0) ? index.seek(covia.grid.Job.lowestIDAt(until)) : index.count();
+		long inRange = Math.max(0, end - start);
+		if (before != null) end = Math.min(end, index.seek(before));
+		List<Job> jobs = new ArrayList<>();
+		for (long p = end - 1; p >= start; p--) {
+			MapEntry<Blob, ACell> entry = index.entryAt(p);
+			AMap<AString, ACell> record = RT.ensureMap(entry.getValue());
+			if (!matches(record, owner, statuses, caller)) continue;
+			if (jobs.size() == limit) return new Page(List.copyOf(jobs), inRange, jobs.get(limit - 1).id());
+			jobs.add(project(entry.getKey(), record, owner));
+		}
+		return new Page(List.copyOf(jobs), inRange, null);
+	}
+
+	/** Whether a record passes the filters; a job with no caller is the owner's own, as {@link Starter} counts it. */
+	private static boolean matches(AMap<AString, ACell> record, String owner, Set<String> statuses, String caller) {
+		if (record == null) return statuses.isEmpty() && caller == null;
+		if (!statuses.isEmpty() && !statuses.contains(str(record.get(Fields.STATUS)))) return false;
+		if (caller == null) return true;
+		String c = Objects.requireNonNullElse(str(record.get(Fields.CALLER)), owner);
+		return c.equals(caller) || c.startsWith(caller + ":");
 	}
 
 	/** Job {@code id} (hex) in {@code index}, {@code owner}'s jobs, summarised; null when it is not there. */

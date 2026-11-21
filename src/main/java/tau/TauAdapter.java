@@ -63,6 +63,9 @@ import covia.venue.storage.ContentProvider;
  *   <li>{@code brightside:storage} — the disk the store takes
  *       ({@link StoreSpace}): compaction at the next start, and the originals
  *       repairs kept; venue-operator only, so Odin's to run.</li>
+ *   <li>{@code brightside:jobs} — a page of the acting user's jobs over a
+ *       time range, summarised without inputs or results
+ *       ({@link JobsOperation}).</li>
  *   <li>Two bridges for each of the {@link Gods}: its ask bridge
  *       ({@code brightside:ask-odin}, {@code brightside:alert-thor}) — an
  *       assistant's request to that god, submitted as the acting principal with a
@@ -373,7 +376,7 @@ public class TauAdapter extends AAdapter {
 	@Override
 	protected void installAssets() {
 		for (String op : List.of("info", "context", "delete-skill", "report-skill-feedback",
-			"shutdown", "restart", "relaunch", "storage", "upgrade-agent")) installAppOperation(op);
+			"shutdown", "restart", "relaunch", "storage", "upgrade-agent", "jobs")) installAppOperation(op);
 		for (God god : Gods.ALL) {
 			installAppOperation(god.ask());
 			installAppOperation(god.run());
@@ -429,6 +432,13 @@ public class TauAdapter extends AAdapter {
 		}
 		if ("upgrade-agent".equals(op)) {
 			return handleUpgradeAgent(ctx, input);
+		}
+		if ("jobs".equals(op)) {
+			try {
+				return CompletableFuture.completedFuture(new JobsOperation(engine).invoke(ctx, input));
+			} catch (Exception e) {
+				return CompletableFuture.failedFuture(e);
+			}
 		}
 		God god = Gods.byBridge(op);
 		if (god != null) {

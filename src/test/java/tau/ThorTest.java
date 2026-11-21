@@ -115,6 +115,16 @@ class ThorTest {
 	}
 
 	@Test
+	void thorListsAUsersRecentJobs() throws Exception {
+		Job mine = user.invoke("v/ops/covia/write", Maps.of("path", "w/thor-jobs", "value", "x"))
+			.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		mine.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		ACell page = asThor(Maps.of("operation", "v/ops/tau/jobs", "input", Maps.of("limit", 200L), "user", userDID));
+		assertTrue(String.valueOf(RT.getIn(page, "jobs")).contains(mine.getID().toHexString()),
+			"he sees the user's job: " + page);
+	}
+
+	@Test
 	void thorStopsAnAgentAndTheChatLeavesItStopped() throws Exception {
 		String agent = "thor-suspect";
 		ChatSession chat = new ChatSession(user, echoChat(agent));

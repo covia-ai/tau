@@ -1,0 +1,27 @@
+{
+	"name": "List jobs",
+	"description": "Lists the jobs of the user you act for, newest first: what ran, who started it, when, and how it ended, without inputs or results. Use it to see what happened over a period: since and until bound the time, status and caller narrow it, and next pages further back. Read-only operations, such as reading data, leave no job, so they never appear here. Needs crud/read on the user's jobs (j).",
+	"operation": {
+		"adapter": "brightside:jobs",
+		"readOnly": true,
+		"input": {
+			"type": "object",
+			"properties": {
+				"since": { "type": ["string", "integer"], "description": "Only jobs created at or after this time: ISO-8601, such as 2026-11-21T09:00:00Z, or epoch milliseconds." },
+				"until": { "type": ["string", "integer"], "description": "Only jobs created before this time, in the same forms." },
+				"status": { "type": ["string", "array"], "items": { "type": "string" }, "description": "Only jobs with this status, or one of these: PENDING, STARTED, PAUSED, INPUT_REQUIRED, AUTH_REQUIRED, COMPLETE, FAILED, TIMEOUT, REJECTED, CANCELLED." },
+				"caller": { "type": "string", "description": "Only jobs this principal started, a DID; jobs of principals under it, such as its agents, count too." },
+				"before": { "type": "string", "description": "Only jobs older than this job id: the next value of the previous page." },
+				"limit": { "type": "integer", "minimum": 1, "maximum": 200, "description": "How many jobs to return, 50 by default." }
+			}
+		},
+		"output": {
+			"type": "object",
+			"properties": {
+				"jobs": { "type": "array", "description": "Newest first, each with id, created, updated, name, operation, status, caller, and where they apply agent, session, parent (the job it ran inside), error (shortened) and tokens." },
+				"inRange": { "type": "integer", "description": "How many jobs the time range holds, before status and caller narrow it." },
+				"next": { "type": "string", "description": "Present when there are more: pass it as before for the next page." }
+			}
+		}
+	}
+}

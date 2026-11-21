@@ -95,6 +95,7 @@ public final class Odin {
 	 * decision, past what Odin may do.
 	 */
 	public static final Set<String> SUDO_OPERATIONS = Set.of(
+		"v/ops/tau/jobs",
 		"v/ops/covia/read",
 		"v/ops/covia/list",
 		"v/ops/covia/inspect",

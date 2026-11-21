@@ -40,6 +40,7 @@ public final class Thor {
 	 * as the user, and answering the user's Inbox.
 	 */
 	public static final Set<String> SUDO_OPERATIONS = Set.of(
+		"v/ops/tau/jobs",
 		"v/ops/covia/read",
 		"v/ops/covia/list",
 		"v/ops/covia/inspect",
