@@ -376,11 +376,10 @@ public class RoomAdapter extends AAdapter {
 	 * Tells a room's notify target of a post neither the room's owner, in
 	 * person, nor that agent made, so an agent answering in the room never
 	 * wakes itself. The subscriber authorised this when choosing the target,
-	 * so the poster's authority plays no part: it is delivered as the venue
+	 * so the poster's authority plays no part: the venue delivers it, as it
 	 * delivers a late tool result, into the session. The message is the post's
-	 * text; its route starts at the room, vouching for whoever posted, as a
-	 * scheduled fire's starts at the scheduler. A failure is logged, never the
-	 * post's, which is already made.
+	 * text, from the venue by way of the room, whose record names who posted.
+	 * A failure is logged, never the post's, which is already made.
 	 */
 	private void tell(AString name, AMap<AString, ACell> room, AMap<AString, ACell> post) {
 		AMap<AString, ACell> notify = RT.ensureMap(room.get(K_NOTIFY));
@@ -395,11 +394,11 @@ public class RoomAdapter extends AAdapter {
 			AgentAdapter agents = (AgentAdapter) engine.getAdapter(AGENT_ADAPTER);
 			Blob session = sessionOf(notify.get(Fields.SESSION_ID));
 			ACell n = post.get(K_N);
-			// The message starts at the room, vouching for whoever posted: how their post reached the room is not part of it
-			AVector<ACell> route = Vectors.of(RequestContext.routeRecord(ROUTE_ADAPTER, from, Maps.of(K_ROOM, name, K_N, n),
-				RouteText.builder().name(name).build()));
+			RequestContext notice = engine.venueContext().via(ROUTE_ADAPTER, Maps.of(K_ROOM, name, K_N, n),
+				RouteText.builder().name(name).text(", posted by ").who(from).build());
 			Boolean delivered = engine.getVenueState().transact(venue -> agents.deliverToWaiter(venue.users(), account,
-				agentId, session, null, from, route, Strings.create(name + "/" + n), post.get(K_TEXT)));
+				agentId, session, null, notice.getAuthorityDID(), notice.getRoute(), Strings.create(name + "/" + n),
+				post.get(K_TEXT)));
 			if (!Boolean.TRUE.equals(delivered)) {
 				log.warn("Room {}: post {} could not reach agent {}'s session", name, n, agentId);
 				return;

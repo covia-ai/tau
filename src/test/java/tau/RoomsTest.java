@@ -158,8 +158,9 @@ class RoomsTest {
 		List<String> texts = told.stream().map(e -> String.valueOf(RT.getIn(e, "content"))).toList();
 		assertEquals(3, told.size(), "the notice, then the two posts the owner and the agent did not make: " + texts);
 		assertEquals("someone else's post", texts.get(1), "a post arrives as its text alone");
-		assertEquals(stranger, RT.getIn(told.get(1), "caller"), "from whoever posted it");
-		assertEquals(owner, RT.getIn(told.get(2), "caller"), "a token's post is its issuer's");
+		AString venue = engine().getDIDString();
+		assertEquals(venue, RT.getIn(told.get(1), "caller"), "the venue tells the subscriber, not the poster");
+		assertEquals(venue, RT.getIn(told.get(2), "caller"), "even of a post through the owner's own token");
 
 		RequestContext creator = token(owner, "creator", new Tokens.Scope(Vectors.of(Strings.create("v/ops/room/create")),
 			Vectors.of(Capability.create(Strings.create("x/room"), RoomAdapter.ROOM_CREATE))));
