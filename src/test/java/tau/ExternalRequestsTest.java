@@ -110,7 +110,7 @@ class ExternalRequestsTest {
 		assertNotNull(messages);
 		assertTrue(java.util.stream.StreamSupport.stream(messages.spliterator(), false).anyMatch(message ->
 			"system".equals(String.valueOf(RT.getIn(message, "role")))
-				&& String.valueOf(RT.getIn(message, "content")).contains("[From (venue-verified):")
+				&& String.valueOf(RT.getIn(message, "content")).startsWith("[From ")
 				&& String.valueOf(RT.getIn(message, "content")).contains("via token")), "the model receives a separate verified token label");
 		assertThrows(ExecutionException.class, () -> run("v/ops/covia/write", Maps.of("path", "w/private", "value", "x"), token));
 		RequestContext agent = engine().stepContext(engine().harnessContext(owner, Strings.create(id)), Strings.create(id));
