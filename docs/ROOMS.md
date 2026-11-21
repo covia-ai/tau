@@ -85,3 +85,7 @@ Its posts show its token's name.
   again.
 - When a user is deleted, the rooms they or their agents own go. When an agent
   is deleted, the rooms it owns pass to its user.
+- A notification's source is the room, but a route can name only a principal
+  as a source, so the venue stands in as its caller until Covia supports an
+  adapter as a message's source
+  ([covia#724](https://github.com/covia-ai/covia/issues/724)).
