@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -14,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.io.TempDir;
 
 import tau.EmbeddedVenue;
 import tau.Identity;
@@ -76,14 +78,24 @@ class OdinTest {
 		assertTrue(String.valueOf(RT.getIn(record, Fields.CONFIG, "tools")).contains(Odin.OP_RUN),
 			"his bridge is among his tools: " + RT.getIn(record, Fields.CONFIG, "tools"));
 		assertEquals(Strings.create(TASK_LLM), RT.getIn(record, Fields.CONFIG, "llmOperation"));
+	}
 
-		// After an update (a merge into what the record held) the record still
-		// matches, so keeping him current costs no job.
-		Odin.ensure(venue, "v/test/ops/llm");
-		assertTrue(God.configured(venue.agentRecord(venue.did(), Odin.AGENT_ID), Odin.GOD.config("v/test/ops/llm")),
-			"configured after an update");
-		Odin.ensure(venue, TASK_LLM);
-		assertTrue(God.configured(venue.agentRecord(venue.did(), Odin.AGENT_ID), Odin.GOD.config(TASK_LLM)));
+	/**
+	 * After an update (a merge into what the record held) the record still
+	 * matches, so keeping him current costs no job. Odin is one agent per
+	 * venue and other classes ensure him on the shared venue, so changing his
+	 * model takes a venue of its own.
+	 */
+	@Test
+	void anUpdatedOdinStillMatchesHisConfig(@TempDir Path home) throws Exception {
+		try (EmbeddedVenue own = EmbeddedVenue.launch(SharedVenue.config(home))) {
+			Odin.ensure(own, TASK_LLM);
+			Odin.ensure(own, "v/test/ops/llm");
+			assertTrue(God.configured(own.agentRecord(own.did(), Odin.AGENT_ID), Odin.GOD.config("v/test/ops/llm")),
+				"configured after an update");
+			Odin.ensure(own, TASK_LLM);
+			assertTrue(God.configured(own.agentRecord(own.did(), Odin.AGENT_ID), Odin.GOD.config(TASK_LLM)));
+		}
 	}
 
 	@Test
