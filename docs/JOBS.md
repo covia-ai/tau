@@ -17,6 +17,10 @@ job model is in [Covia Jobs](https://github.com/covia-ai/covia/blob/develop/venu
   running work.
 - **Looking leaves no trace.** Reading the page submits nothing; each action
   leaves the job record it should.
+- **Agents read the same index.** The jobs operation (`v/ops/tau/jobs`,
+  `JobsOperation`) lists a user's jobs over a time range in the same way, as
+  summaries without inputs or results, under the right to read the user's
+  jobs. Thor and Odin run it inside a user's namespace through their bridges.
 
 ## The list
 
@@ -40,8 +44,11 @@ event thread, and then read the list and any open detail again at once.
 
 ## Known limits
 
-- A time range can rarely include a job created just before it, whose id ran
-  ahead of the venue's clock, as Covia's `Job.lowestIDAt` allows.
+- A time range, on the page or through the operation, can rarely include a
+  job created just before it, whose id ran ahead of the venue's clock, as
+  Covia's `Job.lowestIDAt` allows.
+- A finished job's record does not say which access token it came through:
+  Covia keeps a job's route only while it runs.
 - A scheduled run's record does not say a schedule started it, so it counts as
   whoever scheduled it
   ([covia#701](https://github.com/covia-ai/covia/issues/701)).

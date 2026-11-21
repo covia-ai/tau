@@ -37,6 +37,9 @@ import covia.venue.Users;
  * projected only when something asks for it, so a long history costs what is
  * on screen.
  *
+ * <p>{@link #page} reads the index the same way for the jobs operation
+ * ({@link JobsOperation}).
+ *
  * <p>Looking is a read and leaves no job record. {@link #cancel},
  * {@link #pause}, {@link #resume} and {@link #message} are actions through
  * Covia's Job tools, as the principal, and leave one each.

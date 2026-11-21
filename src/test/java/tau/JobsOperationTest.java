@@ -141,7 +141,8 @@ class JobsOperationTest {
 		return ((CVMLong) RT.getIn(map, key)).longValue();
 	}
 
+	/** When job {@code id} was created by its id, which is what a time range seeks on. */
 	private static long created(String id) {
-		return ((CVMLong) venue.jobs(user.toString()).getRecord(Job.parseID(id)).get(Fields.CREATED)).longValue();
+		return Job.idTime(Job.parseID(id));
 	}
 }

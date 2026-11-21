@@ -26,7 +26,8 @@ import covia.venue.RequestContext;
 /**
  * The jobs operation ({@code v/ops/tau/jobs}): a page of the jobs of the user
  * the caller acts for, newest first, over a time range, each summarised
- * without its input or result, so nothing it returns can carry a secret.
+ * without its input or result; a failure's message, which may echo input, is
+ * shortened.
  *
  * <p>It reads what a {@code covia} list of {@code j} reads, under the same
  * right, {@code crud/read} on the user's {@code j}, so it lends no authority:
