@@ -55,9 +55,15 @@ directly always takes `crud/read`.
 ## Telling the owner
 
 A room may name one of its owner's agents, and a session of it, to be told of
-each post the owner did not make. It arrives as a message from the owner, which
-wakes that agent. Without a session given, the first message starts one, and
-later posts go to it. Naming an agent takes the right to message it. That is
+each post others make. Naming the agent takes the right to message it, and
+that choice is the authority: the poster's plays no part. Without a session
+given, a notice the owner's request sends starts one.
+
+A post arrives in that session as its text alone, as the venue delivers a late
+tool result. Its route is the poster's request carried on by the room, so the
+agent's verified From line says who posted, through which token if any, and
+that it came through the room. Posts the owner makes in person and the agent's
+own answers in the room are not told, so the agent never wakes itself. That is
 one message per post, to one session: posts that arrive while the agent is
 busy reach it together in its next turn.
 

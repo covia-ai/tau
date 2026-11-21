@@ -140,18 +140,26 @@ class RoomsTest {
 		RequestContext me = RequestContext.of(owner);
 		new ChatSession(shared.venue().clientAs(owner.toString()), new AppConfig.Chat("watcher", AppConfig.DEFAULT_OPERATION,
 			AppConfig.ECHO_LLM_OPERATION, "Echo."), "watcher").ensureAgent();
-		run("create", Maps.of("room", "told", "notify", Maps.of("agentId", "watcher")), me);
+		ACell made = run("create", Maps.of("room", "told", "notify", Maps.of("agentId", "watcher")), me);
+		assertNotNull(RT.getIn(made, "notify", "sessionId"), "the subscriber's notice starts the session posts go to");
 		post(me, "told", "the owner's own post tells nobody");
 		RequestContext watcher = engine().context(owner, Principals.agentDID(owner, Strings.create("watcher")));
 		post(watcher, "told", "nor does the told agent's own answer, so it never wakes itself");
-		assertNull(view(me, "told/notify/sessionId"), "no message, so no session yet");
+		AString stranger = owner("rooms-notify-other");
+		post(RequestContext.of(stranger), "told", "someone else's post");
+		post(token(owner, "grok", TokenPreset.COLLABORATE.scope("Tau")), "told", "a post through the owner's token");
 
-		RequestContext other = RequestContext.of(owner("rooms-notify-other"));
-		post(other, "told", "someone else's post");
-		ACell session = view(me, "told/notify/sessionId");
-		assertNotNull(session, "the first message's session is kept for the next");
-		post(other, "told", "and another");
-		assertEquals(session, view(me, "told/notify/sessionId"));
+		engine().jobs().invokeInternal("v/ops/agent/trigger", Maps.of("agentId", "watcher", "force", false, "wait", 15_000L),
+			me).get(WAIT, TimeUnit.SECONDS);
+		ACell history = engine().jobs().invokeInternal("v/ops/agent/history", Maps.of("agentId", "watcher",
+			"sessionId", RT.getIn(made, "notify", "sessionId")), me).get(WAIT, TimeUnit.SECONDS);
+		List<ACell> told = StreamSupport.stream(RT.ensureVector(RT.getIn(history, "entries")).spliterator(), false)
+			.filter(e -> "user".equals(String.valueOf(RT.getIn(e, "role")))).toList();
+		List<String> texts = told.stream().map(e -> String.valueOf(RT.getIn(e, "content"))).toList();
+		assertEquals(3, told.size(), "the notice, then the two posts the owner and the agent did not make: " + texts);
+		assertEquals("someone else's post", texts.get(1), "a post arrives as its text alone");
+		assertEquals(stranger, RT.getIn(told.get(1), "caller"), "from whoever posted it");
+		assertEquals(owner, RT.getIn(told.get(2), "caller"), "a token's post is its issuer's");
 
 		RequestContext creator = token(owner, "creator", new Tokens.Scope(Vectors.of(Strings.create("v/ops/room/create")),
 			Vectors.of(Capability.create(Strings.create("x/room"), RoomAdapter.ROOM_CREATE))));

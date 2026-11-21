@@ -28,6 +28,7 @@ import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import convex.lattice.cursor.AForkableCursor;
 import covia.adapter.AAdapter;
+import covia.adapter.AgentAdapter;
 import covia.api.Abilities;
 import covia.api.Fields;
 import covia.exception.AuthException;
@@ -37,6 +38,7 @@ import covia.grid.Principals;
 import covia.lattice.Covia;
 import covia.venue.AdapterState;
 import covia.venue.RequestContext;
+import covia.venue.RouteText;
 
 /**
  * Collaboration rooms: conversations shared across the venue, where people,
@@ -93,6 +95,9 @@ public class RoomAdapter extends AAdapter {
 
 	private static final Pattern ROOM_NAME = Pattern.compile("[a-z0-9][a-z0-9-]{0,63}");
 	private static final String OP_MESSAGE = "v/ops/agent/message";
+	private static final String AGENT_ADAPTER = "agent";
+	private static final AString ROUTE_ADAPTER = Strings.intern(NAME);
+	private static final String NOTICE = "Posts others make in room %s will be delivered to this session.";
 	private static final List<String> OPS = List.of("create", "post", "read", "wait", "update", "prune", "delete");
 
 	private static final AString K_ROOMS = Strings.intern("rooms");
@@ -118,7 +123,9 @@ public class RoomAdapter extends AAdapter {
 	private static final AString K_END = Strings.intern("end");
 	private static final AString K_PRUNED = Strings.intern("pruned");
 	private static final AString K_DELETED = Strings.intern("deleted");
-	private static final AString K_NOTIFIED = Strings.intern("notified");
+	/** A room's settings, which an update changes and nothing else. */
+	private static final List<AString> SETTINGS = List.of(Strings.intern("description"), Strings.intern("public"),
+		Strings.intern("notify"));
 
 	/** Requests waiting for a room's next post, by room. */
 	private final Map<AString, List<CompletableFuture<Boolean>>> waiting = new HashMap<>();
@@ -170,11 +177,11 @@ public class RoomAdapter extends AAdapter {
 	public CompletableFuture<ACell> invokeFuture(RequestContext ctx, AMap<AString, ACell> meta, ACell input) {
 		try {
 			return switch (getSubOperation(meta)) {
-				case "create" -> CompletableFuture.completedFuture(create(ctx, input));
+				case "create" -> create(ctx, input);
 				case "post" -> post(ctx, input);
 				case "read" -> CompletableFuture.completedFuture(read(ctx, input));
 				case "wait" -> await(ctx, input);
-				case "update" -> CompletableFuture.completedFuture(update(ctx, input));
+				case "update" -> update(ctx, input);
 				case "prune" -> CompletableFuture.completedFuture(prune(ctx, input));
 				case "delete" -> CompletableFuture.completedFuture(delete(ctx, input));
 				default -> throw new InvalidInputException("Unknown room operation: " + getSubOperation(meta));
@@ -186,23 +193,24 @@ public class RoomAdapter extends AAdapter {
 
 	// ========== Operations ==========
 
-	private ACell create(RequestContext ctx, ACell input) {
+	private CompletableFuture<ACell> create(RequestContext ctx, ACell input) {
 		AString name = roomName(input);
 		requireRight(ctx, name, ROOM_CREATE, "create");
+		if (rooms(adapterState().get()).get(name) != null) throw new InvalidInputException(EXISTS.formatted(name));
 		AString owner = ctx.getAuthorityDID();
-		AMap<AString, ACell> record = Maps.of(K_OWNER, owner, K_CREATED, engine.currentTimestamp(),
-			K_NEXT, 0L, K_POSTS, Index.none());
-		record = withSettings(ctx, record, input);
-		AMap<AString, ACell> made = record;
-		adapterState().update(s -> {
-			Index<AString, ACell> rooms = rooms(s);
-			if (rooms.get(name) != null) throw new InvalidInputException(EXISTS.formatted(name));
-			return withRooms(s, rooms.assoc(name, made));
+		AMap<AString, ACell> record = withSettings(ctx, Maps.of(K_OWNER, owner, K_CREATED, engine.currentTimestamp(),
+			K_NEXT, 0L, K_POSTS, Index.none()), input);
+		return withSession(ctx, name, record).thenApply(made -> {
+			adapterState().update(s -> {
+				Index<AString, ACell> rooms = rooms(s);
+				if (rooms.get(name) != null) throw new InvalidInputException(EXISTS.formatted(name));
+				return withRooms(s, rooms.assoc(name, made));
+			});
+			return (ACell) summary(name, made);
 		});
-		return summary(name, made);
 	}
 
-	/** Records the post, answers waits, and returns once the owner's session, if any, has been told. */
+	/** Records the post, answers waits, and tells the owner's chosen session, if any. */
 	private CompletableFuture<ACell> post(RequestContext ctx, ACell input) {
 		AString name = roomName(input);
 		String text = text(input, K_TEXT, MAX_TEXT, true);
@@ -227,7 +235,8 @@ public class RoomAdapter extends AAdapter {
 			return withRooms(s, rooms.assoc(name, updated));
 		});
 		release(name, true);
-		return notifyOwner(name, after.get(), made.get()).thenApply(v -> made.get());
+		tell(ctx, name, after.get(), made.get());
+		return CompletableFuture.completedFuture(made.get());
 	}
 
 	private ACell read(RequestContext ctx, ACell input) {
@@ -267,19 +276,24 @@ public class RoomAdapter extends AAdapter {
 		});
 	}
 
-	private ACell update(RequestContext ctx, ACell input) {
+	private CompletableFuture<ACell> update(RequestContext ctx, ACell input) {
 		AString name = roomName(input);
-		requireModerator(ctx, name, room(name));
-		AtomicReference<AMap<AString, ACell>> after = new AtomicReference<>();
-		adapterState().update(s -> {
-			Index<AString, ACell> rooms = rooms(s);
-			AMap<AString, ACell> r = RT.ensureMap(rooms.get(name));
-			if (r == null) throw new NotFoundException(NOT_FOUND.formatted(name), name.toString());
-			AMap<AString, ACell> updated = withSettings(ctx, r, input);
-			after.set(updated);
-			return withRooms(s, rooms.assoc(name, updated));
+		AMap<AString, ACell> room = room(name);
+		requireModerator(ctx, name, room);
+		return withSession(ctx, name, withSettings(ctx, room, input)).thenApply(changed -> {
+			AtomicReference<AMap<AString, ACell>> after = new AtomicReference<>();
+			adapterState().update(s -> {
+				Index<AString, ACell> rooms = rooms(s);
+				AMap<AString, ACell> r = RT.ensureMap(rooms.get(name));
+				if (r == null) throw new NotFoundException(NOT_FOUND.formatted(name), name.toString());
+				// Only the settings change: posts made meanwhile stay
+				AMap<AString, ACell> updated = r;
+				for (AString k : SETTINGS) updated = (changed.get(k) == null) ? updated.dissoc(k) : updated.assoc(k, changed.get(k));
+				after.set(updated);
+				return withRooms(s, rooms.assoc(name, updated));
+			});
+			return (ACell) summary(name, after.get());
 		});
-		return summary(name, after.get());
 	}
 
 	private ACell prune(RequestContext ctx, ACell input) {
@@ -340,54 +354,65 @@ public class RoomAdapter extends AAdapter {
 	// ========== Notification ==========
 
 	/**
-	 * Tells the owner's chosen session of a post neither its owner nor the
-	 * agent told made, as a message from the owner, which wakes that agent: the
-	 * agent's own answer in the room never wakes it again. A target with no session
-	 * yet takes the one its first message makes. Completes once that is done;
-	 * a failure is logged, never the post's: the post is already made.
+	 * Gives a room's notify target a session of its own, when it names none,
+	 * with a notice the subscriber's own request sends: the session the agent
+	 * is then told of posts in. A failure leaves the room unchanged.
 	 */
-	private CompletableFuture<Void> notifyOwner(AString name, AMap<AString, ACell> room, AMap<AString, ACell> post) {
-		AMap<AString, ACell> notify = RT.ensureMap(room.get(K_NOTIFY));
-		AString owner = owner(room);
-		if (notify == null) return CompletableFuture.completedFuture(null);
-		AString told = Principals.agentDID(userOf(owner), RT.ensureString(notify.get(Fields.AGENT_ID)));
-		if (owner.equals(post.get(K_FROM)) || told.equals(post.get(K_FROM))) return CompletableFuture.completedFuture(null);
-		StringBuilder message = new StringBuilder("[room ").append(name).append(", post ").append(post.get(K_N))
-			.append(" from ").append(post.get(K_FROM));
-		if (post.get(K_VIA) != null) message.append(" via token ").append(post.get(K_VIA));
-		message.append("]\n").append(post.get(K_TEXT));
-		AMap<AString, ACell> request = Maps.of(Fields.AGENT_ID, notify.get(Fields.AGENT_ID),
-			"message", message.toString());
-		if (notify.get(Fields.SESSION_ID) != null) request = request.assoc(Fields.SESSION_ID, notify.get(Fields.SESSION_ID));
-		CompletableFuture<ACell> sent;
-		try {
-			sent = engine.jobs().invokeInternal(OP_MESSAGE, request, engine.context(userOf(owner), owner));
-		} catch (Exception e) {
-			sent = CompletableFuture.failedFuture(e);
-		}
-		return sent.handle((result, failed) -> {
-			try {
-				if (failed != null) {
-					log.warn("Room {}: telling its owner of post {} failed: {}", name, post.get(K_N), failed.toString());
-				} else if (notify.get(Fields.SESSION_ID) == null && RT.getIn(result, Fields.SESSION_ID) != null) {
-					keepSession(name, notify, RT.getIn(result, Fields.SESSION_ID));
-				}
-			} catch (Exception e) {
-				log.warn("Room {}: keeping its owner's session failed: {}", name, e.toString());
-			}
-			return null;
+	private CompletableFuture<AMap<AString, ACell>> withSession(RequestContext ctx, AString name,
+			AMap<AString, ACell> record) {
+		AMap<AString, ACell> notify = RT.ensureMap(record.get(K_NOTIFY));
+		if (notify == null || notify.get(Fields.SESSION_ID) != null) return CompletableFuture.completedFuture(record);
+		AMap<AString, ACell> notice = Maps.of(Fields.AGENT_ID, notify.get(Fields.AGENT_ID),
+			"message", NOTICE.formatted(name));
+		return engine.jobs().invokeInternal(OP_MESSAGE, notice, ctx).thenApply(result -> {
+			ACell made = RT.getIn(result, Fields.SESSION_ID);
+			if (made == null) throw new IllegalStateException("Messaging agent " + notify.get(Fields.AGENT_ID) + " gave no session");
+			ACell session = (made instanceof Blob b) ? Strings.create(b.toHexString()) : made;
+			return record.assoc(K_NOTIFY, notify.assoc(Fields.SESSION_ID, session));
 		});
 	}
 
-	/** Keeps the session a target's first message made, so later posts reach the same conversation. */
-	private void keepSession(AString name, AMap<AString, ACell> notify, ACell made) {
-		ACell session = (made instanceof Blob b) ? Strings.create(b.toHexString()) : made;
-		adapterState().update(s -> {
-			Index<AString, ACell> rooms = rooms(s);
-			AMap<AString, ACell> r = RT.ensureMap(rooms.get(name));
-			if (r == null || !notify.equals(r.get(K_NOTIFY))) return s;
-			return withRooms(s, rooms.assoc(name, r.assoc(K_NOTIFY, notify.assoc(Fields.SESSION_ID, session))));
-		});
+	/**
+	 * Tells a room's notify target of a post neither the room's owner, in
+	 * person, nor that agent made, so an agent answering in the room never
+	 * wakes itself. The subscriber authorised this when choosing the target,
+	 * so the poster's authority plays no part: it is delivered as the venue
+	 * delivers a late tool result, into the session, with the poster's
+	 * request's route carried on by this adapter. The message is the post's
+	 * text; the route says it came through the room and who posted it. A
+	 * failure is logged, never the post's, which is already made.
+	 */
+	private void tell(RequestContext ctx, AString name, AMap<AString, ACell> room, AMap<AString, ACell> post) {
+		AMap<AString, ACell> notify = RT.ensureMap(room.get(K_NOTIFY));
+		if (notify == null) return;
+		AString owner = owner(room);
+		AString account = userOf(owner);
+		AString agentId = RT.ensureString(notify.get(Fields.AGENT_ID));
+		AString from = RT.ensureString(post.get(K_FROM));
+		boolean ownersOwn = owner.equals(from) && post.get(K_VIA) == null;
+		if (ownersOwn || Principals.agentDID(account, agentId).equals(from)) return;
+		try {
+			AgentAdapter agents = (AgentAdapter) engine.getAdapter(AGENT_ADAPTER);
+			Blob session = sessionOf(notify.get(Fields.SESSION_ID));
+			ACell n = post.get(K_N);
+			AVector<ACell> route = ctx.via(ROUTE_ADAPTER, Maps.of(K_ROOM, name, K_N, n),
+				RouteText.builder().name(name).build()).getRoute();
+			Boolean delivered = engine.getVenueState().transact(venue -> agents.deliverToWaiter(venue.users(), account,
+				agentId, session, null, from, route, Strings.create(name + "/" + n), post.get(K_TEXT)));
+			if (!Boolean.TRUE.equals(delivered)) {
+				log.warn("Room {}: post {} could not reach agent {}'s session", name, n, agentId);
+				return;
+			}
+			engine.flush();
+			agents.wakeAgent(account, agentId, true);
+		} catch (Exception e) {
+			log.warn("Room {}: telling agent {} of post {} failed: {}", name, agentId, post.get(K_N), e.toString());
+		}
+	}
+
+	private static Blob sessionOf(ACell id) {
+		String hex = String.valueOf(id);
+		return Blob.fromHex(hex.startsWith("0x") ? hex.substring(2) : hex);
 	}
 
 	// ========== Waiting ==========
