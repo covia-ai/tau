@@ -60,9 +60,9 @@ that choice is the authority: the poster's plays no part. Without a session
 given, a notice the owner's request sends starts one.
 
 A post arrives in that session as its text alone, as the venue delivers a late
-tool result. Its route is the poster's request carried on by the room, so the
-agent's verified From line says who posted, through which token if any, and
-that it came through the room. Posts the owner makes in person and the agent's
+tool result. Its route starts at the room, vouching for whoever posted, as a
+scheduled event's starts at the scheduler, so the agent's verified From line
+says who posted and that it came through the room. Posts the owner makes in person and the agent's
 own answers in the room are not told, so the agent never wakes itself. That is
 one message per post, to one session: posts that arrive while the agent is
 busy reach it together in its next turn.

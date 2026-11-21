@@ -235,7 +235,7 @@ public class RoomAdapter extends AAdapter {
 			return withRooms(s, rooms.assoc(name, updated));
 		});
 		release(name, true);
-		tell(ctx, name, after.get(), made.get());
+		tell(name, after.get(), made.get());
 		return CompletableFuture.completedFuture(made.get());
 	}
 
@@ -377,12 +377,12 @@ public class RoomAdapter extends AAdapter {
 	 * person, nor that agent made, so an agent answering in the room never
 	 * wakes itself. The subscriber authorised this when choosing the target,
 	 * so the poster's authority plays no part: it is delivered as the venue
-	 * delivers a late tool result, into the session, with the poster's
-	 * request's route carried on by this adapter. The message is the post's
-	 * text; the route says it came through the room and who posted it. A
-	 * failure is logged, never the post's, which is already made.
+	 * delivers a late tool result, into the session. The message is the post's
+	 * text; its route starts at the room, vouching for whoever posted, as a
+	 * scheduled fire's starts at the scheduler. A failure is logged, never the
+	 * post's, which is already made.
 	 */
-	private void tell(RequestContext ctx, AString name, AMap<AString, ACell> room, AMap<AString, ACell> post) {
+	private void tell(AString name, AMap<AString, ACell> room, AMap<AString, ACell> post) {
 		AMap<AString, ACell> notify = RT.ensureMap(room.get(K_NOTIFY));
 		if (notify == null) return;
 		AString owner = owner(room);
@@ -395,8 +395,9 @@ public class RoomAdapter extends AAdapter {
 			AgentAdapter agents = (AgentAdapter) engine.getAdapter(AGENT_ADAPTER);
 			Blob session = sessionOf(notify.get(Fields.SESSION_ID));
 			ACell n = post.get(K_N);
-			AVector<ACell> route = ctx.via(ROUTE_ADAPTER, Maps.of(K_ROOM, name, K_N, n),
-				RouteText.builder().name(name).build()).getRoute();
+			// The message starts at the room, vouching for whoever posted: how their post reached the room is not part of it
+			AVector<ACell> route = Vectors.of(RequestContext.routeRecord(ROUTE_ADAPTER, from, Maps.of(K_ROOM, name, K_N, n),
+				RouteText.builder().name(name).build()));
 			Boolean delivered = engine.getVenueState().transact(venue -> agents.deliverToWaiter(venue.users(), account,
 				agentId, session, null, from, route, Strings.create(name + "/" + n), post.get(K_TEXT)));
 			if (!Boolean.TRUE.equals(delivered)) {
