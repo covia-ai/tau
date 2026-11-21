@@ -21,7 +21,7 @@ schedule. The procedure is the
 
 | Who | Part |
 |---|---|
-| Claude Code, from a scheduled task on the owner's computer | runs the loop: upgrades, implements, tests, relaunches, merges, reports |
+| Claude Code, from a scheduled task on the owner's computer | runs the loop: upgrades, implements, tests, relaunches, merges, reports; as the one driving development, it judges for itself how observable and manageable the venue is and how the development process could improve |
 | Improver, the improvement agent | keeps the backlog honest, says what hurts most, weighs Claude Code's ideas, tries things |
 | Tau's assistant and gods | report misses and ideas to the backlog as they meet them |
 | The owner | files issues, answers design questions, pushes, releases |

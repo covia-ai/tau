@@ -108,9 +108,23 @@ and `diff`, read only). Narrow it to the change that broke Tau.
      entries without a `status`.
   3. Improvements of your own: anything that would make Tau more useful, or
      more idiomatic Covia and Lattice. Bring two or three to the consultation.
-- It is a collaboration: put the candidates, yours included, to Improver and
-  build what you agree on. Conclude there is nothing worth doing only after
-  weighing all three kinds.
+  4. The loop's own findings, which you weigh yourself, since you drive the
+     development:
+     - **Observability and manageability:** what you could not see or do
+       cheaply about the venue, such as what happened over a period, who
+       did it, or why a job failed. Fix it in Tau as an idiomatic operation,
+       or ask Covia for it.
+     - **The development process:** builds, tests, relaunches, inspecting
+       the running app, and the loop's scripts.
+
+     Record each finding as you meet it, so a later run sees it:
+     `$S/mcp.sh grid_run '{"operation":"v/ops/tau/report-skill-feedback","input":{"category":"improvement","summary":"loop: …","failedAction":"…"}}'`.
+     A change to the loop's rules, bounds or authority is a question for the
+     owner. So is a new tool or cap for a god (tau#40): report it, don't build
+     it.
+- It is a collaboration: put the first three kinds to Improver, and build what
+  you agree on. Conclude there is nothing worth doing only after weighing all
+  four kinds.
 - Consult once per run: `agent_chat` with `Improver`, new session, a brief of
   today's state and the top candidates. Ask what hurts most, with the failing
   action, and the smallest fix. A later chunk continues that session in a
