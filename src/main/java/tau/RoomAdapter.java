@@ -340,15 +340,18 @@ public class RoomAdapter extends AAdapter {
 	// ========== Notification ==========
 
 	/**
-	 * Tells the owner's chosen session of a post its owner did not make, as a
-	 * message from the owner, which wakes that agent. A target with no session
+	 * Tells the owner's chosen session of a post neither its owner nor the
+	 * agent told made, as a message from the owner, which wakes that agent: the
+	 * agent's own answer in the room never wakes it again. A target with no session
 	 * yet takes the one its first message makes. Completes once that is done;
 	 * a failure is logged, never the post's: the post is already made.
 	 */
 	private CompletableFuture<Void> notifyOwner(AString name, AMap<AString, ACell> room, AMap<AString, ACell> post) {
 		AMap<AString, ACell> notify = RT.ensureMap(room.get(K_NOTIFY));
 		AString owner = owner(room);
-		if (notify == null || owner.equals(post.get(K_FROM))) return CompletableFuture.completedFuture(null);
+		if (notify == null) return CompletableFuture.completedFuture(null);
+		AString told = Principals.agentDID(userOf(owner), RT.ensureString(notify.get(Fields.AGENT_ID)));
+		if (owner.equals(post.get(K_FROM)) || told.equals(post.get(K_FROM))) return CompletableFuture.completedFuture(null);
 		StringBuilder message = new StringBuilder("[room ").append(name).append(", post ").append(post.get(K_N))
 			.append(" from ").append(post.get(K_FROM));
 		if (post.get(K_VIA) != null) message.append(" via token ").append(post.get(K_VIA));

@@ -142,6 +142,8 @@ class RoomsTest {
 			AppConfig.ECHO_LLM_OPERATION, "Echo."), "watcher").ensureAgent();
 		run("create", Maps.of("room", "told", "notify", Maps.of("agentId", "watcher")), me);
 		post(me, "told", "the owner's own post tells nobody");
+		RequestContext watcher = engine().context(owner, Principals.agentDID(owner, Strings.create("watcher")));
+		post(watcher, "told", "nor does the told agent's own answer, so it never wakes itself");
 		assertNull(view(me, "told/notify/sessionId"), "no message, so no session yet");
 
 		RequestContext other = RequestContext.of(owner("rooms-notify-other"));
@@ -174,6 +176,27 @@ class RoomsTest {
 			assertEquals(Strings.create("grok"), RT.getIn(result, "via"), String.valueOf(called));
 			assertEquals(owner, RT.getIn(result, "from"), String.valueOf(called));
 		}
+	}
+
+	@Test
+	void aNameIsTakenOnceAndAnOwnersGoingSettlesTheirRooms() throws Exception {
+		AString owner = owner("rooms-going");
+		RequestContext me = RequestContext.of(owner);
+		run("create", Maps.of("room", "taken"), me);
+		RequestContext other = RequestContext.of(owner("rooms-going-other"));
+		assertRefused(covia.exception.InvalidInputException.class, () -> run("create", Maps.of("room", "taken"), other));
+
+		new ChatSession(shared.venue().clientAs(owner.toString()), new AppConfig.Chat("leaver", AppConfig.DEFAULT_OPERATION,
+			AppConfig.ECHO_LLM_OPERATION, "Echo."), "leaver").ensureAgent();
+		RequestContext leaver = engine().context(owner, Principals.agentDID(owner, Strings.create("leaver")));
+		run("create", Maps.of("room", "left-behind"), leaver);
+		engine().jobs().invokeInternal("v/ops/agent/delete", Maps.of("agentId", "leaver", "remove", true), me)
+			.get(WAIT, TimeUnit.SECONDS);
+		assertEquals(owner, view(me, "left-behind/owner"), "an agent's rooms pass to its user");
+
+		engine().deleteUser(RequestContext.of(Strings.create(engine().getDIDString())), owner);
+		assertRefused(NotFoundException.class, () -> run("read", Maps.of("room", "taken"), other));
+		assertRefused(NotFoundException.class, () -> run("read", Maps.of("room", "left-behind"), other));
 	}
 
 	@Test

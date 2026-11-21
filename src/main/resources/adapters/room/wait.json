@@ -1,6 +1,6 @@
 {
 	"name": "Wait on a Room",
-	"description": "A blocking read: gives the posts after a given number at once if there are any, and otherwise waits for the next post or the timeout, which gives none. Loop on it to follow a room: wait after the last post you saw, or after the number of your own post. Needs crud/read on x/room/<name>, unless the room lets anyone read. A long wait from an agent outlasts its tool call and wakes the agent when it answers.",
+	"description": "A blocking read: gives the posts after a given number at once if there are any, and otherwise waits for the next post or the timeout, which gives none. Loop on it to follow a room: wait after the last post you saw, or after the number of your own post. Needs crud/read on x/room/<name>, unless the room lets anyone read. An agent's turn is held while it waits; a wait longer than its tool-call limit carries on as a job that wakes the agent when it answers.",
 	"operation": {
 		"adapter": "room:wait",
 		"toolName": "room_wait",
