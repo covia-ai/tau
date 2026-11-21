@@ -53,7 +53,6 @@ public final class JobList {
 	private static final long TIMEOUT_SECONDS = 30;
 	private static final AString K_OWNER = Strings.intern("owner");
 	private static final AString K_PARENT = Strings.intern("parent");
-	private static final AString K_DESCRIPTION = Strings.intern("description");
 	private static final AString K_TOKENS = Strings.intern("tokens");
 	private static final AString K_TOTAL = Strings.intern("total");
 
@@ -162,7 +161,7 @@ public final class JobList {
 	 * @param name      the operation's display name, else its reference
 	 * @param operation the operation it invoked, as invoked
 	 * @param status    its Covia status
-	 * @param purpose   what it is for in words — a description, an agent's task or message — or null
+	 * @param purpose   what it is for in words, the task or message it handed an agent, or null
 	 * @param starter   who started it
 	 * @param caller    the principal that started it
 	 * @param agent     the agent that ran it or asked for it, or null
@@ -367,10 +366,8 @@ public final class JobList {
 			num(RT.getIn(record, K_TOKENS, K_TOTAL)), record);
 	}
 
-	/** What a job is for: its {@code description}, else the task or message it handed an agent. */
-	static String purpose(AMap<AString, ACell> record) {
-		String description = str(record.get(K_DESCRIPTION));
-		if (description != null && !description.isBlank()) return description.strip();
+	/** What a job is for: the task or message it handed an agent, if it handed one. */
+	private static String purpose(AMap<AString, ACell> record) {
 		return Schedule.purpose(Maps.of(Fields.INPUT, record.get(Fields.INPUT)));
 	}
 

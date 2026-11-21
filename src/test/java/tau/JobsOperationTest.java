@@ -2,6 +2,10 @@ package tau;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -32,13 +36,15 @@ class JobsOperationTest {
 
 	private static final long TIMEOUT_SECONDS = 30;
 	private static final String MARKER = "a value no listing shows";
+	/** The last write's value: too large for the budget, so shown only as inspect renders it. */
+	private static final String LARGE = MARKER + " " + "x".repeat(4000);
 
 	@RegisterExtension
 	static final SharedVenue shared = new SharedVenue();
 
 	private static EmbeddedVenue venue;
 	private static AString user;
-	/** The user's jobs, oldest first: four writes, then a failure. */
+	/** The user's jobs, oldest first: four writes, the last of a large value, then a failure. */
 	private static final List<String> made = new ArrayList<>();
 
 	@BeforeAll
@@ -48,7 +54,7 @@ class JobsOperationTest {
 		venue.engine().getVenueState().users().ensure(user.toString());
 		Venue client = venue.clientAs(user.toString());
 		for (int i = 0; i < 4; i++) {
-			Job job = client.invoke("v/ops/covia/write", Maps.of("path", "w/jobs-op/" + i, "value", MARKER))
+			Job job = client.invoke("v/ops/covia/write", Maps.of("path", "w/jobs-op/" + i, "value", (i == 3) ? LARGE : MARKER))
 				.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 			job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 			made.add(job.getID().toHexString());
@@ -67,10 +73,30 @@ class JobsOperationTest {
 			"the latest two");
 		AMap<AString, ACell> failure = RT.ensureMap(jobs(all).get(4));
 		assertEquals(Strings.create("FAILED"), failure.get(Fields.STATUS));
-		assertEquals(user, failure.get(JobsOperation.K_CALLER), "a job started in person is the user's");
-		assertNotNull(failure.get(Strings.create("error")), "says why it failed");
-		assertFalse(all.toString().contains(MARKER), "no input or result is shown");
+		assertEquals(user, failure.get(Fields.CALLER), "a job started in person is the user's");
+		assertNotNull(failure.get(Fields.ERROR), "says why it failed");
+		AMap<AString, ACell> write = RT.ensureMap(jobs(all).get(0));
+		assertEquals(Strings.create("v/ops/covia/write"), write.get(Fields.OP), "the record's own names");
+		assertNotNull(write.get(Fields.ADAPTER));
+		OffsetDateTime created = OffsetDateTime.parse(RT.ensureString(write.get(Fields.CREATED)).toString());
+		assertEquals(ZoneId.systemDefault().getRules().getOffset(created.toInstant()), created.getOffset(),
+			"a local time");
+		assertFalse(all.toString().contains(MARKER), "no input or result unless asked for");
 		assertNull(failure.get(Fields.INPUT));
+	}
+
+	@Test
+	void fieldsAddPartsOfTheRecordAndLargeOnesAreShortened() {
+		AVector<ACell> shown = jobs(list(RequestContext.of(user), Maps.of("fields", Vectors.of("input", "input/path"))));
+		AMap<AString, ACell> first = RT.ensureMap(shown.get(0));
+		assertEquals(Strings.create(MARKER), RT.getIn(first, "input", "value"), "a small input whole");
+		assertEquals(Strings.create("w/jobs-op/0"), first.get(Strings.create("input/path")), "a subpath");
+		assertNotNull(first.get(Fields.STATUS), "with the default fields");
+		ACell large = RT.ensureMap(shown.get(3)).get(Fields.INPUT);
+		assertInstanceOf(AString.class, large, "a large input rendered as inspect renders it");
+		assertTrue(((AString) large).count() < LARGE.length(), "and shortened");
+		assertEquals(shown, jobs(list(RequestContext.of(user), Maps.of("fields", "input, input/path"))),
+			"or one comma-separated string");
 	}
 
 	@Test
@@ -86,7 +112,9 @@ class JobsOperationTest {
 		assertEquals(2, two.size());
 		assertEquals(made.get(0), two.get(0), "the first jobs from the start, not the latest");
 		assertEquals(from, ids(list(RequestContext.of(user),
-			Maps.of("start", Strings.create(java.time.Instant.ofEpochMilli(third).toString())))), "an ISO-8601 start");
+			Maps.of("start", Strings.create(Instant.ofEpochMilli(third).toString())))), "an ISO-8601 start");
+		String local = LocalDateTime.ofInstant(Instant.ofEpochMilli(third), ZoneId.systemDefault()).toString();
+		assertEquals(from, ids(list(RequestContext.of(user), Maps.of("start", local))), "a local time, without an offset");
 	}
 
 	@Test
@@ -104,6 +132,7 @@ class JobsOperationTest {
 		assertThrows(InvalidInputException.class, () -> list(me, Maps.of("start", "yesterday")));
 		assertThrows(InvalidInputException.class, () -> list(me, Maps.of("limit", CVMLong.create(0))));
 		assertThrows(InvalidInputException.class, () -> list(me, Maps.of("status", CVMLong.create(1))));
+		assertThrows(InvalidInputException.class, () -> list(me, Maps.of("fields", "input,,output")));
 	}
 
 	@Test

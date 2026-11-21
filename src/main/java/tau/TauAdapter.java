@@ -64,7 +64,7 @@ import covia.venue.storage.ContentProvider;
  *       ({@link StoreSpace}): compaction at the next start, and the originals
  *       repairs kept; venue-operator only, so Odin's to run.</li>
  *   <li>{@code brightside:jobs} — the acting user's jobs from a start time,
- *       or the latest, summarised without inputs or results
+ *       or the latest, each a view of its record for an agent
  *       ({@link JobsOperation}).</li>
  *   <li>Two bridges for each of the {@link Gods}: its ask bridge
  *       ({@code brightside:ask-odin}, {@code brightside:alert-thor}) — an

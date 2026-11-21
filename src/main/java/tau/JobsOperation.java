@@ -1,8 +1,17 @@
 package tau;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.TemporalAccessor;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import convex.auth.ucan.Capability;
@@ -11,23 +20,35 @@ import convex.core.data.AMap;
 import convex.core.data.AString;
 import convex.core.data.AVector;
 import convex.core.data.Blob;
+import convex.core.data.Cells;
 import convex.core.data.Index;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.Vectors;
 import convex.core.data.prim.CVMLong;
+import convex.core.data.util.CellExplorer;
 import convex.core.lang.RT;
+import covia.api.Fields;
 import covia.exception.AuthException;
 import covia.exception.InvalidInputException;
+import covia.grid.Attribution;
+import covia.lattice.CoviaPath;
 import covia.lattice.Namespace;
+import covia.lattice.ValuePath;
 import covia.venue.Engine;
 import covia.venue.RequestContext;
 
 /**
  * The jobs operation ({@code v/ops/tau/jobs}): the jobs of the user the caller
- * acts for, from a start time or the latest, oldest first, each summarised
- * without its input or result; a failure's message, which may echo input, is
- * shortened.
+ * acts for, from a start time or the latest, oldest first, each as a view of
+ * its record for an agent to read.
+ *
+ * <p>The view keeps the record's own names. By default it shows who ran what,
+ * when and how it ended; {@code fields} adds other parts of the record, such
+ * as {@code input} or {@code tokens/total}, as {@code covia} list's
+ * {@code fields} does. Times are local ISO-8601 with their offset. A value too
+ * large for its budget, such as a long error, is shown as inspect shows it,
+ * through {@link CellExplorer}.
  *
  * <p>It reads what a {@code covia} list of {@code j} reads, under the same
  * right, {@code crud/read} on the user's {@code j}, so it lends no authority:
@@ -40,24 +61,26 @@ final class JobsOperation {
 
 	static final int DEFAULT_LIMIT = 50;
 	static final int MAX_LIMIT = 200;
-	/** A failure's message is cut here: enough to see what went wrong, not a dump. */
-	static final int MAX_ERROR = 300;
+	/** At most this many extra fields, as {@code covia} list allows. */
+	static final int MAX_FIELDS = 16;
+	/** Each value shown whole up to this storage size, else rendered within it; inspect's default budget. */
+	static final int BUDGET = 500;
 
 	static final AString K_START = Strings.intern("start");
 	static final AString K_STATUS = Strings.intern("status");
 	static final AString K_CALLER = Strings.intern("caller");
 	static final AString K_LIMIT = Strings.intern("limit");
+	static final AString K_FIELDS = Strings.intern("fields");
 	static final AString K_JOBS = Strings.intern("jobs");
-	private static final AString K_ID = Strings.intern("id");
-	private static final AString K_CREATED = Strings.intern("created");
-	private static final AString K_UPDATED = Strings.intern("updated");
-	private static final AString K_NAME = Strings.intern("name");
-	private static final AString K_OPERATION = Strings.intern("operation");
-	private static final AString K_AGENT = Strings.intern("agent");
-	private static final AString K_SESSION = Strings.intern("session");
-	private static final AString K_PARENT = Strings.intern("parent");
-	private static final AString K_ERROR = Strings.intern("error");
-	private static final AString K_TOKENS = Strings.intern("tokens");
+
+	/** Times as the agent's own clock reads them: local, with the offset, so never ambiguous. */
+	private static final DateTimeFormatter TIME = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+	/** A start as an agent would write it: a date, a local time, or a time with its offset. */
+	private static final DateTimeFormatter START = new DateTimeFormatterBuilder()
+		.append(DateTimeFormatter.ISO_LOCAL_DATE)
+		.optionalStart().appendLiteral('T').append(DateTimeFormatter.ISO_LOCAL_TIME).optionalEnd()
+		.optionalStart().appendOffsetId().optionalEnd()
+		.toFormatter();
 
 	private final Engine engine;
 
@@ -74,38 +97,63 @@ final class JobsOperation {
 		Set<String> statuses = statuses(input);
 		AString caller = RT.ensureString(RT.getIn(input, K_CALLER));
 		int limit = limit(input);
+		List<AString> fields = fields(input);
 		Index<Blob, ACell> index = engine.getVenueState().users().at(user).jobs().getAll();
 		AVector<ACell> jobs = Vectors.empty();
 		for (JobList.Job job : JobList.from(index, user.toString(), start, statuses,
 				(caller == null || caller.count() == 0) ? null : caller.toString(), limit)) {
-			jobs = jobs.conj(summary(job, user));
+			jobs = jobs.conj(view(job, user, fields));
 		}
 		return Maps.of(K_JOBS, jobs);
 	}
 
-	/** What the operation shows of a job: who ran what, when, and how it ended. A job with no caller is the user's own. */
-	private static AMap<AString, ACell> summary(JobList.Job job, AString user) {
-		AMap<AString, ACell> s = Maps.of(K_ID, Strings.create(job.id()),
-			K_CREATED, Strings.create(Instant.ofEpochMilli(job.created()).toString()),
-			K_NAME, Strings.create(job.name()));
-		if (job.updated() > 0) s = s.assoc(K_UPDATED, Strings.create(Instant.ofEpochMilli(job.updated()).toString()));
-		s = with(s, K_OPERATION, job.operation());
-		s = with(s, K_STATUS, job.status());
-		s = s.assoc(K_CALLER, (job.caller() != null) ? Strings.create(job.caller()) : user);
-		s = with(s, K_AGENT, job.agent());
-		s = with(s, K_SESSION, job.session());
-		s = with(s, K_PARENT, job.parent());
-		String error = job.error();
-		if (error != null && error.length() > MAX_ERROR) error = error.substring(0, MAX_ERROR) + "…";
-		s = with(s, K_ERROR, error);
-		return (job.tokens() > 0) ? s.assoc(K_TOKENS, CVMLong.create(job.tokens())) : s;
+	/**
+	 * What the operation shows of a job: the record's own fields that say who
+	 * ran what, when and how it ended, then each of {@code fields}. A job with
+	 * no caller is named in full as the user's own, as job status names it.
+	 */
+	private static AMap<AString, ACell> view(JobList.Job job, AString user, List<AString> fields) {
+		AMap<AString, ACell> record = Attribution.inFull(job.record(), user);
+		AMap<AString, ACell> v = Maps.of(Fields.ID, Strings.create(job.id()));
+		v = time(v, Fields.CREATED, record);
+		v = time(v, Fields.UPDATED, record);
+		for (AString key : new AString[] { Fields.NAME, Fields.OP, Fields.ADAPTER, Fields.STATUS, Fields.CALLER,
+				Fields.AGENT_ID }) {
+			v = shown(v, key, record.get(key));
+		}
+		v = id(v, Fields.SESSION_ID, record);
+		v = id(v, Fields.PARENT, record);
+		v = shown(v, Fields.ERROR, record.get(Fields.ERROR));
+		v = shown(v, Fields.ERROR_CODE, record.get(Fields.ERROR_CODE));
+		for (AString field : fields) {
+			v = shown(v, field, ValuePath.get(record, CoviaPath.parse(field.toString())));
+		}
+		return v;
 	}
 
-	private static AMap<AString, ACell> with(AMap<AString, ACell> s, AString key, String value) {
-		return (value == null) ? s : s.assoc(key, Strings.create(value));
+	/** {@code value} under {@code key}: whole when it fits the budget, else as inspect renders it; nothing when absent. */
+	private static AMap<AString, ACell> shown(AMap<AString, ACell> v, AString key, ACell value) {
+		if (value == null) return v;
+		if (Cells.storageSize(value) <= BUDGET) return v.assoc(key, value);
+		return v.assoc(key, new CellExplorer(BUDGET).explore(value));
 	}
 
-	/** The start, a time as epoch milliseconds or ISO-8601; 0 when absent. */
+	private static AMap<AString, ACell> time(AMap<AString, ACell> v, AString key, AMap<AString, ACell> record) {
+		if (!(record.get(key) instanceof CVMLong ms) || ms.longValue() <= 0) return v;
+		return v.assoc(key, Strings.create(TIME.format(Instant.ofEpochMilli(ms.longValue())
+			.atZone(ZoneId.systemDefault()))));
+	}
+
+	/** An id the record may hold as bytes, as text an agent can pass back. */
+	private static AMap<AString, ACell> id(AMap<AString, ACell> v, AString key, AMap<AString, ACell> record) {
+		String text = Ids.text(record.get(key));
+		return (text == null) ? v : v.assoc(key, Strings.create(text));
+	}
+
+	/**
+	 * The start as epoch milliseconds; 0 when absent. A time without an offset
+	 * is local, and a date alone is its local midnight.
+	 */
 	private static long start(ACell input) {
 		ACell v = RT.getIn(input, K_START);
 		if (v == null) return 0;
@@ -115,28 +163,64 @@ final class JobsOperation {
 		}
 		AString s = RT.ensureString(v);
 		if (s == null) throw new InvalidInputException("start must be an ISO-8601 time or epoch milliseconds");
+		TemporalAccessor t;
 		try {
-			return Instant.parse(s.toString().strip()).toEpochMilli();
+			t = START.parseBest(s.toString().strip(), OffsetDateTime::from, LocalDateTime::from, LocalDate::from);
 		} catch (DateTimeParseException e) {
-			throw new InvalidInputException("start is not an ISO-8601 time, such as 2026-11-21T09:00:00Z: " + s, e);
+			throw new InvalidInputException("start is not an ISO-8601 time, such as 2026-11-21T09:00: " + s, e);
 		}
+		ZoneId here = ZoneId.systemDefault();
+		Instant at = switch (t) {
+			case OffsetDateTime o -> o.toInstant();
+			case LocalDateTime l -> l.atZone(here).toInstant();
+			case LocalDate d -> d.atStartOfDay(here).toInstant();
+			default -> throw new InvalidInputException("start is not an ISO-8601 time: " + s);
+		};
+		return at.toEpochMilli();
 	}
 
 	/** One status or several; empty for any. */
 	private static Set<String> statuses(ACell input) {
-		ACell v = RT.getIn(input, K_STATUS);
 		Set<String> out = new HashSet<>();
+		for (AString s : strings(RT.getIn(input, K_STATUS), "status must be a status or a list of them")) {
+			out.add(s.toString());
+		}
+		return out;
+	}
+
+	/** The extra parts of the record to show: a list of subpaths or one comma-separated string, as {@code covia} list takes. */
+	private static List<AString> fields(ACell input) {
+		ACell v = RT.getIn(input, K_FIELDS);
+		List<AString> out = new ArrayList<>();
+		String refused = "fields must be a list of subpaths of the job record, or one comma-separated string";
+		if (v instanceof AString s) {
+			for (String part : s.toString().split(",")) {
+				if (part.isBlank()) throw new InvalidInputException("fields contains a blank field name");
+				out.add(Strings.create(part.strip()));
+			}
+		} else {
+			out.addAll(strings(v, refused));
+		}
+		if (out.size() > MAX_FIELDS) {
+			throw new InvalidInputException("fields names " + out.size() + " subpaths; the maximum is " + MAX_FIELDS);
+		}
+		return out;
+	}
+
+	/** A string or a list of strings; empty when absent. */
+	private static List<AString> strings(ACell v, String refused) {
+		List<AString> out = new ArrayList<>();
 		if (v == null) return out;
 		if (v instanceof AString s) {
-			out.add(s.toString());
+			out.add(s);
 		} else if (v instanceof AVector<?> list) {
 			for (long i = 0; i < list.count(); i++) {
 				AString s = RT.ensureString(list.get(i));
-				if (s == null) throw new InvalidInputException("status must be a status or a list of them");
-				out.add(s.toString());
+				if (s == null || s.count() == 0) throw new InvalidInputException(refused);
+				out.add(s);
 			}
 		} else {
-			throw new InvalidInputException("status must be a status or a list of them");
+			throw new InvalidInputException(refused);
 		}
 		return out;
 	}

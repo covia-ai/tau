@@ -1,22 +1,23 @@
 {
 	"name": "List jobs",
-	"description": "Lists the jobs of the user you act for, oldest first: what ran, who started it, when, and how it ended, without inputs or results. Without a start, the latest jobs; with one, the first created from then on. To read on, start again from the last job's created time. status and caller narrow it. Read-only operations, such as reading data, leave no job, so they never appear here. Needs crud/read on the user's jobs (j).",
+	"description": "Lists the jobs of the user you act for, oldest first: what ran, who started it, when, and how it ended. Without a start, the latest jobs; with one, the first created from then on. To read on, start again from the last job's created time. status and caller narrow it; fields adds other parts of each job's record, such as its input. Times are local, with their offset. A value too large to show whole, such as a long error, is shortened as covia_inspect shortens it. Read-only operations, such as reading data, leave no job, so they never appear here. Needs crud/read on the user's jobs (j).",
 	"operation": {
 		"adapter": "brightside:jobs",
 		"readOnly": true,
 		"input": {
 			"type": "object",
 			"properties": {
-				"start": { "type": ["string", "integer"], "description": "List the first jobs created at or after this time: ISO-8601, such as 2026-11-21T09:00:00Z, or epoch milliseconds. Without it, the latest jobs." },
+				"start": { "type": ["string", "integer"], "description": "List the first jobs created at or after this time: ISO-8601, such as 2026-11-21T09:00 (local), 2026-11-21 (local midnight) or 2026-11-21T09:00:00Z, or epoch milliseconds. Without it, the latest jobs." },
 				"limit": { "type": "integer", "minimum": 1, "maximum": 200, "description": "How many jobs to return, 50 by default." },
 				"status": { "type": ["string", "array"], "items": { "type": "string" }, "description": "Only jobs with this status, or one of these: PENDING, STARTED, PAUSED, INPUT_REQUIRED, AUTH_REQUIRED, COMPLETE, FAILED, TIMEOUT, REJECTED, CANCELLED." },
-				"caller": { "type": "string", "description": "Only jobs this principal started, a DID; jobs of principals under it, such as its agents, count too." }
+				"caller": { "type": "string", "description": "Only jobs this principal started, a DID; jobs of principals under it, such as its agents, count too." },
+				"fields": { "description": "Other parts of each job's record to show, as subpaths, e.g. [\"input\", \"output\", \"tokens/total\"] or one comma-separated string. At most 16. Each appears under its subpath; one the record lacks is left out." }
 			}
 		},
 		"output": {
 			"type": "object",
 			"properties": {
-				"jobs": { "type": "array", "description": "Oldest first, each with id, created, updated, name, operation, status, caller, and where they apply agent, session, parent (the job it ran inside), error (shortened) and tokens (model tokens used)." }
+				"jobs": { "type": "array", "description": "Oldest first, each with id, created and updated, and where the record has them name, op, adapter, status, caller, agentId, sessionId, parent (the job it ran inside), error and errorCode; then any fields asked for." }
 			}
 		}
 	}

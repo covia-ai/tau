@@ -18,9 +18,13 @@ job model is in [Covia Jobs](https://github.com/covia-ai/covia/blob/develop/venu
 - **Looking leaves no trace.** Reading the page submits nothing; each action
   leaves the job record it should.
 - **Agents read the same index.** The jobs operation (`v/ops/tau/jobs`,
-  `JobsOperation`) lists a user's jobs from a start time in the same way, as
-  summaries without inputs or results, under the right to read the user's
-  jobs. Thor and Odin run it inside a user's namespace through their bridges.
+  `JobsOperation`) lists a user's jobs from a start time in the same way,
+  under the right to read the user's jobs. Each job is a view of its record
+  for an agent: the record's own names, local times, by default the fields
+  saying who ran what and how it ended, others on request as `covia_list`'s
+  `fields` asks for them, and large values shortened as `covia_inspect`
+  shortens them. Thor and Odin run it inside a user's namespace through their
+  bridges.
 
 ## The list
 

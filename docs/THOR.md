@@ -50,8 +50,7 @@ more for Odin. They are outside his present role.
 
 He reads enough of the agent concerned to judge — its record, its
 conversations, what it wrote, and the user's jobs over the time in question,
-which show what ran, who started it and how it ended, without inputs or
-results — and no further than the report needs. Then,
+which show what ran, who started it and how it ended — and no further than the report needs. Then,
 inside any of this venue's users' namespaces, he can stop, restart,
 reconfigure or remove an agent, taking away its tools or who may talk to it;
 edit or remove workspace data; cancel schedules; and disconnect connected
