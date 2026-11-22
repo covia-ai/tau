@@ -246,6 +246,11 @@ public final class MainWindow extends JFrame {
 			}
 
 			@Override
+			public void stopAgent(String agentId) {
+				app.stopAgent(agentId);
+			}
+
+			@Override
 			public void sessionsChanged(List<SessionHistory.Session> sessions, String selectedId) {
 				conversations.setSessions(sessions, selectedId);
 			}

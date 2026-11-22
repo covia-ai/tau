@@ -2354,10 +2354,52 @@ public final class Tau {
 		t.start();
 	}
 
+	/**
+	 * Stops what the agent is doing now, from its Agent tab: unlike ✕ on a
+	 * reply, which only stops waiting, this ends the agent's running step.
+	 */
+	public void stopAgent(String agentId) {
+		Venue c = client;
+		if (c == null) return;
+		String name = displayNameFor(agentId);
+		Thread t = new Thread(() -> {
+			String note;
+			try {
+				stopAgent(c, agentId);
+				log.info("Stopped agent '{}' at the owner's request", agentId);
+				// Covia leaves the chat of a stopped turn unsettled (covia-ai/covia#728),
+				// so the chat window stops waiting for it here.
+				ChatSession s = chat;
+				if (s != null && agentId.equals(s.config().agentId())) s.cancel();
+				note = "Stopped " + name + ". It is free for the next message.";
+			} catch (Exception e) {
+				log.warn("Could not stop agent {}: {}", agentId, e.toString());
+				note = "Couldn't stop " + name + " (" + rootMessage(e) + ").";
+			}
+			String text = note;
+			SwingUtilities.invokeLater(() -> {
+				window.agentChanged();
+				window.showSystemMessage(text);
+			});
+		}, "tau-agent-stop");
+		t.setDaemon(true);
+		t.start();
+	}
+
 	/** Replaces an agent's instructions: {@code agent:update} merging in its {@code systemPrompt}, keeping the rest. */
 	static void setAgentInstructions(Venue client, String agentId, String instructions) throws Exception {
 		invokeOp(client, "v/ops/agent/update",
 			Maps.of("agentId", agentId, "config", Maps.of("systemPrompt", instructions)));
+	}
+
+	/**
+	 * Stops what an agent is doing now: {@code agent:suspend} ends its running
+	 * step, a tool call that will not return among them, and
+	 * {@code agent:resume} leaves it free for the next message.
+	 */
+	static void stopAgent(Venue client, String agentId) throws Exception {
+		invokeOp(client, "v/ops/agent/suspend", Maps.of("agentId", agentId, "reason", "Stopped by the owner"));
+		invokeOp(client, "v/ops/agent/resume", Maps.of("agentId", agentId));
 	}
 
 	/** Removes an agent's record ({@code agent:delete} with {@code remove}), not merely marking it terminated. */

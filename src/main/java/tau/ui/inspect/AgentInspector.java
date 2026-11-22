@@ -9,12 +9,14 @@ import java.util.function.Consumer;
 
 import java.awt.BorderLayout;
 
+import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 
 import tau.AgentInfo;
 import tau.ui.components.Badge;
 import tau.ui.components.Borders;
+import tau.ui.components.Buttons;
 import tau.ui.components.Chip;
 import tau.ui.components.Dialogs;
 import tau.ui.components.Labels;
@@ -44,12 +46,13 @@ public final class AgentInspector {
 	/**
 	 * The agent: who and how it is in a fixed header, its document scrolling
 	 * below. {@code saveInstructions} takes edited instructions; null when they
-	 * cannot be edited here.
+	 * cannot be edited here. {@code stop} ends what the agent is doing, offered
+	 * while it runs.
 	 */
-	public static JComponent view(AgentInfo.Summary a, Consumer<String> saveInstructions) {
+	public static JComponent view(AgentInfo.Summary a, Consumer<String> saveInstructions, Runnable stop) {
 		JPanel view = new JPanel(new BorderLayout());
 		view.setOpaque(false);
-		view.add(header(a), BorderLayout.NORTH);
+		view.add(header(a, stop), BorderLayout.NORTH);
 		view.add(Scrolls.vertical(document(a, saveInstructions)), BorderLayout.CENTER);
 		return view;
 	}
@@ -57,9 +60,10 @@ public final class AgentInspector {
 	/**
 	 * The agent at a glance: its name, its run state (in a tone, with its last
 	 * error on hover), whether it is Tau's standard agent or one of the
-	 * owner's own, and how much it has been used.
+	 * owner's own, how much it has been used, and while it runs a Stop that
+	 * ends its turn, a tool call that will not return among them.
 	 */
-	static JComponent header(AgentInfo.Summary a) {
+	static JComponent header(AgentInfo.Summary a, Runnable stop) {
 		JPanel h = new JPanel(new MigLayout("insets 18 24 14 24, fillx, gapy 2", "[]12[grow,fill]", ""));
 		h.setOpaque(false);
 		h.setBorder(Borders.hairline(false, false, true, false));
@@ -75,6 +79,16 @@ public final class AgentInspector {
 			? APP_NAME + "'s standard agent: its model and instructions follow Settings and config.json."
 			: "Created from the agents pane; it keeps the model and instructions it was given.");
 		title.add(kind);
+		if (stop != null && "RUNNING".equals(a.status())) {
+			JButton button = Buttons.small("Stop");
+			button.setToolTipText("End what " + a.name() + " is doing now, even a tool call that will not return."
+				+ " It stays ready for the next message.");
+			button.addActionListener(e -> {
+				button.setEnabled(false);
+				stop.run();
+			});
+			title.add(button);
+		}
 		h.add(title, "wmin 0, wrap");
 		h.add(Labels.small(activity(a)), "wmin 0");
 		return h;
