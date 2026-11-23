@@ -78,13 +78,13 @@ the owner's namespace: the DID says who acted, not whose data a path names.
 
 The default agent is `Tau` (`chat.agentId`), including when this key is omitted.
 Set the key explicitly to use an existing assistant's id and retain its memory
-and conversations. Without an explicit system prompt, the default persona uses
-the configured agent id as its name.
+and conversations.
 A new agent's id is the
 name the owner typed, with anything a path cannot carry turned into `-`, and it
 never changes. The display name is the one the record sets; without one, the
 standard agent shows as the app's name, `Tau`, whatever its id, and any other
-agent as its id (`AgentRef.displayName`). What
+agent as its id (`AgentRef.displayName`). The default system prompt names the
+assistant as the app shows it, not by its id ([`chat`](CONFIGURATION.md#chat)). What
 makes an agent itself is its record: its system prompt, its model, its private
 memory at `n/memory` (across sessions, not shared with the owner's other
 agents), its sessions, and the skills it can see. The owner writes a new

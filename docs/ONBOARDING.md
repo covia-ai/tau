@@ -33,8 +33,8 @@ the wizard and unlock both run before it. The code is `OnboardingWizard`,
 3. **Identity:** save a new twelve-word phrase and confirm the requested words,
    or import a twelve- or twenty-four-word phrase. Advanced import accepts a
    raw seed.
-4. **Model:** choose a provider and model, enter a key and optionally test it,
-   or use the offline echo bot. The key is staged encrypted until the venue
+4. **Model:** choose a provider and model and enter a key, or use the offline
+   echo bot. The key is staged encrypted until the venue
    starts.
 5. **Name:** choose what the assistant should call the owner, then enter chat.
 
