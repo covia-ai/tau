@@ -41,7 +41,7 @@ Startup follows this order:
 4. Register Tau's adapters and integrations in Covia's pre-start hook, then run
    the [startup pass](#the-startup-pass), before recovering jobs or starting
    workers. A failed hook closes the partially assembled venue.
-5. Bind the owner's identity, transfer any staged provider keys, import changed
+5. Bind the owner's identity, move any provider keys an older install left in `keys.enc`, import changed
    filesystem skills and bind the views. Report launch or binding failures
    where the owner can see them. The main agent is configured on its first
    message; startup may separately configure gods and request Eir's help.

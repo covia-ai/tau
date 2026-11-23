@@ -31,6 +31,16 @@ class ProvidersTest {
 	}
 
 	@Test
+	void theEchoBotIsAProviderThatNeedsNoKey() {
+		Providers.Provider echo = Providers.byId(Providers.ECHO);
+		assertFalse(echo.needsApiKey());
+		String op = Providers.modelOp(echo.id(), echo.defaultModelId());
+		assertEquals(Providers.ECHO_OPERATION, op);
+		assertEquals(echo.id(), Providers.providerOf(op), "a stored echo choice selects the echo bot again");
+		assertEquals(echo.defaultModelId(), Providers.modelOf(op));
+	}
+
+	@Test
 	void routesAModelTheCatalogDoesNotListThroughItsProvider() {
 		assertEquals(new Providers.Route("v/models/openrouter/anthropic/claude-sonnet-5", null),
 			Providers.route("v/models/openrouter/anthropic/claude-sonnet-5"), "a listed model runs as its preset");

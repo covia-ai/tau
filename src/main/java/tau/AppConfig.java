@@ -61,8 +61,8 @@ public final class AppConfig {
 	public static final String DEFAULT_OPERATION = "v/ops/llmagent/chat";
 	/** The venue's own default model operation (see AbstractLLMAdapter). */
 	public static final String DEFAULT_LLM_OPERATION = "v/models/anthropic/claude-sonnet-5-5";
-	/** Test LLM that echoes the last user message — an offline chat backend. */
-	public static final String ECHO_LLM_OPERATION = "v/test/ops/llm";
+	/** The echo bot, {@link tau.model.Providers#ECHO_OPERATION}. */
+	public static final String ECHO_LLM_OPERATION = tau.model.Providers.ECHO_OPERATION;
 	public static final String DEFAULT_SYSTEM_PROMPT = defaultSystemPrompt(DEFAULT_AGENT_ID);
 
 	private static String defaultSystemPrompt(String name) {

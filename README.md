@@ -68,9 +68,10 @@ java -jar target/tau.jar
 
 For an existing installation, see [data directories and manual setup](docs/CONFIGURATION.md#selecting-an-existing-installation).
 
-On first launch, choose a passphrase, save the recovery phrase, choose a
-model and enter its key, then choose what it should call you. Without a key,
-choose the offline echo bot; the app works end to end, with echoed replies.
+On first launch, choose a passphrase, save the recovery phrase and choose what
+it should call you. *Settings → Model* then opens: choose a model, enter its
+key and press *Test*. Without a key, choose the echo bot; the app works end to
+end, with echoed replies.
 
 **Enter** sends and **Shift+Enter** starts a new line. Right-click a message, a
 conversation or an agent for what you can do with it; everything else is under

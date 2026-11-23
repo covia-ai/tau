@@ -68,7 +68,7 @@ login passphrase + vault.salt
                   │
                   └─ Argon2id ──► 32-byte passphrase key
                                       ├─ AES-256-GCM ──► identity.enc (primary seed)
-                                      └─ AES-256-GCM ──► keys.enc (onboarding key staging)
+                                      └─ AES-256-GCM ──► keys.enc (older installs' keys)
 ```
 
 New installations generate twelve words; import and recovery also accept a
@@ -136,7 +136,7 @@ The data home is the directory holding `config.json`, by default
 | `venue.etch` | ChaCha20 under the seed-derived key; see the boundary above | **Required** to recover conversations, memory, skills, agents and the secret stores |
 | `identity.enc` | the seed, AES-GCM under the passphrase key | With `vault.salt` and the passphrase, recovers the seed. Replaceable from the phrase |
 | `vault.salt` | non-secret, never silently replaced | Needed for old-passphrase unlock; not for phrase recovery. Back it up anyway |
-| `keys.enc` | transient onboarding key staging, AES-GCM | Normally absent; provider keys live in the stores inside `venue.etch` |
+| `keys.enc` | provider keys from an older install, AES-GCM | Normally absent; moved at launch into the stores inside `venue.etch` |
 | `unlock.passphrase` | **plaintext**, after explicit opt-in | Anyone who reads it can unlock the vault. Exclude from ordinary backups; cleared on recovery |
 | `tool-token.json` | **plaintext** user bearer token, after explicit opt-in | Anyone who reads it can act as the user until it expires (a day at most). Not needed for recovery; removed on quit and on recovery |
 | `operator-token.json` | **plaintext** venue operator bearer token, after explicit opt-in | Anyone who reads it can act as the venue itself until it expires (a day at most): its users, adapters and secrets, and relaunching Tau into any jar. Not needed for recovery; removed on quit and on recovery |
@@ -169,7 +169,7 @@ enter the phrase and a new passphrase. Tau then:
 3. if a store exists and is not open, opens it far enough to check the key
    identity and authenticate the header; if the venue is running, compares the
    candidate with the in-memory seed;
-4. only then deletes any staged key file, clears the remembered passphrase and
+4. only then deletes any `keys.enc`, clears the remembered passphrase and
    writes the recovered seed into a new `identity.enc`;
 5. launches the venue with the recovered seed and reopens the store.
 

@@ -25,8 +25,18 @@ import convex.core.lang.RT;
  * so its model is chosen by id. Tau still names that choice
  * {@code v/models/<provider>/<id>}; {@link #route} turns it into what the agent
  * runs.</p>
+ *
+ * <p>The last entry is the echo bot: Covia's test model, which repeats the
+ * last message and needs no key or network. It is the one entry outside
+ * {@code v/models}.</p>
  */
 public final class Providers {
+
+	/** The echo bot's provider and model id. */
+	public static final String ECHO = "echo";
+
+	/** Covia's test model that echoes the last user message: an offline chat backend. */
+	public static final String ECHO_OPERATION = "v/test/ops/llm";
 
 	/** One model choice: its {@code id} (path segment) and a friendly {@code label}. */
 	public record Model(String id, String label) {
@@ -100,7 +110,9 @@ public final class Providers {
 				new Model("mistralai/mistral-medium-latest", "Mistral Medium"),
 				new Model("openrouter/auto", "Auto (OpenRouter picks)")), true),
 		new Provider("ollama", "Ollama (local)", null, "https://ollama.com",
-			List.of(new Model("qwen", "Qwen (local)")), true));
+			List.of(new Model("qwen", "Qwen (local)")), true),
+		new Provider(ECHO, "Echo bot (offline, no key)", null, null,
+			List.of(new Model(ECHO, "Echo bot (repeats your message)")), false));
 
 	private Providers() {
 	}
@@ -113,21 +125,24 @@ public final class Providers {
 		return null;
 	}
 
-	/** The model operation path {@code v/models/<provider>/<id>}. */
+	/** The model operation path {@code v/models/<provider>/<id>}, or the echo bot's operation. */
 	public static String modelOp(String providerId, String modelId) {
+		if (ECHO.equals(providerId)) return ECHO_OPERATION;
 		return "v/models/" + providerId + "/" + modelId;
 	}
 
-	/** The provider id inside a {@code v/models/<provider>/<id>} path, or null. */
+	/** The provider id inside a {@code v/models/<provider>/<id>} path, the echo bot's for its operation, or null. */
 	public static String providerOf(String modelOp) {
+		if (ECHO_OPERATION.equals(modelOp)) return ECHO;
 		if (modelOp == null || !modelOp.startsWith("v/models/")) return null;
 		String rest = modelOp.substring("v/models/".length());
 		int slash = rest.indexOf('/');
 		return (slash > 0) ? rest.substring(0, slash) : null;
 	}
 
-	/** The model id inside a {@code v/models/<provider>/<id>} path, or null. */
+	/** The model id inside a {@code v/models/<provider>/<id>} path, the echo bot's for its operation, or null. */
 	public static String modelOf(String modelOp) {
+		if (ECHO_OPERATION.equals(modelOp)) return ECHO;
 		String provider = providerOf(modelOp);
 		return (provider != null) ? modelOp.substring(("v/models/" + provider + "/").length()) : null;
 	}

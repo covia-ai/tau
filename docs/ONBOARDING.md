@@ -22,9 +22,10 @@ and retained store.
 - **Running** — later changes go through Settings.
 
 The identity seed and the store key are needed before the venue can launch, so
-the wizard and unlock both run before it. The code is `OnboardingWizard`,
-`UnlockDialog` and `RecoveryDialog` under `ui/onboarding`, `Vault` and
-`Mnemonic` under `vault`, with `Tau` orchestrating.
+the wizard and unlock both run before it; the model is chosen after, with the
+venue up. The code is `OnboardingWizard`, `UnlockDialog` and `RecoveryDialog`
+under `ui/onboarding`, `Vault` and `Mnemonic` under `vault`, with `Tau`
+orchestrating.
 
 ## First run
 
@@ -33,10 +34,13 @@ the wizard and unlock both run before it. The code is `OnboardingWizard`,
 3. **Identity:** save a new twelve-word phrase and confirm the requested words,
    or import a twelve- or twenty-four-word phrase. Advanced import accepts a
    raw seed.
-4. **Model:** choose a provider and model and enter a key, or use the offline
-   echo bot. The key is staged encrypted until the venue
-   starts.
-5. **Name:** choose what the assistant should call the owner, then enter chat.
+4. **Name:** choose what the assistant should call the owner. *Finish*
+   starts the venue.
+5. **Model:** once the venue is up, the chat opens with *Settings → Model* in
+   front of it, where Test can try a model and key before they are saved.
+   Leaving the page saves nothing: the owner is in either way, and until a
+   model can answer the chat says so. The echo bot, in the provider list,
+   needs no key.
 
 ## Unlock
 

@@ -162,6 +162,7 @@ public final class Tau {
 	/** A recovery withdrew the tool token before the store was open; recorded there once it is. */
 	private volatile boolean toolTokenWithdrawn;
 	private volatile String llmOverride; // the chosen model op, kept in Tau's adapter state
+	private volatile boolean chooseModel; // first run: open Settings → Model once the chat is up
 
 	private enum Mode {
 		ONBOARD, UNLOCK
@@ -768,8 +769,8 @@ public final class Tau {
 
 	/**
 	 * First-run onboarding is done: derive the vault, store the encrypted seed,
-	 * remember the name and model, and bring up the encrypted venue. Called on the
-	 * event thread; the work runs off it.
+	 * remember the name, and bring up the encrypted venue, then Settings → Model
+	 * for the model and its key. Called on the event thread; the work runs off it.
 	 */
 	public void onOnboardingComplete(OnboardingWizard.Setup setup) {
 		Thread t = new Thread(() -> {
@@ -784,16 +785,10 @@ public final class Tau {
 				identity = Identity.of(setup.name());
 				persistIdentity(identity);
 
-				// The API key is staged encrypted in the vault only until the venue
-				// is up; onVenueReady moves it into the encrypted secret stores.
-				if (setup.apiKey() != null && setup.providerId() != null) {
-					String secretName = Providers.byId(setup.providerId()).secretName();
-					if (secretName != null) v.storeApiKey(secretName, setup.apiKey());
-				}
+				// The model and its key are chosen with the venue up, where Test can
+				// try them: Settings → Model opens once the chat is.
+				chooseModel = true;
 				AMap<AString, ACell> venueConfig = Vault.secure(config.venueConfig(), setup.seedHex());
-				llmOverride = (setup.providerId() == null)
-					? AppConfig.ECHO_LLM_OPERATION
-					: Providers.modelOp(setup.providerId(), setup.modelId());
 
 				// The wizard is already on screen in the main window; nothing to reveal.
 				launchVenueWith(venueConfig, null);
@@ -2195,7 +2190,13 @@ public final class Tau {
 			agentId = aid;
 			userDID = did;
 			switch (bind) {
-				case FIRST -> window.showChat(v, session, id, turns);
+				case FIRST -> {
+					window.showChat(v, session, id, turns);
+					if (chooseModel) {
+						chooseModel = false;
+						window.showModelSettings();
+					}
+				}
 				case NAME_CHANGE -> window.userChanged(session, id, turns);
 				case AGENT_SWITCH -> window.showAgentChat(session, turns, displayNameFor(aid));
 				case PRINCIPAL_SWITCH -> {

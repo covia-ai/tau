@@ -27,7 +27,7 @@ hand-edited file and its comments stay intact.
 | `~/.tau/venue.etch.compact` | Present when compaction is asked for; the next launch compacts the store and removes it ([Data store space](#data-store-space)). |
 | `~/.tau/vault.salt` | The non-secret salt for passphrase hardening. |
 | `~/.tau/identity.enc` | The AES-GCM-encrypted Ed25519 identity seed. |
-| `~/.tau/keys.enc` | Transient: stages an onboarding API key until the first launch moves it into the venue's encrypted secret stores; absent afterwards. |
+| `~/.tau/keys.enc` | Normally absent. Provider keys an older install kept here are moved into the venue's encrypted secret stores at launch, and the file deleted. |
 | `~/.tau/unlock.passphrase` | Optional remembered passphrase, stored as plaintext after explicit opt-in; exclude it from ordinary vault backups. |
 | `~/.tau/tool-token.json` | Optional: while Tau runs, a login as you for local tools, renewed hourly, after explicit opt-in ([From Claude Code](#from-claude-code)). |
 | `~/.tau/operator-token.json` | Optional: while Tau runs, a venue operator login for local tools, renewed hourly, after its own explicit opt-in ([From Claude Code](#from-claude-code)). |
@@ -194,11 +194,10 @@ The default model operation needs a provider key. Two supported ways to supply i
 
 1. **Environment** — put `ANTHROPIC_API_KEY` in the environment before
    launching.
-2. **Tau settings** — enter it during onboarding or under *Settings →
-   Model*. It is written to the encrypted secret stores on the venue — yours
+2. **Tau settings** — enter it under *Settings → Model*, which opens after
+   first-run setup. It is written to the encrypted secret stores on the venue — yours
    and the operator's, so your agents and the gods each resolve their own copy —
-   and takes effect immediately. A key entered at onboarding is staged
-   briefly in `keys.enc` and moved into the stores at first launch.
+   and takes effect immediately.
 
 Each user's agents resolve that user's key (`s/ANTHROPIC_API_KEY` from their
 own store), so different users on the venue can use different keys; manage
