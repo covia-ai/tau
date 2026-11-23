@@ -1735,11 +1735,15 @@ public final class Tau {
 		llmOverride = chosen;
 	}
 
-	/** The chat config with the chosen model applied, else config.json's. */
+	/**
+	 * The owner's standard assistant's chat config: the chosen model, else
+	 * config.json's, and its system prompt under the name the app shows for it.
+	 */
 	private AppConfig.Chat effectiveChat() {
 		AppConfig.Chat c = config.chat();
-		if (llmOverride == null || llmOverride.equals(c.llmOperation())) return c;
-		return new AppConfig.Chat(c.agentId(), c.operation(), llmOverride, c.systemPrompt());
+		String llm = (llmOverride != null) ? llmOverride : c.llmOperation();
+		return new AppConfig.Chat(c.agentId(), c.operation(), llm,
+			config.systemPromptFor(assistantName(venue, identity, c.agentId())));
 	}
 
 	/**
@@ -2582,6 +2586,17 @@ public final class Tau {
 	private String displayNameFor(EmbeddedVenue v, String did, String agentId) {
 		ACell record = (v != null && did != null && agentId != null) ? v.agentRecord(did, agentId) : null;
 		return AgentRef.displayName(record, agentId, standardAssistantId());
+	}
+
+	/**
+	 * The owner's standard assistant's name as the app shows it: its record's
+	 * {@code config.name} under the owner's own DID, else the app's name. Read
+	 * from the identity, so it holds before a chat is bound and while acting
+	 * as the operator.
+	 */
+	static String assistantName(EmbeddedVenue v, Identity id, String agentId) {
+		ACell record = (v != null && id != null) ? v.agentRecord(id.userDID(v.did()), agentId) : null;
+		return AgentRef.displayName(record, agentId, agentId);
 	}
 
 	/** The owner's standard assistant, shown by the app's name until it is given one; null while acting as the operator. */
