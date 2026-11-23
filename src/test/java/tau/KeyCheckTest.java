@@ -46,6 +46,13 @@ class KeyCheckTest {
 	}
 
 	@Test
+	void aTypedKeyGoesOnlyToAProviderThatTakesOne() {
+		assertEquals("typed", Tau.keyToSend("anthropic", "typed"));
+		assertNull(Tau.keyToSend("ollama", "typed"), "a key left from another provider stays in the app");
+		assertNull(Tau.keyToSend("no-such-provider", "typed"));
+	}
+
+	@Test
 	void eachFailureIsReadByTheTypeCoviaGivesIt() {
 		KeyCheck check = new KeyCheck(client("key-check-fails"));
 		assertFailure(check, "setup", Outcome.SETUP);

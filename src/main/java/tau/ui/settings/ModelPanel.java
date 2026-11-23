@@ -23,7 +23,7 @@ import tau.ui.components.Styles;
  * stores, which model calls read each time. The <b>Save</b> action stays
  * disabled until something changes. <b>Test</b> sends the selected model one
  * short request with the key in the field, or the stored key when the field is
- * blank, and saves nothing.
+ * blank, and saves no key or setting.
  */
 @SuppressWarnings("serial")
 public final class ModelPanel extends SettingsPage {

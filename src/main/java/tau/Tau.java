@@ -1141,8 +1141,10 @@ public final class Tau {
 
 	/**
 	 * Settings → Model's Test: one short request to the chosen model as the
-	 * owner, with {@code apiKey} if typed, else the owner's stored key. Nothing
-	 * is saved. Blocks: call off the event thread.
+	 * owner, with {@code apiKey} if typed, else the owner's stored key. No key
+	 * or setting is saved. A provider that takes no key is never sent one: a
+	 * key left in the field from another provider stays here. Blocks: call off
+	 * the event thread.
 	 */
 	public KeyCheck.Result testModel(String providerId, String modelId, String apiKey) {
 		EmbeddedVenue v = venue;
@@ -1150,7 +1152,14 @@ public final class Tau {
 		if (v == null || id == null) {
 			return new KeyCheck.Result(KeyCheck.Outcome.UNAVAILABLE, APP_NAME + " is still starting", 0);
 		}
-		return new KeyCheck(ownerClient(v, id)).check(Providers.modelOp(providerId, modelId), apiKey);
+		return new KeyCheck(ownerClient(v, id)).check(Providers.modelOp(providerId, modelId),
+			keyToSend(providerId, apiKey));
+	}
+
+	/** The typed key, for a provider that takes one; null for any other. */
+	static String keyToSend(String providerId, String apiKey) {
+		Providers.Provider p = Providers.byId(providerId);
+		return (p != null && p.secretName() != null) ? apiKey : null;
 	}
 
 	// ------------------------------------------------------------------

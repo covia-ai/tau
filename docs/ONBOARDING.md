@@ -68,7 +68,8 @@ restores the identity only.
   passphrase-gated, under *Settings → Secrets* (a passphrase remembered on
   this computer passes the gate unasked). *Test* sends the chosen model one
   short request, with the key in the field or else the stored one, and saves
-  nothing. Its answer is the venue's: whether the setup needs fixing or the
+  no key or setting; the request is a job like any other, its record without
+  the key. The answer is the venue's: whether the setup needs fixing or the
   provider may answer later, then the venue's reason with the provider's own
   error (`KeyCheck`).
 - **Identity** — name, DIDs, public key, the seed behind the passphrase, and

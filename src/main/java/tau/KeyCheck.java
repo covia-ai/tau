@@ -24,9 +24,11 @@ import covia.grid.Venue;
 /**
  * Settings → Model's <b>Test</b>: one small call to a model operation as the
  * client's principal, answered in Covia's own terms. A key typed but not yet
- * saved goes as the operation's {@code apiKey} input, which model operations
- * declare secret, so no job record keeps it; with none, the operation reads
- * the caller's stored key as a chat does. Nothing is saved.
+ * saved goes as the operation's {@code apiKey} input; with none, the
+ * operation reads the caller's stored key as a chat does. No key or setting
+ * is saved. The call is a job in the caller's history like any other run,
+ * and a model operation declares {@code apiKey} secret, so its record does
+ * not keep the key.
  *
  * <p>The outcome is read the way Covia's agent loop reads a model call
  * (Covia's {@code AGENT_LOOP.md} §3.4 and {@code ERRORS.md}): a
