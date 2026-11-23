@@ -15,6 +15,7 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import javax.swing.LookAndFeel;
+import javax.swing.UIDefaults;
 import javax.swing.UIManager;
 
 import org.slf4j.Logger;
@@ -83,6 +84,9 @@ public final class LAF {
 
 	/** The package FlatLaf searches for Tau's {@code *.properties} UI defaults. */
 	private static final String DEFAULTS_PACKAGE = "tau.ui";
+
+	/** The tones whose text colour {@link #installDerived} makes readable, each with a {@code Tau.<tone>} and a {@code Tau.<tone>.tint}. */
+	private static final List<String> TONES = List.of("muted", "error", "success", "warning");
 
 	/** Comfortable, slightly-larger base UI size (FlatLaf's own default is ~13). */
 	private static final int BASE_FONT_SIZE = 15;
@@ -232,27 +236,49 @@ public final class LAF {
 	}
 
 	/**
-	 * The shades the buttons take from the accent, computed from the accent the
-	 * installed theme resolved — a properties file cannot work out a contrast —
-	 * and put into the defaults the style classes in {@code FlatLaf.properties}
-	 * refer to. Runs after every theme setup, before the UI updates.
+	 * The colours a properties file cannot work out, because they depend on a
+	 * contrast: Tau's own text colours made readable on whichever theme is
+	 * installed, and the shades the buttons take from the accent. Each starts
+	 * from the value the theme and {@code FlatLaf.properties} resolved and is
+	 * put into the look and feel's own defaults, which the next theme setup
+	 * replaces, so a value never carries over to another theme or compounds.
+	 * The style classes in {@code FlatLaf.properties} refer to them. Runs after
+	 * every theme setup, before the UI updates.
 	 */
 	private static void installDerived() {
+		UIDefaults defaults = UIManager.getLookAndFeelDefaults();
+		double aa = Theme.AA_CONTRAST;
+		Color panel = Theme.panel();
+		// Cards and code step off the panel no further than ordinary text still reads on them.
+		Color text = Theme.foreground();
+		Color surface = Theme.readableGround(panel, Theme.surface(), aa, text);
+		defaults.put("Tau.surface", surface);
+		defaults.put("Tau.code.background", Theme.readableGround(panel, Theme.codeBackground(), aa, text));
+		// Secondary text and Tau's red, green and orange: moved in lightness until each
+		// reads on the panel, on a card, and on its own faint tint over either.
+		for (String tone : TONES) {
+			Color base = defaults.getColor("Tau." + tone);
+			Color tint = defaults.getColor("Tau." + tone + ".tint");
+			// Absent only when FlatLaf could not install and Tau's defaults never loaded: Theme's fallbacks stand.
+			if (base == null || tint == null) continue;
+			defaults.put("Tau." + tone, Theme.readableOn(base, aa, panel, surface, Theme.over(tint, panel), Theme.over(tint, surface)));
+		}
 		Color accent = Theme.accent();
 		Color dark = Theme.accentDark();
-		// The accent as text on its own tint over the panel: moved in lightness until it reads there.
-		Color text = Theme.readableOn(accent, Theme.blend(Theme.panel(), accent, 0.22f), Theme.AA_CONTRAST);
-		UIManager.put("Tau.accent.dark", dark);
-		UIManager.put("Tau.accent.text", text);
+		Color tinted = ColorFunctions.fade(accent, 0.22f);
+		// The accent as text — links, headings, the tinted button — read the same way, on the tinted button's tint.
+		Color accentText = Theme.readableOn(accent, aa, panel, surface, Theme.over(tinted, panel), Theme.over(tinted, surface));
+		defaults.put("Tau.accent.dark", dark);
+		defaults.put("Tau.accent.text", accentText);
 		// The primary button: white on the dark shade, hover a step lighter, pressed a step darker.
-		UIManager.put("Tau.primary.background", dark);
-		UIManager.put("Tau.primary.hoverBackground", ColorFunctions.lighten(dark, 0.06f));
-		UIManager.put("Tau.primary.pressedBackground", ColorFunctions.darken(dark, 0.06f));
+		defaults.put("Tau.primary.background", dark);
+		defaults.put("Tau.primary.hoverBackground", ColorFunctions.lighten(dark, 0.06f));
+		defaults.put("Tau.primary.pressedBackground", ColorFunctions.darken(dark, 0.06f));
 		// The tinted button: the accent as text on its faint tint, the tint deepening under the pointer.
-		UIManager.put("Tau.tinted.foreground", text);
-		UIManager.put("Tau.tinted.background", ColorFunctions.fade(accent, 0.22f));
-		UIManager.put("Tau.tinted.hoverBackground", ColorFunctions.fade(accent, 0.30f));
-		UIManager.put("Tau.tinted.pressedBackground", ColorFunctions.fade(accent, 0.38f));
+		defaults.put("Tau.tinted.foreground", accentText);
+		defaults.put("Tau.tinted.background", tinted);
+		defaults.put("Tau.tinted.hoverBackground", ColorFunctions.fade(accent, 0.30f));
+		defaults.put("Tau.tinted.pressedBackground", ColorFunctions.fade(accent, 0.38f));
 	}
 
 	/** Bigger, comfortable default size in Lato: FlatLaf derives every other font from it and scales the UI to match. */

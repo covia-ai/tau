@@ -62,7 +62,7 @@ final class JobRenderer extends JPanel implements ListCellRenderer<JobList.Job> 
 		status.setText(JobLooks.status(job));
 		status.tone(JobLooks.tone(job));
 		status.setIcon(Lucide.icon(JobLooks.icon(job), 14, () -> status.tone().colour()));
-		setBackground(selected ? Theme.blend(Theme.panel(), Theme.accent(), 0.14f) : Theme.panel());
+		setBackground(selected ? Theme.accentGround(0.14f) : Theme.panel());
 		setOpaque(true);
 		return this;
 	}

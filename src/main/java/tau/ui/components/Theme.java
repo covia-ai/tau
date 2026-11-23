@@ -50,32 +50,68 @@ public final class Theme {
 	}
 
 	/**
-	 * The accent as text or an icon on the panel's accent tint (the tinted
-	 * button, the navigation's selected look): the accent moved in lightness
-	 * — lighter on a dark theme, darker on a light one, hue and saturation
-	 * kept — until it reads there at {@value #AA_CONTRAST}:1. Put into the
-	 * defaults by the look-and-feel setup; worked out here when it is not
-	 * there.
+	 * The accent as text or an icon — links, headings, the tinted button, the
+	 * navigation's selected look: the accent moved in lightness — lighter on a
+	 * dark theme, darker on a light one, hue and saturation kept — until it
+	 * reads at {@value #AA_CONTRAST}:1 on the panel, on a card and on the
+	 * accent's tint over either. Put into the defaults by the look-and-feel
+	 * setup; worked out on the panel alone when it is not there.
 	 */
 	public static Color accentText() {
 		Color put = UIManager.getColor("Tau.accent.text");
 		if (put != null) return put;
-		return readableOn(accent(), panel(), AA_CONTRAST);
+		return readableOn(accent(), AA_CONTRAST, panel());
 	}
 
 	/**
-	 * {@code base} moved in lightness away from {@code ground} — lighter on a
-	 * dark ground, darker on a light one, hue and saturation kept — a step at
-	 * a time until it reads there at {@code contrast}:1, or reaches the end.
+	 * {@code base} moved in lightness away from the grounds — lighter on dark
+	 * grounds, darker on light ones, hue and saturation kept — a step at a
+	 * time until it reads on every one at {@code contrast}:1, or reaches the
+	 * end. The grounds lie on one side, light or dark, which the first decides.
 	 */
-	public static Color readableOn(Color base, Color ground, double contrast) {
+	public static Color readableOn(Color base, double contrast, Color... grounds) {
 		// Below this luminance a ground contrasts more with white than with black.
-		boolean lighten = luminance(ground) < 0.18;
+		boolean lighten = luminance(grounds[0]) < 0.18;
 		Color c = base;
-		for (int i = 0; i < 100 && contrast(ground, c) < contrast; i++) {
+		for (int i = 0; i < 100 && worstContrast(c, grounds) < contrast; i++) {
 			c = lighten ? ColorFunctions.lighten(c, 0.01f) : ColorFunctions.darken(c, 0.01f);
 		}
 		return c;
+	}
+
+	private static double worstContrast(Color c, Color... grounds) {
+		double worst = Double.MAX_VALUE;
+		for (Color g : grounds) worst = Math.min(worst, contrast(c, g));
+		return worst;
+	}
+
+	/**
+	 * {@code shade}, a ground a step off {@code panel}, moved back towards the
+	 * panel a step at a time until every one of {@code texts} reads on it at
+	 * {@code contrast}:1, or it is the panel.
+	 */
+	public static Color readableGround(Color panel, Color shade, double contrast, Color... texts) {
+		Color c = shade;
+		for (int i = 1; i <= 20 && worstContrast(c, texts) < contrast; i++) {
+			c = blend(shade, panel, i / 20f);
+		}
+		return c;
+	}
+
+	/**
+	 * The panel tinted {@code amount} (0–1) of the way towards the accent — a
+	 * selected row, an open request — no further than ordinary and secondary
+	 * text still read on it at {@value #AA_CONTRAST}:1.
+	 */
+	public static Color accentGround(float amount) {
+		Color panel = panel();
+		return readableGround(panel, blend(panel, accent(), amount), AA_CONTRAST, foreground(), muted());
+	}
+
+	/** {@code colour}, which may be translucent, as it shows painted over {@code ground}. */
+	public static Color over(Color colour, Color ground) {
+		Color opaque = new Color(colour.getRGB() & 0xFFFFFF);
+		return blend(ground, opaque, colour.getAlpha() / 255f);
 	}
 
 	/** {@code base} darkened a step at a time until {@code text} reads on it at {@code contrast}:1, or it is black. */
@@ -109,9 +145,13 @@ public final class Theme {
 		return FlatUIUtils.getUIColor("Label.foreground", 0xDDDDDD);
 	}
 
-	/** Secondary text: captions, metadata, hints. */
+	/**
+	 * Secondary text: captions, metadata, hints. The theme's disabled text
+	 * colour, moved until it reads like the other colours here; disabled
+	 * controls keep the theme's own.
+	 */
 	public static Color muted() {
-		return FlatUIUtils.getUIColor("Label.disabledForeground", 0x888888);
+		return FlatUIUtils.getUIColor("Tau.muted", 0x888888);
 	}
 
 	/** Hairlines and separators. */
@@ -124,7 +164,7 @@ public final class Theme {
 		return FlatUIUtils.getUIColor("Panel.background", 0x1E1E1E);
 	}
 
-	/** An elevated surface a step off the panel: bubbles, cards, chips. */
+	/** An elevated surface a step off the panel — bubbles, cards, chips — no further than ordinary text still reads on it. */
 	public static Color surface() {
 		return FlatUIUtils.getUIColor("Tau.surface", 0x2B2B2B);
 	}
@@ -140,14 +180,21 @@ public final class Theme {
 		return FlatUIUtils.getUIColor("Tau.code.background", 0x3A3A3A);
 	}
 
+	/**
+	 * Tau's red as text or an icon. Like {@link #success} and {@link #warning},
+	 * moved in lightness by the look-and-feel setup until it reads at
+	 * {@value #AA_CONTRAST}:1 on the panel, on a card and on its own tint.
+	 */
 	public static Color error() {
 		return FlatUIUtils.getUIColor("Tau.error", 0xE55353);
 	}
 
+	/** Tau's green as text or an icon. */
 	public static Color success() {
 		return FlatUIUtils.getUIColor("Tau.success", 0x3FB950);
 	}
 
+	/** Tau's orange as text or an icon. */
 	public static Color warning() {
 		return FlatUIUtils.getUIColor("Tau.warning", 0xE58A3A);
 	}

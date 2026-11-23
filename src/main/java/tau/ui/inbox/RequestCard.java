@@ -97,8 +97,7 @@ final class RequestCard extends Card {
 	/** An accent tint while the request is open, a faint one once resolved. */
 	@Override
 	protected Color fill() {
-		Color base = Theme.panel();
-		return request.open() ? Theme.blend(base, Theme.accent(), 0.10f) : Theme.blend(base, Theme.foreground(), 0.03f);
+		return request.open() ? Theme.accentGround(0.10f) : Theme.blend(Theme.panel(), Theme.foreground(), 0.03f);
 	}
 
 	/** A hairline edge: accent-tinted while open, the theme's line once resolved. */

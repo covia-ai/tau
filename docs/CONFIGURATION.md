@@ -114,7 +114,11 @@ mode keeps its own theme and the switch flips between them; on FlatLaf's own
 themes there is an accent colour too. Choices apply at once and are remembered
 in `prefs.properties` (`ui.mode`, `ui.theme.dark`, `ui.theme.light`, and
 `ui.accent` as `#RRGGBB`), which then take precedence over this key; delete
-those lines to return to the file's setting and Tau's purple.
+those lines to return to the file's setting and Tau's purple. Whatever the
+theme, Tau's own text colours — secondary text, links and the accent as text,
+and its red, green and orange — are made lighter or darker until they read at
+WCAG AA (4.5:1) on the theme's background and cards, and cards and selected
+rows stay close enough to the background for text to read on them too.
 
 ### `repairStore`
 
