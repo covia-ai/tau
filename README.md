@@ -55,7 +55,9 @@ Ideas and disagreement are welcome in issues.
 
 ## Try it
 
-You need **Java 25+** and **Maven 3.9+**.
+You need **Java 25+** and **Maven 3.9+**. When `covia.version` in `pom.xml` is
+a SNAPSHOT, install Covia first, as *Building against a local Covia checkout*
+below describes.
 
 ```bash
 git clone https://github.com/covia-ai/tau.git
@@ -78,9 +80,10 @@ conversation or an agent for what you can do with it; everything else is under
 <summary><b>Building against a local Covia checkout</b></summary>
 
 `covia.version` in `pom.xml` names the Covia line. A release resolves from
-Maven Central; a SNAPSHOT needs the Covia checkout installed locally:
+Maven Central; a SNAPSHOT needs Covia cloned beside Tau and installed locally:
 
 ```bash
+git clone https://github.com/covia-ai/covia.git ../covia
 cd ../covia
 mvn -pl venue,workbench,covia-discord,covia-telegram,covia-claude-code,covia-speech -am install -DskipTests
 cd ../tau
