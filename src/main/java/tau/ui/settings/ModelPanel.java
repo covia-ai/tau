@@ -134,14 +134,15 @@ public final class ModelPanel extends SettingsPage {
 		Providers.Provider p = modelSelector.selectedProvider();
 		Providers.Model m = modelSelector.selectedModel();
 		if (p == null || m == null) return;
-		handler.applyModel(p.id(), m.id());
+		// The key first: applying a model whose provider has no key yet only saves it.
 		char[] key = keyField.getPassword();
 		boolean keyStored = false;
 		boolean keyOk = true;
-		if (key.length > 0) {
+		if (key.length > 0 && p.needsApiKey()) {
 			keyOk = handler.storeApiKey(p.id(), new String(key));
 			keyStored = keyOk;
 		}
+		handler.applyModel(p.id(), m.id());
 		keyField.setText("");
 		baselineProvider = p.id();
 		baselineModel = m.id();
