@@ -78,6 +78,7 @@ public final class Tau {
 	private static final String PREF_THEME_DARK = "ui.theme.dark";
 	private static final String PREF_THEME_LIGHT = "ui.theme.light";
 	private static final String PREF_ACCENT = "ui.accent";
+	private static final String PREF_HIGHER_CONTRAST = "ui.higherContrast";
 	/**
 	 * Preference keys for Settings → General → Startup: take over a Tau
 	 * found running without asking, and unlock at launch with the remembered
@@ -243,7 +244,7 @@ public final class Tau {
 			log.info("Configuration loaded from {}", path);
 		} catch (Exception e) {
 			log.error("Could not load configuration from {}", path, e);
-			LAF.init(null, AppConfig.DEFAULT_THEME, null, null);
+			LAF.init(null, AppConfig.DEFAULT_THEME, null, false, null);
 			JOptionPane.showMessageDialog(null,
 				"Could not load the configuration file\n" + path + "\n\n" + e.getMessage(),
 				APP_NAME, JOptionPane.ERROR_MESSAGE);
@@ -253,7 +254,8 @@ public final class Tau {
 		// The look chosen in Settings → Theme (remembered in prefs) wins over config.json's light/dark.
 		Prefs prefs = Prefs.load(config.home());
 		String mode = prefs.getString(PREF_MODE, config.theme());
-		LAF.init(prefs.getString(themeKey(mode), null), mode, prefs.getString(PREF_ACCENT, null), themesDir(config));
+		LAF.init(prefs.getString(themeKey(mode), null), mode, prefs.getString(PREF_ACCENT, null),
+			prefs.getBool(PREF_HIGHER_CONTRAST, false), themesDir(config));
 		new Tau(config, path, prefs).start(launch);
 	}
 
@@ -3007,10 +3009,22 @@ public final class Tau {
 		applyLook(id, accent());
 	}
 
-	/** Switches every window to the theme and accent, then lets the Theme page reflect what is now in use. */
+	/** Whether higher contrast, chosen in Settings → Theme, is in use. */
+	public boolean higherContrast() {
+		return LAF.higherContrast();
+	}
+
+	/** Remembers whether higher contrast is wanted and switches every window to it. */
+	public void setHigherContrast(boolean on) {
+		prefs.setBool(PREF_HIGHER_CONTRAST, on);
+		applyLook(theme(), accent());
+	}
+
+	/** Switches every window to the theme and accent, at the remembered contrast, then lets the Theme page reflect what is now in use. */
 	private void applyLook(String themeId, String accent) {
+		boolean higher = prefs.getBool(PREF_HIGHER_CONTRAST, false);
 		SwingUtilities.invokeLater(() -> {
-			LAF.apply(themeId, accent);
+			LAF.apply(themeId, accent, higher);
 			if (window != null) window.refreshTheme();
 		});
 	}

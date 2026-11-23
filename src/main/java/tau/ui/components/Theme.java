@@ -31,6 +31,8 @@ public final class Theme {
 	public static final double AAA_CONTRAST = 7.0;
 	/** The contrast {@link #accentText} reaches on its ground: WCAG's AA for body text. */
 	public static final double AA_CONTRAST = 4.5;
+	/** WCAG's minimum for what is not text but must be seen: a field's border, a check box's outline. */
+	public static final double NON_TEXT_CONTRAST = 3.0;
 	private static Color darkFor, darkOf;
 
 	/**
@@ -53,9 +55,9 @@ public final class Theme {
 	 * The accent as text or an icon — links, headings, the tinted button, the
 	 * navigation's selected look: the accent moved in lightness — lighter on a
 	 * dark theme, darker on a light one, hue and saturation kept — until it
-	 * reads at {@value #AA_CONTRAST}:1 on the panel, on a card and on the
-	 * accent's tint over either. Put into the defaults by the look-and-feel
-	 * setup; worked out on the panel alone when it is not there.
+	 * reads at the {@linkplain #textContrast text contrast} on the panel, on a
+	 * card and on the accent's tint over either. Put into the defaults by the
+	 * look-and-feel setup; worked out on the panel alone when it is not there.
 	 */
 	public static Color accentText() {
 		Color put = UIManager.getColor("Tau.accent.text");
@@ -64,14 +66,14 @@ public final class Theme {
 	}
 
 	/**
-	 * {@code base} moved in lightness away from the grounds — lighter on dark
-	 * grounds, darker on light ones, hue and saturation kept — a step at a
-	 * time until it reads on every one at {@code contrast}:1, or reaches the
-	 * end. The grounds lie on one side, light or dark, which the first decides.
+	 * {@code base} moved in lightness, hue and saturation kept, a step at a
+	 * time until it reads on every one of the grounds at {@code contrast}:1, or
+	 * reaches white or black. It moves the way it already lies from the first
+	 * ground — lighter text lighter — when that way can get there, and
+	 * otherwise whichever way reads better at the end.
 	 */
 	public static Color readableOn(Color base, double contrast, Color... grounds) {
-		// Below this luminance a ground contrasts more with white than with black.
-		boolean lighten = luminance(grounds[0]) < 0.18;
+		boolean lighten = lightens(base, contrast, grounds);
 		Color c = base;
 		for (int i = 0; i < 100 && worstContrast(c, grounds) < contrast; i++) {
 			c = lighten ? ColorFunctions.lighten(c, 0.01f) : ColorFunctions.darken(c, 0.01f);
@@ -79,10 +81,27 @@ public final class Theme {
 		return c;
 	}
 
+	private static boolean lightens(Color base, double contrast, Color... grounds) {
+		double white = worstContrast(Color.WHITE, grounds);
+		double black = worstContrast(Color.BLACK, grounds);
+		boolean lighter = luminance(base) >= luminance(grounds[0]);
+		if ((lighter ? white : black) >= contrast) return lighter;
+		return white >= black;
+	}
+
 	private static double worstContrast(Color c, Color... grounds) {
 		double worst = Double.MAX_VALUE;
 		for (Color g : grounds) worst = Math.min(worst, contrast(c, g));
 		return worst;
+	}
+
+	/**
+	 * The contrast text reaches in the look in use: {@value #AA_CONTRAST}:1,
+	 * or {@value #AAA_CONTRAST}:1 with higher contrast chosen in Settings →
+	 * Theme. Put into the defaults by the look-and-feel setup.
+	 */
+	public static double textContrast() {
+		return (UIManager.get("Tau.textContrast") instanceof Double d) ? d : AA_CONTRAST;
 	}
 
 	/**
@@ -99,13 +118,33 @@ public final class Theme {
 	}
 
 	/**
+	 * {@code tint}, a translucent ground painted over each of {@code grounds},
+	 * faded a step at a time until {@code text} reads on it over every one at
+	 * {@code contrast}:1, or it is clear. For when the text has gone as far as
+	 * it can: the tint gives way rather than the text.
+	 */
+	public static Color readableTint(Color tint, Color text, double contrast, Color... grounds) {
+		Color c = tint;
+		for (int i = 1; i <= 20 && worstContrastOver(text, c, grounds) < contrast; i++) {
+			c = new Color(tint.getRed(), tint.getGreen(), tint.getBlue(), Math.round(tint.getAlpha() * (20 - i) / 20f));
+		}
+		return c;
+	}
+
+	private static double worstContrastOver(Color text, Color tint, Color... grounds) {
+		double worst = Double.MAX_VALUE;
+		for (Color g : grounds) worst = Math.min(worst, contrast(text, over(tint, g)));
+		return worst;
+	}
+
+	/**
 	 * The panel tinted {@code amount} (0–1) of the way towards the accent — a
 	 * selected row, an open request — no further than ordinary and secondary
-	 * text still read on it at {@value #AA_CONTRAST}:1.
+	 * text still read on it at the {@linkplain #textContrast text contrast}.
 	 */
 	public static Color accentGround(float amount) {
 		Color panel = panel();
-		return readableGround(panel, blend(panel, accent(), amount), AA_CONTRAST, foreground(), muted());
+		return readableGround(panel, blend(panel, accent(), amount), textContrast(), foreground(), muted());
 	}
 
 	/** {@code colour}, which may be translucent, as it shows painted over {@code ground}. */
@@ -182,8 +221,9 @@ public final class Theme {
 
 	/**
 	 * Tau's red as text or an icon. Like {@link #success} and {@link #warning},
-	 * moved in lightness by the look-and-feel setup until it reads at
-	 * {@value #AA_CONTRAST}:1 on the panel, on a card and on its own tint.
+	 * moved in lightness by the look-and-feel setup until it reads at the
+	 * {@linkplain #textContrast text contrast} on the panel, on a card and on
+	 * its own tint.
 	 */
 	public static Color error() {
 		return FlatUIUtils.getUIColor("Tau.error", 0xE55353);

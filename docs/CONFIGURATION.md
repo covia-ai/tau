@@ -119,6 +119,10 @@ theme, Tau's own text colours — secondary text, links and the accent as text,
 and its red, green and orange — are made lighter or darker until they read at
 WCAG AA (4.5:1) on the theme's background and cards, and cards and selected
 rows stay close enough to the background for text to read on them too.
+*Higher contrast*, beside the Light/Dark switch and remembered as
+`ui.higherContrast`, raises all text to AAA (7:1) — the theme's own controls'
+as well as Tau's — placeholders to AA, and the borders of fields, buttons and
+check boxes to 3:1.
 
 ### `repairStore`
 

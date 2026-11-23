@@ -20,6 +20,7 @@ import javax.swing.ButtonGroup;
 import javax.swing.DefaultListModel;
 import javax.swing.Icon;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JColorChooser;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -44,8 +45,9 @@ import tau.ui.components.Theme;
 import net.miginfocom.swing.MigLayout;
 
 /**
- * The <b>Theme</b> settings page. A <b>Light / Dark</b> switch comes first;
- * under it, the themes of that mode that FlatLaf provides — its own, the
+ * The <b>Theme</b> settings page. A <b>Light / Dark</b> switch comes first,
+ * with <b>Higher contrast</b> beside it for whichever theme is chosen; under
+ * it, the themes of that mode that FlatLaf provides — its own, the
  * IntelliJ theme pack, and any {@code .theme.json} the owner drops into the
  * data home's {@code themes} folder — so each mode keeps its own chosen theme
  * and the switch flips between them. On FlatLaf's own themes there is also an
@@ -70,6 +72,9 @@ public final class ThemePanel extends JPanel {
 		/** The accent as {@code #RRGGBB}, or null for the default. */
 		void setAccent(String accent);
 
+		/** Whether higher contrast is wanted. */
+		void setHigherContrast(boolean on);
+
 		/** Open the folder the owner's own {@code .theme.json} files go in. */
 		void openThemesFolder();
 	}
@@ -91,6 +96,7 @@ public final class ThemePanel extends JPanel {
 	private final Host host;
 	private final JRadioButton dark = new JRadioButton("Dark");
 	private final JRadioButton light = new JRadioButton("Light");
+	private final JCheckBox higherContrast = new JCheckBox("Higher contrast");
 	private final DefaultListModel<LAF.Choice> themes = new DefaultListModel<>();
 	private final JList<LAF.Choice> list = new JList<>(themes);
 	/** Swatches by their colour, upper-case {@code #RRGGBB}. */
@@ -119,7 +125,15 @@ public final class ThemePanel extends JPanel {
 		switcher.add(dark);
 		switcher.add(Box.createHorizontalStrut(18));
 		switcher.add(light);
-		form.add(switcher);
+		switcher.add(Box.createHorizontalGlue());
+		// Applies to whichever theme is chosen, so it sits beside the switch rather than with a theme.
+		higherContrast.setOpaque(false);
+		higherContrast.setToolTipText("All text at 7:1 (WCAG AAA), with placeholders and field borders made readable, whatever the theme");
+		higherContrast.addActionListener(e -> {
+			if (!syncing) host.setHigherContrast(higherContrast.isSelected());
+		});
+		switcher.add(higherContrast);
+		form.add(switcher, "growx");
 
 		list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		list.setCellRenderer(new Row());
@@ -162,12 +176,13 @@ public final class ThemePanel extends JPanel {
 		add(form, BorderLayout.CENTER);
 	}
 
-	/** Reflect the app's current mode, theme and accent; fires no host call. */
-	public void refresh(String mode, String themeId, String accent) {
+	/** Reflect the app's current mode, theme, accent and contrast; fires no host call. */
+	public void refresh(String mode, String themeId, String accent, boolean higher) {
 		syncing = true;
 		try {
 			this.mode = LAF.isLight(mode) ? LAF.LIGHT : LAF.DARK;
 			(LAF.isLight(mode) ? light : dark).setSelected(true);
+			higherContrast.setSelected(higher);
 
 			themes.clear();
 			themes.addAll(LAF.themes(this.mode));
@@ -213,7 +228,7 @@ public final class ThemePanel extends JPanel {
 	private void chooseAccent(String hex) {
 		if (syncing) return;
 		LAF.Choice chosen = list.getSelectedValue();
-		refresh(mode, chosen != null ? chosen.id() : null, hex);
+		refresh(mode, chosen != null ? chosen.id() : null, hex, higherContrast.isSelected());
 		host.setAccent(LAF.TAU_ACCENT.equalsIgnoreCase(hex) ? null : hex);
 	}
 

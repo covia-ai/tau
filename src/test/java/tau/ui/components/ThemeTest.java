@@ -94,6 +94,19 @@ class ThemeTest {
 	}
 
 	@Test
+	void textKeepsItsSideOfAMidToneGround() {
+		// On a mid-tone ground neither white nor black reaches 7:1; white text stays white rather than turning dark.
+		Color mid = Color.decode("#4B6EAF");
+		assertEquals(Color.WHITE, Theme.readableOn(Color.WHITE, Theme.AAA_CONTRAST, mid));
+		// Dark text where black gets there stays on the dark side, though white would read a little better.
+		Color ground = Color.decode("#757575");
+		assertTrue(Theme.contrast(Color.WHITE, ground) > Theme.contrast(Color.BLACK, ground), "white reads better here");
+		Color dark = Theme.readableOn(Color.decode("#303030"), Theme.AA_CONTRAST, ground);
+		assertTrue(Theme.contrast(dark, ground) >= Theme.AA_CONTRAST);
+		assertTrue(Color.RGBtoHSB(dark.getRed(), dark.getGreen(), dark.getBlue(), null)[2] < 0.2f, "still dark");
+	}
+
+	@Test
 	void aColourThatAlreadyReadsIsLeftAlone() {
 		Color white = Color.WHITE;
 		assertEquals(white, Theme.readableOn(white, Theme.AA_CONTRAST, Color.decode("#1E1E1E"), Color.decode("#2B2B2B")));
@@ -109,6 +122,17 @@ class ThemeTest {
 		assertTrue(Theme.contrast(dim, ground) >= Theme.AA_CONTRAST);
 		assertTrue(Theme.contrast(ground, panel) > 1.0, "still a step off the panel");
 		assertEquals(card, Theme.readableGround(panel, card, Theme.AA_CONTRAST, Color.WHITE), "a card text reads on stays");
+	}
+
+	@Test
+	void aTintFadesWhenItsTextCanGoNoFurther() {
+		Color card = Color.decode("#545758");
+		Color tint = new Color(0x7C, 0x6C, 0xF5, 56);
+		assertTrue(Theme.contrast(Color.WHITE, Theme.over(tint, card)) < Theme.AAA_CONTRAST, "white falls short on the full tint");
+		Color faded = Theme.readableTint(tint, Color.WHITE, Theme.AAA_CONTRAST, card);
+		assertTrue(Theme.contrast(Color.WHITE, Theme.over(faded, card)) >= Theme.AAA_CONTRAST);
+		assertTrue(faded.getAlpha() > 0 && faded.getAlpha() < tint.getAlpha(), "faded, not gone");
+		assertEquals(tint, Theme.readableTint(tint, Color.WHITE, Theme.AA_CONTRAST, card), "a tint its text reads on stays");
 	}
 
 	@Test

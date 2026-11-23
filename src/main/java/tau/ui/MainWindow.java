@@ -420,6 +420,11 @@ public final class MainWindow extends JFrame {
 			}
 
 			@Override
+			public void setHigherContrast(boolean on) {
+				app.setHigherContrast(on);
+			}
+
+			@Override
 			public void openThemesFolder() {
 				app.openThemesFolder();
 			}
@@ -958,7 +963,7 @@ public final class MainWindow extends JFrame {
 			app.hasRememberedPassphrase(), app.startAtSignInUnavailable());
 		settingsScreen.general().refreshVoice(app.readRepliesAloud(), app.sendAfterPauseSeconds());
 		settingsScreen.general().refreshStore(app.storeReport());
-		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent());
+		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent(), app.higherContrast());
 		settingsScreen.model().preselect(app.currentModelOp());
 		app.refreshServedModels(); // answers through showServedModels, off the event thread
 		settingsScreen.profile().refresh(name, userDid, venueDid, app.publicKeyHex(), app.canRevealPrivateSeed(),
@@ -971,9 +976,9 @@ public final class MainWindow extends JFrame {
 		settingsScreen.access().bind();
 	}
 
-	/** Re-read the Theme page after the look changed: the mode's list, its selected theme and the accent. */
+	/** Re-read the Theme page after the look changed: the mode's list, its selected theme, the accent and the contrast. */
 	public void refreshTheme() {
-		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent());
+		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent(), app.higherContrast());
 	}
 
 	private void showSettings(SettingsScreen.Tab tab) {
