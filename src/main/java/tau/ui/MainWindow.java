@@ -26,6 +26,7 @@ import javax.swing.WindowConstants;
 import tau.Tau;
 import tau.EmbeddedVenue;
 import tau.Identity;
+import tau.KeyCheck;
 import tau.SessionHistory;
 import tau.Sizes;
 import tau.StoreSpace;
@@ -439,6 +440,11 @@ public final class MainWindow extends JFrame {
 			@Override
 			public boolean storeApiKey(String providerId, String apiKey) {
 				return app.storeApiKey(providerId, apiKey);
+			}
+
+			@Override
+			public KeyCheck.Result testModel(String providerId, String modelId, String apiKey) {
+				return app.testModel(providerId, modelId, apiKey);
 			}
 		}, app.currentModelOp());
 		ProfilePanel profilePanel = new ProfilePanel(new ProfilePanel.Host() {

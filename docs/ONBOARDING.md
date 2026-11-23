@@ -66,7 +66,11 @@ restores the identity only.
   next message; the key goes to the venue's
   secret stores at once and never to `config.json`. Stored values are viewable,
   passphrase-gated, under *Settings → Secrets* (a passphrase remembered on
-  this computer passes the gate unasked).
+  this computer passes the gate unasked). *Test* sends the chosen model one
+  short request, with the key in the field or else the stored one, and saves
+  nothing. Its answer is the venue's: whether the setup needs fixing or the
+  provider may answer later, then the venue's reason with the provider's own
+  error (`KeyCheck`).
 - **Identity** — name, DIDs, public key, the seed behind the passphrase, and
   switching to the operator ([IDENTITY.md](IDENTITY.md)).
 - **Advanced** — change passphrase, view the recovery phrase behind the
