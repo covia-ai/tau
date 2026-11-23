@@ -3,6 +3,7 @@ package tau.ui;
 import static tau.Tau.APP_NAME;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.awt.BorderLayout;
@@ -93,6 +94,7 @@ public final class MainWindow extends JFrame {
 	private int sidebarWidth = SIDEBAR_WIDTH;
 	private final tau.ui.onboarding.OnboardingWizard onboarding;
 	private final WelcomePanel welcomePanel;
+	private final List<String> pendingNotices = new ArrayList<>(); // start-up notices not yet shown
 	private final ChatPanel chatPanel = new ChatPanel();
 	private final ConversationList conversations;
 	private NavBar.Tab activeTab = NavBar.Tab.HOME;
@@ -722,6 +724,11 @@ public final class MainWindow extends JFrame {
 			public void windowIconified(WindowEvent e) {
 				app.onWindowIconified();
 			}
+
+			@Override
+			public void windowActivated(WindowEvent e) {
+				presentNotices();
+			}
 		});
 
 		setSize(1040, 760);
@@ -1105,6 +1112,23 @@ public final class MainWindow extends JFrame {
 
 	public void showSystemMessage(String text) {
 		chatPanel.appendSystem(text);
+	}
+
+	/**
+	 * What the owner should know from a start, in one dialog: now if this
+	 * window is in front, else when it next comes to the front (after a launch
+	 * into the tray, say).
+	 */
+	public void showNotices(List<String> notices) {
+		pendingNotices.addAll(notices);
+		if (isActive()) presentNotices();
+	}
+
+	private void presentNotices() {
+		if (pendingNotices.isEmpty()) return;
+		String text = String.join("\n\n", pendingNotices);
+		pendingNotices.clear();
+		Dialogs.info(this, APP_NAME + " started", new SelectableText(text).wrapAt(480));
 	}
 
 	public void startupFailed(Throwable t) {

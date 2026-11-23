@@ -41,10 +41,15 @@ Startup follows this order:
 4. Register Tau's adapters and integrations in Covia's pre-start hook, then run
    the [startup pass](#the-startup-pass), before recovering jobs or starting
    workers. A failed hook closes the partially assembled venue.
-5. Bind the owner's identity, move any provider keys an older install left in `keys.enc`, import changed
-   filesystem skills and bind the views. Report launch or binding failures
-   where the owner can see them. The main agent is configured on its first
-   message; startup may separately configure gods and request Eir's help.
+5. Bind the owner's identity, move any provider keys an older install left
+   in `keys.enc`, import changed filesystem skills and bind the views. Report
+   launch or binding failures where the owner can see them. The main agent is
+   configured on its first message; startup may separately configure gods and
+   request Eir's help.
+6. Show what the owner should know from this start (a model with no key,
+   problems the startup pass left, a repair or compaction) in one dialog once
+   the window is in front, never in a conversation. A launch into the tray
+   keeps it until the window is opened.
 
 The default listener is authenticated loopback; configuration can override it
 ([SECURITY.md](SECURITY.md#authentication-and-network-exposure)).
@@ -213,9 +218,9 @@ So compaction is asked for, from Settings → General → Data store or by Odin
 store. The next launch spends the request before anything else, so a
 compaction cut short is not tried again at every start; `StoreSpace` then
 opens the store, runs Covia's start-up collection on it and launches the venue
-on the result, and the chat opens with a note of what it held before and
-after. A collection that fails before it cuts over leaves the store as it was,
-and the note says so. Where Windows still pins the old file, the venue runs on
+on the result, and the start-up dialog says what it held before and after.
+A collection that fails before it cuts over leaves the store as it was, and
+the dialog says so. Where Windows still pins the old file, the venue runs on
 the compacted one under its own name and Etch swaps them at the next start.
 
 How much disk comes back depends on how much was garbage: Etch grows a file in

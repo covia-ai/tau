@@ -310,8 +310,8 @@ venue's speech block; your replies' text then goes to that provider.
 The store only grows: a value replaced or deleted stays in the file until the
 store is compacted, which keeps everything still in use and drops the rest.
 *Compact it the next time Tau starts* asks for that; the next launch
-does it before the venue opens, once, and the chat says what the store held
-before and after. Clear the box to withdraw it. Nothing compacts the store
+does it before the venue opens, once, and a dialog after start-up says what
+the store held before and after. Clear the box to withdraw it. Nothing compacts the store
 unasked. Why it waits for a start is in [LAUNCH.md](LAUNCH.md#compacting-the-store).
 
 The same section lists the files kept from earlier repairs, when there are

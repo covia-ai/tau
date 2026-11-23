@@ -39,7 +39,7 @@ orchestrating.
 5. **Model:** once the venue is up, the chat opens with *Settings → Model* in
    front of it, where Test can try a model and key before they are saved.
    Leaving the page saves nothing: the owner is in either way, and until a
-   model can answer the chat says so. The echo bot, in the provider list,
+   model can answer, the dialog after each start says so. The echo bot, in the provider list,
    needs no key.
 
 ## Unlock

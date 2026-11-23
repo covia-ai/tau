@@ -577,29 +577,25 @@ public final class Tau {
 			startToolTokens();
 			if (prefs.getBool(PREF_AT_SIGN_IN, false)) applyStartAtSignIn(); // now that this build has started, name it
 			if (clearToShow != null) SwingUtilities.invokeLater(clearToShow);
+			boolean firstRun = chooseModel; // read before the chat bind clears it
 			if (bound != null) startChatOnce(v, bound);
-			if (bound != null) {
-				// The same guard Settings → Model applies: a model whose provider has
-				// no key would otherwise fail the first message with a raw error.
+			// What the owner should know from this start, in one dialog once the
+			// window is in front: never written into a conversation.
+			List<String> notices = new ArrayList<>();
+			if (bound != null && !firstRun) {
+				// A model whose provider has no key fails every message until one is
+				// added; on first run Settings → Model is about to open instead.
 				String op = currentModelOp();
 				Providers.Provider keyless = keylessProvider(op, this::keyResolves);
 				if (keyless != null) {
-					String notice = "No " + keyless.label() + " API key is set, so " + op
-						+ " can't answer yet. Add the key in Settings → Model and it takes effect straight away.";
-					SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
+					notices.add("No " + keyless.label() + " API key is set, so " + op
+						+ " can't answer yet. Add the key in Settings → Model and it takes effect straight away.");
 				}
 			}
-			for (String problem : v.startup().problems()) {
-				SwingUtilities.invokeLater(() -> window.showSystemMessage(problem));
-			}
-			if (repaired != null) {
-				String notice = repaired.notice();
-				SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
-			}
-			if (compacted != null) {
-				String notice = compacted.notice();
-				SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
-			}
+			notices.addAll(v.startup().problems());
+			if (repaired != null) notices.add(repaired.notice());
+			if (compacted != null) notices.add(compacted.notice());
+			if (!notices.isEmpty()) SwingUtilities.invokeLater(() -> window.showNotices(notices));
 		} catch (Throwable t) {
 			log.error("Venue failed to start", t);
 			closeVenue();
