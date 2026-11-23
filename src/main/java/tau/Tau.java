@@ -1742,8 +1742,8 @@ public final class Tau {
 
 
 	/**
-	 * The chosen model, kept in Tau's adapter state: onboarding's choice
-	 * is saved there on its first launch, and a later launch reads it back.
+	 * The chosen model, kept in Tau's adapter state: each launch reads it
+	 * back, and a choice made before a restart is saved there.
 	 */
 	private void adoptModel(EmbeddedVenue v) {
 		TauAdapter app = v.tau();

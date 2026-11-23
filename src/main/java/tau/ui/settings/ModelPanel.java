@@ -11,16 +11,20 @@ import com.formdev.flatlaf.FlatClientProperties;
 
 import tau.KeyCheck;
 import tau.model.Providers;
+import tau.ui.components.Buttons;
 import tau.ui.components.Documents;
 import tau.ui.components.Fields;
 import tau.ui.components.KeyTest;
+import tau.ui.components.Links;
 import tau.ui.components.ModelSelector;
+import tau.ui.components.PressButton;
 import tau.ui.components.Styles;
 
 /**
  * The <b>Model</b> settings page: pick the provider and model, and replace the API
- * key. Both apply live: a new key is stored encrypted in the venue's secret
- * stores, which model calls read each time. The <b>Save</b> action stays
+ * key, with a link to where the provider hands one out. Both apply live: a new
+ * key is stored encrypted in the venue's secret stores, which model calls read
+ * each time. On first run it opens once the chat is up. The <b>Save</b> action stays
  * disabled until something changes. <b>Test</b> sends the selected model one
  * short request with the key in the field, or the stored key when the field is
  * blank, and saves no key or setting.
@@ -41,6 +45,7 @@ public final class ModelPanel extends SettingsPage {
 	private final Handler handler;
 	private final ModelSelector modelSelector = new ModelSelector();
 	private final JPasswordField keyField = Fields.secret(new JPasswordField(24));
+	private final PressButton keyLink = Buttons.link("Get an API key →", this::openKeyPage);
 	private final KeyTest keyTest = new KeyTest(this::keyTestCall);
 
 	private String baselineProvider;
@@ -70,6 +75,7 @@ public final class ModelPanel extends SettingsPage {
 		addField("Provider", modelSelector.providerField());
 		addField("Model", modelSelector.modelField());
 		addField("API key", keyField);
+		addField("", keyLink);
 		addField("", keyTest);
 	}
 
@@ -82,11 +88,19 @@ public final class ModelPanel extends SettingsPage {
 		return () -> handler.testModel(providerId, modelId, key);
 	}
 
+	/** Where the selected provider hands out API keys, in the browser. */
+	private void openKeyPage() {
+		Providers.Provider p = modelSelector.selectedProvider();
+		if (p != null && p.consoleUrl() != null) Links.open(p.consoleUrl());
+	}
+
 	private void onModelSelection() {
 		Providers.Provider p = modelSelector.selectedProvider();
 		if (p == null) return;
 		boolean needsKey = p.secretName() != null;
 		keyField.setEnabled(needsKey);
+		keyLink.setText("Get a " + p.label() + " key →");
+		keyLink.setVisible(needsKey && p.consoleUrl() != null);
 		keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT,
 			needsKey ? "Paste a new key to replace it (leave blank to keep)" : "No key needed for this provider");
 		keyTest.reset();

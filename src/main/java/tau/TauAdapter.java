@@ -253,7 +253,7 @@ public class TauAdapter extends AAdapter {
 	/** Where the chosen model sits in this adapter's state: one for the installation. */
 	static final String MODEL = "model";
 
-	/** The model operation chosen in onboarding or Settings → Model, or null if none was. */
+	/** The model operation chosen in Settings → Model, or null if none was. */
 	public String model() {
 		ACell model = adapterState().read(MODEL);
 		return (model instanceof AString s && !s.isEmpty()) ? s.toString() : null;

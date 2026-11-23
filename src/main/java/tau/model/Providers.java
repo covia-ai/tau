@@ -14,7 +14,7 @@ import convex.core.data.AVector;
 import convex.core.lang.RT;
 
 /**
- * The model providers Tau offers at onboarding and in Settings, mirroring
+ * The model providers Tau offers in Settings and agent creation, mirroring
  * the venue's {@code langchain} catalog: each provider maps to a
  * {@code v/models/<provider>/<id>} operation family, the secret name its API key
  * is stored under, and where to get a key. Every model listed here is one the

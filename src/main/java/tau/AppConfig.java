@@ -130,7 +130,7 @@ public final class AppConfig {
 				"agentId": "Tau",
 				"operation": "v/ops/llmagent/chat",
 				// Model operation used for replies. The model chosen in the app
-				// (onboarding or Settings → Model) is kept in the venue store
+				// (Settings → Model) is kept in the venue store
 				// and takes precedence over this key.
 				// Use "v/test/ops/llm" for an offline echo bot.
 				"llmOperation": "v/models/anthropic/claude-sonnet-5-5"
