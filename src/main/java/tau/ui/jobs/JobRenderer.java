@@ -32,7 +32,7 @@ final class JobRenderer extends JPanel implements ListCellRenderer<JobList.Job> 
 	private long now = System.currentTimeMillis();
 
 	JobRenderer() {
-		super(new MigLayout("insets 10 14 10 14, fillx, gapx 12, gapy 2", "[]12[grow,fill,100:]12[]", "[][]"));
+		super(new MigLayout("insets 5 14 5 14, fillx, gapx 12, gapy 1", "[]12[grow,fill,100:]12[]", "[][]"));
 		add(icon, "spany 2, aligny top, gaptop 2");
 		add(title, "wmin 0");
 		add(status, "spany 2, aligny center, wrap");
