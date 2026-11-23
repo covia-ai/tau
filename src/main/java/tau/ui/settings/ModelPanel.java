@@ -146,7 +146,7 @@ public final class ModelPanel extends SettingsPage {
 		baselineProvider = p.id();
 		baselineModel = m.id();
 		setNote(!keyOk ? "Couldn't store the key."
-			: keyStored ? "Saved. The new key applies after a restart." : "Saved.", !keyOk);
+			: keyStored ? "Saved. The new key applies from the next message." : "Saved.", !keyOk);
 		if (!keyOk) Fields.flag(keyField);
 		updateDirty();
 	}
