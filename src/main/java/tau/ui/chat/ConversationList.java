@@ -35,7 +35,7 @@ import tau.ui.components.Styles;
 import tau.ui.components.Theme;
 
 /**
- * The conversation switcher: a "+ Session" button above a scrolling list of
+ * The conversation switcher: a "+ Chat" button above a scrolling list of
  * past sessions (newest first), each a clickable row showing its title and
  * how long ago it was last active. The currently-open session is highlighted.
  * It shows chats unless a quiet drop-down beside the button, there only when

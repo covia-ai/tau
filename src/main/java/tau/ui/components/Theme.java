@@ -24,7 +24,7 @@ public final class Theme {
 
 	/** The Tau accent ({@code @accentColor}). */
 	public static Color accent() {
-		return FlatUIUtils.getUIColor("Component.accentColor", 0x7C6CF5);
+		return FlatUIUtils.getUIColor("Component.accentColor", 0x6B46C1);
 	}
 
 	/** The contrast white text reaches on {@link #accentDark}: WCAG's AAA for body text. */

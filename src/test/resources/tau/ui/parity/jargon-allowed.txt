@@ -28,3 +28,5 @@ Copy DID
 Copy my DID
 # The palette also finds the Developer menu's copy action by this name.
 DID
+# The venue operator login for local tools (Access): a setting for developers and their tools, which says what such a login may do.
+manage users, adapters and the venue's secrets, and relaunch 

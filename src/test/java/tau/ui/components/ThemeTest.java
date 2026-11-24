@@ -13,7 +13,7 @@ class ThemeTest {
 
 	/** The accents on offer in Settings → Theme, and a few pale ones an owner might choose. */
 	private static final List<Color> ACCENTS = List.of(
-		Color.decode("#7C6CF5"), Color.decode("#3B82F6"), Color.decode("#14B8A6"), Color.decode("#3FB950"),
+		Color.decode("#6B46C1"), Color.decode("#3B82F6"), Color.decode("#14B8A6"), Color.decode("#3FB950"),
 		Color.decode("#F59E0B"), Color.decode("#EC4899"), Color.decode("#FFFF00"), Color.decode("#FFFFFF"));
 
 	@Test
@@ -71,10 +71,13 @@ class ThemeTest {
 
 	@Test
 	void readableMovesTowardsTheLightOnADarkGroundAndAwayOnALightOne() {
-		Color purple = Color.decode("#7C6CF5");
+		Color purple = Color.decode("#6B46C1");
 		Color onDark = Theme.readableOn(purple, Color.decode("#1E1E1E"), Theme.AA_CONTRAST);
 		Color onLight = Theme.readableOn(purple, Color.decode("#F2F2F2"), Theme.AA_CONTRAST);
-		assertTrue(Color.RGBtoHSB(onDark.getRed(), onDark.getGreen(), onDark.getBlue(), null)[2] > 0.96f, "lighter");
-		assertTrue(Color.RGBtoHSB(onLight.getRed(), onLight.getGreen(), onLight.getBlue(), null)[2] < 0.96f, "darker");
+		// Lighter than the accent it started from on a dark ground, never lighter on a light one, and readable on each.
+		assertTrue(Theme.contrast(onDark, Color.BLACK) > Theme.contrast(purple, Color.BLACK), "lighter");
+		assertTrue(Theme.contrast(onLight, Color.BLACK) <= Theme.contrast(purple, Color.BLACK), "darker, or already readable");
+		assertTrue(Theme.contrast(onDark, Color.decode("#1E1E1E")) >= Theme.AA_CONTRAST, "readable on dark");
+		assertTrue(Theme.contrast(onLight, Color.decode("#F2F2F2")) >= Theme.AA_CONTRAST, "readable on light");
 	}
 }

@@ -18,7 +18,7 @@ Venue
 # Approved: the owner's own wording replaces these.
 Still running in the tray. Click the icon to reopen; use Exit to stop the venue.
 The embedded venue's web dashboard, in your browser
-# Held as they are on the owner's instruction, pending the owner's answer.
+# Approved: Chats on screen for conversations; session stays the term underneath.
 Session
 New session
 Show in Sessions

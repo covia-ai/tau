@@ -85,3 +85,4 @@ Caps	Permissions
 Any tools, within caps you write; it starts from the preset you last chose.	Any tools, within the permissions you write; it starts from the preset you last chose.
 The caps aren't valid JSON: 	The permissions aren't valid JSON: 
 A custom token needs caps: \"unrestricted\" or a list.	A custom token needs its permissions: \"unrestricted\" or a list.
+Nothing leaves this computer except the model calls you ask for.<br><br>	Your data is stored here. Models and connected services may receive data when you use them.<br><br>

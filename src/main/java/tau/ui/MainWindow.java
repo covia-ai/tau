@@ -1530,7 +1530,8 @@ public final class MainWindow extends JFrame {
 	 */
 	private void placeMovedPages(boolean railShell) {
 		if (railShell) {
-			jobsHolder.add(settingsScreen.jobs(), BorderLayout.CENTER);
+			tau.ui.components.Panels.adopt(jobsHolder, settingsScreen.jobs(), BorderLayout.CENTER);
+			settingsScreen.jobs().setOwnHeading(false); // the Jobs screen's header already says it
 			vaultScreen.adopt(settingsScreen.secrets(), settingsScreen.access(), settingsScreen.vault());
 			settingsScreen.livesElsewhere(SettingsScreen.Tab.JOBS, () -> go(Destination.JOBS));
 			settingsScreen.livesElsewhere(SettingsScreen.Tab.SECRETS, () -> openVault(tau.ui.vault.VaultScreen.Page.SECRETS));
@@ -1538,6 +1539,7 @@ public final class MainWindow extends JFrame {
 			settingsScreen.livesElsewhere(SettingsScreen.Tab.VAULT, () -> openVault(tau.ui.vault.VaultScreen.Page.PASSPHRASE));
 		} else {
 			settingsScreen.restore(SettingsScreen.Tab.JOBS, settingsScreen.jobs());
+			settingsScreen.jobs().setOwnHeading(true);
 			settingsScreen.restore(SettingsScreen.Tab.SECRETS, settingsScreen.secrets());
 			settingsScreen.restore(SettingsScreen.Tab.ACCESS, settingsScreen.access());
 			settingsScreen.restore(SettingsScreen.Tab.VAULT, settingsScreen.vault());

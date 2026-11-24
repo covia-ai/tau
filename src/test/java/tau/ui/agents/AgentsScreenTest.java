@@ -13,6 +13,7 @@ import javax.swing.JPopupMenu;
 import org.junit.jupiter.api.Test;
 
 import tau.ui.agents.AgentsScreen.Kind;
+import tau.ui.components.IdentityMark;
 import tau.ui.agents.AgentsScreen.Row;
 
 /**
@@ -83,10 +84,10 @@ class AgentsScreenTest {
 	void agentsWithAnIdentityShowAFingerprintAndCanCopyIt() {
 		String did = "did:key:z6MkSample/g/scribe";
 		Row withId = new Row("scribe", "Scribe", Kind.YOURS, "This computer", "Ready", "Acts for you", null, did);
-		String fp = tau.ui.components.IdentityMark.fingerprint(did);
+		String fp = IdentityMark.fingerprint(did);
 		assertTrue(fp.matches("[0-9a-f]{4}…[0-9a-f]{3}"), fp);
-		assertEquals(fp, tau.ui.components.IdentityMark.fingerprint(did), "the same identity, the same fingerprint");
-		assertTrue(!fp.equals(tau.ui.components.IdentityMark.fingerprint(did + "x")));
+		assertEquals(fp, IdentityMark.fingerprint(did), "the same identity, the same fingerprint");
+		assertTrue(!fp.equals(IdentityMark.fingerprint(did + "x")));
 		screen.setRows(List.of(withId), "Tau");
 		item(screen.menuFor(withId), "Copy Agent ID (DID)").doClick();
 		assertEquals(List.of("copy " + did), calls);
