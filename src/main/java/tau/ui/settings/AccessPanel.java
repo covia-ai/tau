@@ -101,7 +101,7 @@ public final class AccessPanel extends SettingsPage {
 			+ "Its turns show as the token's name, so you can tell them apart. Kept until you revoke it."),
 		LOGIN("Login as you", "A login that appears as you, with everything you can do. "
 			+ "Shown once and kept nowhere; it stops working when it expires."),
-		OPERATOR("Venue operator login (advanced)", "A login as the venue itself, for administration only. "
+		OPERATOR("Venue operator login (advanced)", "A login as the operator, the identity that runs this Home/venue, for administration only. "
 			+ "Shown once and kept nowhere; it stops working when it expires.");
 
 		final String label;
@@ -180,7 +180,7 @@ public final class AccessPanel extends SettingsPage {
 		JScrollPane capsScroll = new JScrollPane(caps);
 		customRows = rows(() -> {
 			addFieldTop("Tools", toolsScroll);
-			addFieldTop("Caps", capsScroll);
+			addFieldTop("Permissions", capsScroll);
 		});
 		Styles.classes(tools, Styles.MONOSPACED);
 		Styles.classes(caps, Styles.MONOSPACED);
@@ -282,7 +282,7 @@ public final class AccessPanel extends SettingsPage {
 			tools.setText(String.join("\n", scope.tools().stream().map(String::valueOf).toList()));
 			caps.setText(JSON.toStringPretty(scope.caps()));
 		} else {
-			presetHint.setText("Any tools, within caps you write; it starts from the preset you last chose.");
+			presetHint.setText("Any tools, within the permissions you write; it starts from the preset you last chose.");
 		}
 		customRows.setVisible(token && custom);
 		revalidate();
@@ -398,7 +398,7 @@ public final class AccessPanel extends SettingsPage {
 			String jwt = host.mintLogin(sel.seconds(), k == Kind.OPERATOR);
 			if (jwt == null) {
 				clearIssued();
-				setNote("Couldn't make a login: the venue isn't ready.", true);
+				setNote("Couldn't make a login: the venue isn't ready. Nothing was made; try again in a moment.", true);
 				return;
 			}
 			showIssued(jwt, "A login " + (k == Kind.OPERATOR ? "as the venue operator" : "as you")
@@ -438,9 +438,9 @@ public final class AccessPanel extends SettingsPage {
 		try {
 			parsed = JSON.parse(caps.getText().trim());
 		} catch (RuntimeException e) {
-			throw new IllegalArgumentException("The caps aren't valid JSON: " + e.getMessage(), e);
+			throw new IllegalArgumentException("The permissions aren't valid JSON: " + e.getMessage(), e);
 		}
-		if (parsed == null) throw new IllegalArgumentException("A custom token needs caps: \"unrestricted\" or a list.");
+		if (parsed == null) throw new IllegalArgumentException("A custom token needs its permissions: \"unrestricted\" or a list.");
 		return new Tokens.Scope(ops, parsed);
 	}
 

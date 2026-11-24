@@ -142,7 +142,7 @@ final class JobDetail extends JPanel implements AutoCloseable {
 			add(Buttons.link("Job " + job.parent(), () -> actions.openJob(job.parent())), "growx 0");
 		}
 		if (job.tokens() > 0) field("Tokens", String.format("%,d", job.tokens()), false);
-		field("Job id", job.id(), true);
+		field("Job ID", job.id(), true);
 		json("Input", job.record().get(Fields.INPUT), false);
 		json("Output", job.record().get(Fields.OUTPUT), false);
 		if (job.error() != null) {

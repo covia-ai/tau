@@ -17,7 +17,6 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
 import javax.swing.AbstractAction;
-import javax.swing.ImageIcon;
 import javax.swing.JComponent;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
@@ -122,6 +121,11 @@ public final class MainWindow extends JFrame {
 	private final JPanel jobsHolder = new JPanel(new BorderLayout());
 	private tau.ui.vault.VaultScreen vaultScreen;
 	private tau.ui.record.RecordScreen recordScreen;
+	private tau.ui.settings.TreasuryPanel treasuryPanel;
+	/** The Inbox panel, docked beside Home and Jobs from 1440 while requests wait. */
+	private tau.ui.inbox.InboxPanel inboxPanel;
+	private JPanel railContent;
+	private int waitingCount;
 	private tau.ui.agents.AgentsScreen agentsScreen;
 	/** The agents as last reported, for the Agents roster. */
 	private List<tau.model.AgentRef> lastAgents = List.of();
@@ -260,6 +264,7 @@ public final class MainWindow extends JFrame {
 			boolean main = !app.actingAsOperator() && aid.equals(app.mainAgentId());
 			return tau.ui.peers.Colours.agent(owner, aid, main);
 		});
+		agentList.setIdentities(aid -> app.actingPrincipal() != null ? app.actingPrincipal() + "/g/" + aid : null);
 		sessionsPane = new JPanel(new BorderLayout());
 		sessionsPane.add(agentList, BorderLayout.WEST);
 		sessionsPane.add(conversations, BorderLayout.CENTER);
@@ -670,8 +675,24 @@ public final class MainWindow extends JFrame {
 				app.setKeepOperatorToken(keep);
 			}
 		});
+		treasuryPanel = new tau.ui.settings.TreasuryPanel();
+		treasuryPanel.setPlan(tau.ui.settings.TreasuryPanel.Plan.stub());
 		settingsScreen = new SettingsScreen(generalPanel, themePanel, modelPanel, profilePanel, integrationsPanel,
 			schedulePanel, jobsScreen, secretsPanel, vaultPanel, accessPanel);
+		settingsScreen.install(SettingsScreen.Tab.PEERS, new tau.ui.settings.PeersSettingsPanel(
+			new tau.ui.settings.PeersSettingsPanel.Host() {
+				@Override
+				public void openPeersMap() {
+					go(Destination.PEERS);
+				}
+
+				@Override
+				public void copyMyIdentity() {
+					String did = myIdentity();
+					if (did != null) tau.ui.components.Clipboard.copy(did, getRootPane());
+				}
+			}));
+		settingsScreen.install(SettingsScreen.Tab.TREASURY, treasuryPanel);
 
 		mainDeck = new JPanel(mainCards);
 		mainDeck.add(split, MAIN_CHAT);
@@ -719,8 +740,10 @@ public final class MainWindow extends JFrame {
 
 		// Your venue, live from the embedded venue, among sample venues: nothing on the wire.
 		// How the map is drawn is the acting person's own, kept apart from the data.
-		peersScreen = new tau.ui.peers.PeersScreen(tau.peers.PeerSource.combined(
-			new tau.peers.SamplePeerSource(), new tau.peers.LiveSource(app::homePeers)), app::peersMapSettings,
+		peersScreen = new tau.ui.peers.PeersScreen(tau.peers.ExamplesSource.with(
+			new tau.peers.ExamplesSource(new tau.peers.SamplePeerSource(),
+				!"off".equals(app.uiPref("peers.examples", "on"))),
+			new tau.peers.LiveSource(app::homePeers)), app::peersMapSettings,
 			new tau.ui.peers.PeersScreen.Actions() {
 				@Override
 				public boolean actingAsOperator() {
@@ -738,6 +761,7 @@ public final class MainWindow extends JFrame {
 					selectTab(NavBar.Tab.HOME);
 				}
 			});
+		peersScreen.onExamplesChanged(on -> app.setUiPref("peers.examples", on ? "on" : "off"));
 		mainDeck.add(peersScreen, MAIN_PEERS);
 
 		navBar = new NavBar(this::selectTab);
@@ -762,6 +786,10 @@ public final class MainWindow extends JFrame {
 		});
 		mainDeck.add(recordScreen, MAIN_RECORD);
 		chatCard = new JPanel(new BorderLayout());
+		inboxPanel = new tau.ui.inbox.InboxPanel(r -> {
+			go(Destination.INBOX);
+			inboxScreen.focus(r);
+		});
 		installShell();
 
 		deck.add(onboarding, CARD_ONBOARD);
@@ -1000,7 +1028,9 @@ public final class MainWindow extends JFrame {
 			split.setDividerLocation(sidebarWidth);
 		} else {
 			int loc = split.getDividerLocation();
-			if (loc > 20) sidebarWidth = loc; // remember the width for next time
+			// Remember a width the person chose; in the sidebar layout the list keeps its own width,
+			// so a squeeze while the window was narrow is never remembered as a choice.
+			if (loc > 20 && (!railShell || loc >= ShellLayout.LIST)) sidebarWidth = loc;
 			sessionsPane.setVisible(false);
 			split.setDividerSize(0);
 			split.setDividerLocation(0);
@@ -1023,6 +1053,7 @@ public final class MainWindow extends JFrame {
 		settingsScreen.general().refreshStore(app.storeReport());
 		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent());
 		settingsScreen.theme().refreshLayout(railShell, tau.ui.components.Density.compact());
+		settingsScreen.theme().refreshSystem(LAF.SYSTEM.equalsIgnoreCase(app.modeChoice()));
 		settingsScreen.model().preselect(app.currentModelOp());
 		app.refreshServedModels(); // answers through showServedModels, off the event thread
 		settingsScreen.profile().refresh(name, userDid, venueDid, app.publicKeyHex(), app.canRevealPrivateSeed(),
@@ -1114,6 +1145,7 @@ public final class MainWindow extends JFrame {
 		inboxScreen.setRequests(requests);
 		int waiting = tau.Inbox.pending(requests);
 		navBar.setBadge(NavBar.Tab.INBOX, waiting);
+		inboxPanel.setRequests(requests);
 		setWaiting(waiting);
 	}
 
@@ -1221,7 +1253,8 @@ public final class MainWindow extends JFrame {
 			if (venue.did() != null) sb.append("\nIdentity: ").append(identity != null
 				? identity.userDID(venue.did()) : venue.did());
 		}
-		Dialogs.info(this, "About " + Tau.APP_NAME, new SelectableText(sb.toString()), new ImageIcon(Icons.icon(64)));
+		Dialogs.info(this, "About " + Tau.APP_NAME, new SelectableText(sb.toString()),
+			tau.ui.components.TauMark.brand(128));
 	}
 
 
@@ -1276,6 +1309,7 @@ public final class MainWindow extends JFrame {
 			JPanel content = new JPanel(new BorderLayout());
 			content.add(strip, BorderLayout.NORTH);
 			content.add(mainDeck, BorderLayout.CENTER);
+			railContent = content;
 			chatCard.add(rail, BorderLayout.WEST);
 			chatCard.add(content, BorderLayout.CENTER);
 		} else {
@@ -1305,9 +1339,12 @@ public final class MainWindow extends JFrame {
 		// The Chats list lives beside the chat on Home and on Agents in the sidebar shell.
 		boolean agents = activeTab == NavBar.Tab.SESSIONS || (railShell && activeTab == NavBar.Tab.HOME);
 		// The layout's widths are window points, as the window's own size is.
-		// The inspector (the chat's Overview, Context and Agent) docks beside the chat from 1440.
+		// The side panel, from 1440: the inspector (the chat's Overview, Context and Agent) when
+		// inspecting, else the Inbox panel beside Home or Jobs while requests wait. One at a time.
 		boolean inspecting = activeTab == NavBar.Tab.SESSIONS;
-		ShellLayout.Plan plan = ShellLayout.plan(width, sidebarWidth, agents && chatsListOpen, inspecting,
+		boolean inboxBeside = !inspecting && waitingCount > 0
+			&& (destination == Destination.HOME || destination == Destination.JOBS);
+		ShellLayout.Plan plan = ShellLayout.plan(width, sidebarWidth, agents && chatsListOpen, inspecting || inboxBeside,
 			railCollapsedByChoice);
 		if (!railShell) {
 			views.setInspectorDocked(false); // the classic layout behaves exactly as before
@@ -1315,6 +1352,13 @@ public final class MainWindow extends JFrame {
 		}
 		rail.setCollapsed(plan.railCollapsed());
 		views.setInspectorDocked(inspecting && plan.side() == ShellLayout.Mode.DOCKED);
+		boolean dockInbox = inboxBeside && plan.side() == ShellLayout.Mode.DOCKED;
+		if (railContent != null && dockInbox != (inboxPanel.getParent() == railContent)) {
+			if (dockInbox) railContent.add(inboxPanel, BorderLayout.EAST);
+			else railContent.remove(inboxPanel);
+			railContent.revalidate();
+			railContent.repaint();
+		}
 		if (agents) {
 			boolean show = chatsListOpen && (plan.list() == ShellLayout.Mode.DOCKED || listForced);
 			if (show != sessionsPane.isVisible()) setSidebar(show);
@@ -1350,7 +1394,9 @@ public final class MainWindow extends JFrame {
 	}
 
 	private void markDestination(Destination d) {
+		boolean changed = destination != d;
 		destination = d;
+		if (changed) javax.swing.SwingUtilities.invokeLater(this::relayout);
 		rail.setActive(d);
 		// The Record, the Vault and the Constellation are quiet screens: the slot keeps to the glyph.
 		rail.slot().setQuietScreenOpen(d == Destination.RECORD || d == Destination.VAULT || d == Destination.PEERS);
@@ -1521,7 +1567,9 @@ public final class MainWindow extends JFrame {
 	}
 
 	private void setWaiting(int waiting) {
+		waitingCount = waiting;
 		if (rail == null) return;
+		relayout();
 		rail.setInboxCount(waiting);
 		strip.setWaiting(waiting);
 		rail.slot().setState(waiting > 0 ? StatusSlot.State.WAITING : StatusSlot.State.RESTING,
@@ -1641,7 +1689,7 @@ public final class MainWindow extends JFrame {
 			add(new tau.ui.components.ScreenHeader("Feed"), BorderLayout.NORTH);
 			tau.ui.components.EmptyState empty = new tau.ui.components.EmptyState("rss",
 				tau.ui.components.Tone.ACCENT, "Coming soon: activity from agents you follow",
-				"Nothing to show here yet.");
+				"Nothing to show here yet.").withMark(104);
 			add(empty, BorderLayout.CENTER);
 		}
 	}
@@ -1710,6 +1758,7 @@ public final class MainWindow extends JFrame {
 		}
 
 		@Override public void setMode(boolean dark) { app.setMode(dark ? LAF.DARK : LAF.LIGHT); }
+		@Override public void matchSystem() { app.setMode(LAF.SYSTEM); }
 
 		@Override
 		public void setShell(boolean rail) {

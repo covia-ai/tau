@@ -255,7 +255,7 @@ public final class Tau {
 		}
 		// The look chosen in Settings → Theme (remembered in prefs) wins over config.json's light/dark.
 		Prefs prefs = Prefs.load(config.home());
-		String mode = prefs.getString(PREF_MODE, config.theme());
+		String mode = LAF.effective(prefs.getString(PREF_MODE, config.theme()));
 		LAF.init(prefs.getString(themeKey(mode), null), mode, prefs.getString(PREF_ACCENT, null), themesDir(config));
 		new Tau(config, path, prefs).start(launch);
 	}
@@ -535,7 +535,7 @@ public final class Tau {
 				if (StoreRepair.isInterruptedCollection(e)) {
 					log.error("The store was left part-way through a collection", e);
 					startupFailed(APP_NAME + " was stopped part-way through compacting its data store, and can't open"
-						+ " it until that is put right by hand. Nothing has been lost: keep every venue.etch file in "
+						+ " it until that is put right by hand. Your data is still in the store: keep every venue.etch file in "
 						+ space.store().getParent() + " as it is; putting it right needs Convex's etch tools.");
 					return;
 				}
@@ -1920,7 +1920,7 @@ public final class Tau {
 		SwingUtilities.invokeLater(() -> {
 			window.refreshSettings();
 			window.showSystemMessage("The venue operator is now shown as " + id.operatorName() + ".");
-			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name() + " (" + id.operatorName() + ")");
+			if (tray != null) tray.setTooltip(APP_NAME + ": " + id.name() + " (" + id.operatorName() + ")");
 		});
 	}
 
@@ -2927,6 +2927,11 @@ public final class Tau {
 		return LAF.mode();
 	}
 
+	/** The mode chosen: dark, light, or {@link LAF#SYSTEM} to match the operating system. */
+	public String modeChoice() {
+		return prefs.getString(PREF_MODE, config.theme());
+	}
+
 	/** The id of the theme in use (the chosen one for the mode, else the mode's default). */
 	public String theme() {
 		return LAF.current().id();
@@ -2950,7 +2955,8 @@ public final class Tau {
 	/** Switches to light or dark — each mode keeps its own chosen theme — and remembers it. */
 	public void setMode(String mode) {
 		prefs.setString(PREF_MODE, mode);
-		applyLook(prefs.getString(themeKey(mode), LAF.defaultTheme(mode)), accent());
+		String shown = LAF.effective(mode);
+		applyLook(prefs.getString(themeKey(shown), LAF.defaultTheme(shown)), accent());
 	}
 
 	/** Remembers the theme as its mode's choice, switches to that mode, and switches every window to it. */
@@ -2959,7 +2965,8 @@ public final class Tau {
 		if (chosen == null) return;
 		String mode = chosen.dark() ? LAF.DARK : LAF.LIGHT;
 		prefs.setString(themeKey(mode), id);
-		prefs.setString(PREF_MODE, mode);
+		// Matching the system stays on: the theme becomes that mode's choice.
+		if (!LAF.SYSTEM.equalsIgnoreCase(prefs.getString(PREF_MODE, null))) prefs.setString(PREF_MODE, mode);
 		applyLook(id, accent());
 	}
 

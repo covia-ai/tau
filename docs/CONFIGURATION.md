@@ -113,7 +113,8 @@ any `.theme.json` in the same format you drop into `themes/` beside this file
 (*Open themes folder* on that page; restart to pick new files up), so each
 mode keeps its own theme and the switch flips between them; on Tau's and
 FlatLaf's own themes there is an accent colour too. Choices apply at once and
-are remembered in `prefs.properties` (`ui.mode`, `ui.theme.dark`,
+are remembered in `prefs.properties` (`ui.mode`, which may also be `system`
+to follow the operating system's dark or light setting, `ui.theme.dark`,
 `ui.theme.light`, and `ui.accent` as `#RRGGBB`), which then take precedence
 over this key; delete those lines to return to the file's setting and Tau's
 purple. A remembered choice of FlatLaf's plain Dark or Light is kept.
@@ -125,7 +126,8 @@ bar; or `classic`: the bottom bar as before, *Settings → Theme → Layout* or
 Sidebar*), `ui.density` (`comfortable` or `compact` rows in tables and lists,
 *Settings → Theme → Density* or *View → Density*), and `ui.window.bounds` and
 `ui.window.maximised` (the window's last size and place; without them it
-opens at about 1200 × 800). Every screen is in the command palette (⌘K, Ctrl+K
+opens at about 1200 × 800), and `peers.examples` (`off` hides the example
+homes on the Peers map, *Show examples*; `on`, the default, shows them). Every screen is in the command palette (⌘K, Ctrl+K
 on Windows and Linux) and the menu bar, with its shortcut.
 
 ### `repairStore`

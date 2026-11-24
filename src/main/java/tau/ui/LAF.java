@@ -75,6 +75,13 @@ public final class LAF {
 	/** The two modes: every theme is one or the other, and the owner switches between them. */
 	public static final String DARK = "dark";
 	public static final String LIGHT = "light";
+	/** "Match the system": dark or light as the operating system is set. */
+	public static final String SYSTEM = "system";
+
+	/** The mode to show for a chosen one: {@link #SYSTEM} resolves to the operating system's. */
+	public static String effective(String mode) {
+		return SYSTEM.equalsIgnoreCase(mode) ? (SystemAppearance.dark() ? DARK : LIGHT) : mode;
+	}
 
 	/** Tau's own themes: the default of each mode, what {@code config.json}'s {@code "dark"} and {@code "light"} mean. */
 	public static final String TAU_DARK = "tau-dark";
@@ -89,8 +96,8 @@ public final class LAF {
 	/** The package FlatLaf searches for Tau's {@code *.properties} UI defaults. */
 	private static final String DEFAULTS_PACKAGE = "tau.ui";
 
-	/** Body text, 14 pt: the type scale's body size (caption 12, small 13, lead 16, section 18, title 24, display 32). */
-	private static final int BASE_FONT_SIZE = 14;
+	/** Body text, 13 pt: the type scale's body size (caption and small 12, lead 15, section 17, title 24, display 32). */
+	private static final int BASE_FONT_SIZE = 13;
 
 	/** The UI font: Inter (SIL Open Font License), bundled so it's identical on every platform. */
 	private static final String FONT_FAMILY = "Inter";
