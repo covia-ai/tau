@@ -7,7 +7,8 @@ name: Installers
 
 on:
   push:
-    branches: [develop, master]
+    # The CI branch itself runs too, so the installers are tested before it merges.
+    branches: [develop, master, feature/ci-installers]
     tags: ['v*']
   pull_request:
     paths:
