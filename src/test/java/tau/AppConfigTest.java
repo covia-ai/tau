@@ -40,6 +40,8 @@ class AppConfigTest {
 		Config venue = new Config(c.venueConfig());
 		assertFalse(venue.isPublicAccess(), "anonymous venue access is disabled");
 		assertTrue(venue.isMCPAuthRequired(), "MCP requires a bearer-authenticated caller");
+		assertTrue(venue.isAuditLogging(), "sign-ins, refusals and token issue leave a record");
+		assertTrue(venue.isAccessLogging(), "each HTTP request leaves a line");
 		assertTrue(venue.getMaxToolIterations() > new Config(Maps.empty()).getMaxToolIterations(),
 			"a turn may make more tool calls than Covia's default allows");
 	}
@@ -85,6 +87,16 @@ class AppConfigTest {
 		}
 		Config venue = new Config(AppConfig.parse("{venue:{auth:{tokenExpiry:3600}}}", home).venueConfig());
 		assertEquals(3600, venue.getTokenExpiry());
+	}
+
+	@Test
+	void privateNetworkAccessFollowsTheBind() {
+		assertTrue(new Config(AppConfig.parse("{}", home).venueConfig()).isAllowPrivateNetwork(),
+			"on loopback, local web tooling can reach the venue");
+		assertFalse(new Config(AppConfig.parse("{venue:{bindAddress:\"0.0.0.0\"}}", home).venueConfig()).isAllowPrivateNetwork(),
+			"bound wider, a public page's private-network preflight is refused");
+		assertFalse(new Config(AppConfig.parse("{venue:{allowPrivateNetwork:false}}", home).venueConfig()).isAllowPrivateNetwork(),
+			"the owner can still refuse it outright");
 	}
 
 	@Test

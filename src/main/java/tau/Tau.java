@@ -1680,7 +1680,7 @@ public final class Tau {
 			long created = convex.core.lang.RT.ensureLong(token.record().get(covia.api.Fields.CREATED)).longValue();
 			boolean unrestricted = scope != null && covia.lattice.Caps.UNRESTRICTED.equals(scope.caps());
 			rows.add(new tau.ui.settings.AccessPanel.Row(token.name().toString(), shown, created, madeBy,
-				unrestricted));
+				unrestricted, token.expires()));
 		}
 		rows.sort(java.util.Comparator.comparingLong(tau.ui.settings.AccessPanel.Row::created).reversed());
 		return rows;
@@ -1692,8 +1692,9 @@ public final class Tau {
 		return (t == null) ? null : t.store();
 	}
 
-	public String createToken(String name, Tokens.Scope scope) throws IOException {
-		return requireTokens().create(name, scope).bearer();
+	/** Makes a named token lasting {@code lifetimeSeconds}, or until revoked when null, and returns its key. */
+	public String createToken(String name, Tokens.Scope scope, Long lifetimeSeconds) throws IOException {
+		return requireTokens().create(name, scope, lifetimeSeconds).bearer();
 	}
 
 	public String newTokenKey(String name) throws IOException {

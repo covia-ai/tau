@@ -159,6 +159,10 @@ Tau's defaults:
 - the MCP endpoint enabled at `http://127.0.0.1:8085/mcp`
 - `maxToolIterations` 1000, so an agent's turn is not cut off after Covia's
   default of 30 tool calls
+- `logging.audit` and `logging.access` on: Covia's audit trail (sign-ins,
+  refusals, token issue, secret writes) goes to `logs/audit.log` and one line
+  per HTTP request to `logs/access.log`, so a connection from another tool
+  leaves a record; neither holds request bodies or query strings
 - `adapters.token.keepRawTokens` true, so the venue keeps each named token's
   key sealed and *Settings → Access* can show it again; set it false and a key
   is shown only when it is made or replaced
@@ -516,7 +520,9 @@ each says how the tool will appear:
   *Collaborate*, for an outside agent in [rooms](ROOMS.md), or
   *Unrestricted*, marked with a warning sign, which can run any operation
   as you) or a custom set.
-  It lasts until revoked. The page lists each token with its key (behind
+  It expires after the lifetime chosen when it is made (30 days by default;
+  1, 7, or 90 days, or until revoked), and revoking ends it sooner. The page
+  lists each token, when it expires, and its key (behind
   your passphrase), *New key* and *Revoke*.
 - **Login as you** — appears as you, with everything you can do, for a
   chosen time; shown once and never written to disk.

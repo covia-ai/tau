@@ -57,6 +57,23 @@ class TokensTest {
 	}
 
 	@Test
+	void aTokenGivenALifetimeExpiresThenAndStillWorksBefore() {
+		AString owner = owner("tokens-lifetime");
+		Tokens tokens = new Tokens(engine(), owner);
+		long before = System.currentTimeMillis();
+		Issued issued = tokens.create("thirty-days", TokenPreset.READ_ONLY.scope("Tau"), Tokens.DEFAULT_LIFETIME_SECONDS);
+		long after = System.currentTimeMillis();
+		Long expires = issued.token().expires();
+		assertNotNull(expires, "a lifetime sets an expiry");
+		assertTrue(expires >= before + Tokens.DEFAULT_LIFETIME_SECONDS * 1000
+			&& expires <= after + Tokens.DEFAULT_LIFETIME_SECONDS * 1000, "thirty days from when it was made");
+		assertEquals(owner, resolves(issued.bearer()), "it works until then");
+		assertThrows(IllegalArgumentException.class,
+			() -> tokens.create("never-lives", TokenPreset.READ_ONLY.scope("Tau"), 0L));
+		tokens.revoke("thirty-days");
+	}
+
+	@Test
 	void everyPresetMakesATokenWithinTheOwnersAuthority() {
 		AString owner = owner("tokens-presets");
 		Tokens tokens = new Tokens(engine(), owner);

@@ -195,9 +195,10 @@ There is no online recovery service, no escrow and no operator backdoor.
 ## Authentication and network exposure
 
 By default the venue binds HTTP to `127.0.0.1`, disables the anonymous public
-principal, requires venue authentication for the API and MCP, and permits
-browser Private Network Access preflights so local web tooling can reach the
-authenticated loopback API. These are defaults: `config.json` overrides the
+principal, requires venue authentication for the API and MCP, and, while
+bound to loopback, permits browser Private Network Access preflights so local
+web tooling can reach the authenticated API. Bound to any other address, the
+venue refuses those preflights unless `allowPrivateNetwork` is set. These are defaults: `config.json` overrides the
 venue map, including bind, CORS and authentication. The endpoint is plain
 HTTP; binding beyond loopback needs a TLS boundary and restrictive policy, and
 a reviewer inspects the effective configuration first.
@@ -223,7 +224,8 @@ a reviewer inspects the effective configuration first.
   passes through an operation's result or the model. The venue keeps the key
   sealed under its secret store (`adapters.token.keepRawTokens`, on by
   default); Settings shows it again behind the passphrase, as a secret's
-  value. A named token lasts until revoked.
+  value. A named token expires after the lifetime chosen when it is made:
+  30 days unless the owner picks 1, 7, or 90 days, or until revoked.
 
 Instance takeover uses a five-minute operator token and invokes only
 `brightside:info` and the authenticated shutdown operation.

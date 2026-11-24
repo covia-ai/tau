@@ -626,8 +626,8 @@ public final class MainWindow extends JFrame {
 			}
 
 			@Override
-			public String createToken(String name, tau.Tokens.Scope scope) throws Exception {
-				return app.createToken(name, scope);
+			public String createToken(String name, tau.Tokens.Scope scope, Long lifetimeSeconds) throws Exception {
+				return app.createToken(name, scope, lifetimeSeconds);
 			}
 
 			@Override
@@ -1245,6 +1245,9 @@ public final class MainWindow extends JFrame {
 		sb.append(Tau.APP_NAME).append('\n');
 		sb.append("Your personal assistant, running privately on your own computer.\n\n");
 		sb.append("Powered by the Covia Grid, an open platform for AI agents and data.\n");
+		// Which build, so a bug report can name it.
+		sb.append("\nVersion ").append(tau.BuildInfo.version())
+			.append(" · Covia ").append(tau.BuildInfo.coviaVersion()).append('\n');
 		sb.append("\nType: Inter and Inconsolata, each under the SIL Open Font License 1.1.\n");
 		if (identity != null) sb.append("\nYou are: ").append(identity.name());
 		if (venue != null) {

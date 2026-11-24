@@ -170,7 +170,9 @@ class ClaudeCodeTest {
 		// A turn: the configured command, in the project directory, as one job.
 		long jobsBefore = RecordedJobs.of(venue, userDID);
 		AMap<AString, ACell> res = run(user, Maps.of("project", "scratch", "prompt", "cwd"));
-		assertEquals("cwd: " + project.toAbsolutePath().normalize(), str(res, "result"));
+		// The process reports the directory it really ran in: on macOS the temp
+		// directory is under /var, a link to /private/var, so compare real paths.
+		assertEquals("cwd: " + project.toRealPath(), str(res, "result"));
 		assertNotNull(res.get(Fields.SESSION), "the session id comes back so the conversation can continue");
 		assertEquals(jobsBefore + 1, RecordedJobs.of(venue, userDID), "a run is an action: one job record");
 
