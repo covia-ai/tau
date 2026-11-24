@@ -204,6 +204,12 @@ HTTP; binding beyond loopback needs a TLS boundary and restrictive policy, and
 a reviewer inspects the effective configuration first.
 
 *Settings → Access* makes two kinds of access, and says which it is making.
+Outside tools get named tokens: *Connect a tool* makes one with a scoped
+preset and gives the tool's settings. Logins, and the *Unrestricted* preset,
+which carry everything the user can do, sit behind *Show advanced options*
+with a warning and a confirmation, and show at once only when a local login is
+already kept. No scoped preset names Claude Code's tools; a preset that can
+hand the assistant work says beside it that the assistant can run commands.
 
 - **A login** is an Ed25519-signed bearer token for the current user or, as an
   advanced option, the venue operator: `iss = aud = <venueDID>`, `sub` the

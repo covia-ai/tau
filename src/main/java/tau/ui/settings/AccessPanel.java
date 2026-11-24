@@ -104,6 +104,18 @@ public final class AccessPanel extends SettingsPage {
 		boolean keepingOperatorToken();
 
 		void keepOperatorToken(boolean keep);
+
+		/** The MCP endpoint a tool connects to, or null while the venue is not up. */
+		default String mcpUrl() {
+			return null;
+		}
+
+		/** Whether {@code key} works at the MCP endpoint, as a client would find. */
+		default tau.ConnectTool.Test testConnection(String key) {
+			String url = mcpUrl();
+			return (url == null) ? new tau.ConnectTool.Test(tau.ConnectTool.Outcome.NOT_RUNNING, 0)
+				: tau.ConnectTool.test(url, key);
+		}
 	}
 
 	/** A kind of access, with how it appears to the venue. */
@@ -150,7 +162,7 @@ public final class AccessPanel extends SettingsPage {
 	private final JComboBox<Object> preset = new JComboBox<>();
 	private final JLabel presetHint = Labels.allowHtml(Labels.small(" ")); // wraps its escaped hint
 	private final TextArea tools = new TextArea(4, 34).placeholder("One operation per line, such as v/ops/covia/read");
-	private final TextArea caps = new TextArea(4, 34).placeholder("\"unrestricted\", or a list of {\"with\", \"can\"}");
+	private final TextArea caps = new TextArea(4, 34).placeholder("A list of permissions, each {\"with\": a path, \"can\": an ability}");
 	private final JComboBox<Exp> expiry = new JComboBox<>();
 	/** A named token's lifetime; seconds null means until revoked. */
 	private final JComboBox<Exp> tokenExpiry = new JComboBox<>();
@@ -158,6 +170,25 @@ public final class AccessPanel extends SettingsPage {
 	private final JButton copy = Buttons.small("Copy");
 	private final JCheckBox keepToolToken = new JCheckBox("Keep a login as you for local tools");
 	private final JCheckBox keepOperatorToken = new JCheckBox("Keep a venue operator login for local tools");
+	// Connect a tool
+	private final JComboBox<tau.ConnectTool.Client> client = new JComboBox<>(tau.ConnectTool.Client.values());
+	private final JComboBox<TokenPreset> connectPreset = new JComboBox<>(TokenPreset.scoped().toArray(TokenPreset[]::new));
+	private final JLabel connectPresetHint = Labels.allowHtml(Labels.small(" "));
+	private final JComboBox<Exp> connectExpiry = new JComboBox<>();
+	private final JButton connect = Buttons.primary("Make a token and its settings");
+	private final JLabel connectWhere = Labels.small(" ");
+	private final TextArea connectConfig = new TextArea(7, 34).placeholder("The settings for the tool appear here");
+	private final JButton connectCopy = Buttons.small("Copy settings");
+	private final JButton connectTest = Buttons.small("Test connection");
+	private final JLabel connectResult = Labels.small(" ");
+	private String connectKey;
+	private Rows connectOutput;
+	// Advanced
+	private boolean advanced;
+	private Rows advancedRows;
+	private final JButton showAdvanced = Buttons.plain("Show advanced options…");
+	/** The names of the tokens listed now, so a new token's name doesn't clash. */
+	private java.util.Set<String> listed = java.util.Set.of();
 	/** The form's parts for each kind, shown and hidden as one. */
 	private Rows tokenRows, customRows, loginRows;
 	private Watcher.Watch<?> watch;
@@ -168,6 +199,7 @@ public final class AccessPanel extends SettingsPage {
 		super("Create");
 		this.host = host;
 		build();
+		if (host.keepingToolToken() || host.keepingOperatorToken()) showAdvanced(); // a choice made already stays in view
 		keepToolToken.setSelected(host.keepingToolToken());
 		keepToolToken.addActionListener(e -> host.keepToolToken(keepToolToken.isSelected()));
 		keepOperatorToken.setSelected(host.keepingOperatorToken());
@@ -175,11 +207,13 @@ public final class AccessPanel extends SettingsPage {
 	}
 
 	private void build() {
+		buildConnect();
 		tokenList.setOpaque(false);
 		group("Named tokens");
 		addSpan(tokenList);
 
 		group("New access");
+		kind.setModel(new DefaultComboBoxModel<>(new Kind[] { Kind.TOKEN }));
 		kind.addActionListener(e -> showKind());
 		addField("Kind", kind);
 		addSpan(kindHint);
@@ -233,6 +267,27 @@ public final class AccessPanel extends SettingsPage {
 		primary.setToolTipText("Create the access chosen above");
 		onPrimary(this::onCreate);
 
+		group("Advanced");
+		JLabel advancedWarning = Labels.allowHtml(new JLabel());
+		warn(advancedWarning, "Anyone holding one of these acts as you in all but name");
+		advancedWarning.setText("<html>" + Labels.escape("Logins as you or as the venue, and the Unrestricted preset, "
+			+ "can do everything you can. Give a tool a named token above instead whenever it will do.") + "</html>");
+		addSpan(advancedWarning);
+		showAdvanced.addActionListener(e -> {
+			if (Dialogs.confirmDanger(this, "Show advanced options",
+				"These give a tool everything you can do: a login as you, a login as the venue operator, and the "
+				+ "Unrestricted preset. Anyone with one can read your secrets and act as you. Show them?")) showAdvanced();
+		});
+		addSpanLeft(showAdvanced);
+		endGroup();
+		advancedRows = section(this::buildLocalTools);
+		advancedRows.setVisible(false);
+
+		fillPresets();
+		showKind();
+	}
+
+	private void buildLocalTools() {
 		keepToolToken.setOpaque(false);
 		keepToolToken.setToolTipText("Renewed every hour while " + APP_NAME + " runs, and removed when it quits");
 		group("Local tools");
@@ -248,14 +303,188 @@ public final class AccessPanel extends SettingsPage {
 		JLabel operatorWarning = new JLabel("Acts as the venue itself: anyone who can read your files can use it");
 		warn(operatorWarning, "Keep it only on a computer nobody else signs in to");
 		addSpan(operatorWarning);
+		endGroup();
+	}
 
+	/** Reveals the advanced kinds, the Unrestricted preset, and the local-tool logins, after the warning. */
+	void showAdvanced() {
+		if (advanced) return;
+		advanced = true;
+		kind.setModel(new DefaultComboBoxModel<>(Kind.values()));
+		Object chosen = preset.getSelectedItem();
 		fillPresets();
+		if (chosen != null) preset.setSelectedItem(chosen);
+		showAdvanced.setVisible(false);
+		advancedRows.setVisible(true);
 		showKind();
+	}
+
+	/** Whether the advanced options show, for tests. */
+	boolean advancedShown() {
+		return advanced;
+	}
+
+	/** The kinds of access and the presets offered now, by name, for tests. */
+	java.util.List<String> offered() {
+		java.util.List<String> out = new java.util.ArrayList<>();
+		for (int i = 0; i < kind.getItemCount(); i++) out.add(kind.getItemAt(i).label);
+		for (int i = 0; i < preset.getItemCount(); i++) out.add(String.valueOf(preset.getItemAt(i)));
+		return out;
+	}
+
+	// ------------------------------------------------------------------
+	// Connect a tool
+	// ------------------------------------------------------------------
+
+	private void buildConnect() {
+		group("Connect a tool");
+		addSpan(Labels.allowHtml(Labels.small("<html>" + Labels.escape("Pick the tool. " + APP_NAME + " makes it a "
+			+ "named token with only the access you choose, and gives you its settings to paste.") + "</html>")));
+		addField("Tool", client);
+		connectPreset.addActionListener(e -> showConnectPreset());
+		addField("Access", "What the token's tools are, and what they may reach", connectPreset);
+		addSpan(connectPresetHint);
+		connectExpiry.setModel(new DefaultComboBoxModel<>(new Exp[] {
+			new Exp("1 day", 86_400L),
+			new Exp("7 days", 604_800L),
+			new Exp("30 days", Tokens.DEFAULT_LIFETIME_SECONDS),
+			new Exp("90 days", 7_776_000L),
+		}));
+		connectExpiry.setSelectedIndex(2);
+		addField("Expires in", "How long the token works before you make a new one; revoking ends it sooner", connectExpiry);
+		connect.addActionListener(e -> onConnect());
+		addSpanLeft(connect);
+		connectConfig.setEditable(false);
+		connectConfig.setLineWrap(true);
+		Styles.classes(connectConfig, Styles.MONOSPACED);
+		connectCopy.addActionListener(e -> Clipboard.copy(connectConfig.getText(), connectCopy));
+		connectTest.addActionListener(e -> onTestConnection());
+		connectOutput = rows(() -> {
+			addSpan(connectWhere);
+			addSpan(new JScrollPane(connectConfig), "h 150!");
+			JPanel buttons = new JPanel(new MigLayout("insets 0", "[]8[]12[grow,fill]", ""));
+			buttons.setOpaque(false);
+			buttons.add(connectCopy);
+			buttons.add(connectTest);
+			buttons.add(connectResult, "wmin 0");
+			addSpan(buttons);
+		});
+		connectOutput.setVisible(false);
+		showConnectPreset();
+	}
+
+	private void showConnectPreset() {
+		TokenPreset p = (TokenPreset) connectPreset.getSelectedItem();
+		if (p == null) return;
+		String words = p.description() + (p.asksTheAssistant() ? ". " + TokenPreset.RUNS_COMMANDS : ".");
+		connectPresetHint.setText("<html>" + Labels.escape(words) + "</html>");
+		Styles.classes(connectPresetHint, Styles.SMALL, Styles.MUTED);
+		connectPresetHint.setIcon(null);
+		if (p.asksTheAssistant()) warn(connectPresetHint, TokenPreset.RUNS_COMMANDS);
+	}
+
+	/** A name for {@code c}'s token that no listed token has: its own, then -2, -3… */
+	String connectName(tau.ConnectTool.Client c) {
+		String base = c.tokenName;
+		if (!listed.contains(base)) return base;
+		for (int i = 2;; i++) if (!listed.contains(base + "-" + i)) return base + "-" + i;
+	}
+
+	/** Chooses a tool to connect, for tests and screenshots. */
+	void chooseClient(tau.ConnectTool.Client c) {
+		client.setSelectedItem(c);
+	}
+
+	private void onConnect() {
+		tau.ConnectTool.Client c = (tau.ConnectTool.Client) client.getSelectedItem();
+		TokenPreset p = (TokenPreset) connectPreset.getSelectedItem();
+		Exp lifetime = (Exp) connectExpiry.getSelectedItem();
+		String url = host.mcpUrl();
+		if (url == null) {
+			setNote("Couldn't make a token: the venue isn't ready. Nothing was made; try again in a moment.", true);
+			return;
+		}
+		String tokenName = connectName(c);
+		Tokens.Scope scope = p.scope(host.chatAgentId());
+		connect.setEnabled(false);
+		new SwingWorker<String, Void>() {
+			@Override
+			protected String doInBackground() throws Exception {
+				return host.createToken(tokenName, scope, lifetime.seconds());
+			}
+
+			@Override
+			protected void done() {
+				connect.setEnabled(true);
+				try {
+					showConnected(c, tokenName, url, get());
+				} catch (java.util.concurrent.ExecutionException e) {
+					setNote(tau.ui.Problems.describe(e).line(), true);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+				}
+				reload();
+			}
+		}.execute();
+	}
+
+	/** Shows {@code c}'s settings for the token just made. */
+	void showConnected(tau.ConnectTool.Client c, String tokenName, String url, String key) {
+		connectKey = key;
+		connectConfig.setText(tau.ConnectTool.config(c, url, key, tau.ConnectTool.javaPath(), tau.ConnectTool.jarPath()));
+		connectConfig.setCaretPosition(0);
+		connectWhere.setText(c.where + ". Its turns show as " + tokenName + ".");
+		connectResult.setText(" ");
+		connectOutput.setVisible(true);
+		setNote("Made " + tokenName + ". The settings carry its key: keep them out of shared files.", false);
+		revalidate();
+		repaint();
+	}
+
+	/** Connects the chosen tool as the button does: for tests and screenshots. */
+	void connectNow() {
+		onConnect();
+	}
+
+	/** Tests the connection as the button does: for screenshots. */
+	void testNow() {
+		onTestConnection();
+	}
+
+	/** The settings shown for the last tool connected, for tests. */
+	String connectSettings() {
+		return connectConfig.getText();
+	}
+
+	private void onTestConnection() {
+		String key = connectKey;
+		if (key == null) return;
+		connectTest.setEnabled(false);
+		connectResult.setText("Testing…");
+		new SwingWorker<tau.ConnectTool.Test, Void>() {
+			@Override
+			protected tau.ConnectTool.Test doInBackground() {
+				return host.testConnection(key);
+			}
+
+			@Override
+			protected void done() {
+				connectTest.setEnabled(true);
+				try {
+					tau.ConnectTool.Test t = get();
+					connectResult.setText(t.words());
+					Styles.classes(connectResult, Styles.SMALL,
+						t.outcome() == tau.ConnectTool.Outcome.WORKS ? Styles.SUCCESS : Styles.ERROR);
+				} catch (Exception e) {
+					connectResult.setText(tau.ui.Problems.describe(e).line());
+				}
+			}
+		}.execute();
 	}
 
 	private void fillPresets() {
 		DefaultComboBoxModel<Object> model = new DefaultComboBoxModel<>();
-		for (TokenPreset p : TokenPreset.values()) model.addElement(p);
+		for (TokenPreset p : advanced ? java.util.List.of(TokenPreset.values()) : TokenPreset.scoped()) model.addElement(p);
 		model.addElement(CUSTOM);
 		preset.setModel(model);
 		preset.setRenderer(new javax.swing.DefaultListCellRenderer() {
@@ -299,8 +528,9 @@ public final class AccessPanel extends SettingsPage {
 		Styles.classes(presetHint, Styles.SMALL, Styles.MUTED);
 		presetHint.setToolTipText(null);
 		if (chosen instanceof TokenPreset p) {
-			presetHint.setText("<html>" + Labels.escape(p.description()) + "</html>");
-			if (p.dangerous()) warn(presetHint, null);
+			String words = p.description() + (p.asksTheAssistant() ? ". " + TokenPreset.RUNS_COMMANDS : "");
+			presetHint.setText("<html>" + Labels.escape(words) + "</html>");
+			if (p.dangerous() || p.asksTheAssistant()) warn(presetHint, null);
 			Tokens.Scope scope = p.scope(host.chatAgentId());
 			tools.setText(String.join("\n", scope.tools().stream().map(String::valueOf).toList()));
 			caps.setText(JSON.toStringPretty(scope.caps()));
@@ -340,6 +570,7 @@ public final class AccessPanel extends SettingsPage {
 
 	private void show(List<Row> tokens) {
 		version++;
+		listed = tokens.stream().map(Row::name).collect(java.util.stream.Collectors.toSet());
 		tokenList.removeAll();
 		if (tokens.isEmpty()) {
 			tokenList.add(Labels.small("No named tokens yet: make one below, under New access."), "span 6");
@@ -473,7 +704,7 @@ public final class AccessPanel extends SettingsPage {
 		try {
 			parsed = JSON.parse(caps.getText().trim());
 		} catch (RuntimeException e) {
-			throw new IllegalArgumentException("The permissions aren't valid JSON: " + e.getMessage(), e);
+			throw new IllegalArgumentException("The permissions aren't valid JSON: " + "check the brackets and quotes.", e);
 		}
 		if (parsed == null) throw new IllegalArgumentException("A custom token needs its permissions: \"unrestricted\" or a list.");
 		return new Tokens.Scope(ops, parsed);
@@ -494,8 +725,7 @@ public final class AccessPanel extends SettingsPage {
 				try {
 					then.accept(get());
 				} catch (java.util.concurrent.ExecutionException e) {
-					String why = e.getCause().getMessage();
-					setNote((why == null) ? "That didn't work." : why, true);
+					setNote(failed("That didn't work.", e), true);
 				} catch (InterruptedException e) {
 					Thread.currentThread().interrupt();
 				}
@@ -549,13 +779,18 @@ public final class AccessPanel extends SettingsPage {
 				try {
 					use.accept(get());
 				} catch (java.util.concurrent.ExecutionException ex) {
-					String why = ex.getCause().getMessage();
-					setNote((why == null) ? "Couldn't read the key." : why, true);
+					setNote(failed("Couldn't read the key.", ex), true);
 				} catch (InterruptedException ex) {
 					Thread.currentThread().interrupt();
 				}
 			}
 		}.execute();
+	}
+
+	/** A failure's words: {@code lead} when nothing more specific is known, else what happened and what to try. */
+	private static String failed(String lead, Throwable e) {
+		tau.ui.Problems.Problem p = tau.ui.Problems.describe(e);
+		return (p.kind() == tau.ui.Problems.Kind.OTHER) ? lead + " " + p.tryThis() : p.line();
 	}
 
 	/** Drops every key or login shown, and stops following the store, when the user logs out or switches. */

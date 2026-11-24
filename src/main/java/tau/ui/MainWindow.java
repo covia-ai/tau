@@ -224,6 +224,11 @@ public final class MainWindow extends JFrame {
 		});
 		chatPanel.setHost(new ChatPanel.Host() {
 			@Override
+			public boolean storeSecret(String name, String value) {
+				return app.storeSecret(name, value);
+			}
+
+			@Override
 			public void newConversation() {
 				views.newConversation();
 			}
@@ -397,7 +402,7 @@ public final class MainWindow extends JFrame {
 				try {
 					app.setCompactAtNextStart(value);
 				} catch (IOException e) {
-					Dialogs.warn(MainWindow.this, "Data store", APP_NAME + " couldn't save that: " + e.getMessage());
+					Dialogs.warn(MainWindow.this, "Data store", APP_NAME + " couldn't save that: " + tau.ui.Problems.describe(e).line());
 				}
 				settingsScreen.general().refreshStore(app.storeReport());
 			}
@@ -414,7 +419,7 @@ public final class MainWindow extends JFrame {
 					try {
 						app.removeKeptOriginals();
 					} catch (IOException e) {
-						Dialogs.warn(MainWindow.this, "Data store", APP_NAME + " couldn't remove them: " + e.getMessage());
+						Dialogs.warn(MainWindow.this, "Data store", APP_NAME + " couldn't remove them: " + tau.ui.Problems.describe(e).line());
 					}
 				}
 				settingsScreen.general().refreshStore(app.storeReport());
@@ -705,6 +710,12 @@ public final class MainWindow extends JFrame {
 			@Override
 			public void keepOperatorToken(boolean keep) {
 				app.setKeepOperatorToken(keep);
+			}
+
+			@Override
+			public String mcpUrl() {
+				tau.EmbeddedVenue v = app.venue();
+				return (v == null || v.url() == null) ? null : v.url() + "mcp";
 			}
 		});
 		treasuryPanel = new tau.ui.settings.TreasuryPanel();

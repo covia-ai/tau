@@ -27,7 +27,12 @@ addresses remain usable so stored calls can migrate individually
 
 Prefer “your assistant”, “your name”, “memory” and “starting up”. An error
 should explain the failed action and a useful next step; put diagnostic detail
-in the logs or an expandable view.
+in the logs or an expandable view. `tau.ui.Problems` does this for every
+failure it is given: what happened, what to try, and where its log line is,
+with the raw text behind *Details*. A refusal names only the refused ability
+and resource, never the caller's other rights, and anything shaped like a key
+is masked. Raw exception text never goes into a chat, a dialog, or a toast by
+itself.
 
 Settings pages show controls, not introductory essays. Place an explanation
 beside the control it explains. Keep a visible warning when someone needs to

@@ -110,6 +110,16 @@ public final class ScreenShots {
 				shoot(window, out, mode, e.getKey(), size);
 			}
 		}
+		// The developer loop: Connect a tool (a real token on the scratch venue, its settings, the test), and two
+		// failures as the chat shows them (a refused model key, and a refusal with its Details open).
+		for (Dimension size : SIZES) {
+			screens.resize(size);
+			screens.connectTool(size == SIZES.get(0));
+			shoot(window, out, mode, "devloop-connect", size);
+			screens.errorStates(size == SIZES.get(0));
+			shoot(window, out, mode, "devloop-errors", size);
+		}
+
 		// The character's slots (with a pack named by tau.character.dir), and the never-list screens beside them.
 		for (Dimension size : SIZES) {
 			screens.resize(size);
@@ -501,6 +511,65 @@ public final class ScreenShots {
 			ImageIO.write(img.get(), "png", file.toFile());
 			System.out.println("  " + file);
 			SwingUtilities.invokeAndWait(d::dispose);
+		}
+
+		/** Settings → Access with a tool connected and tested; {@code make} makes the token, else shows it again. */
+		void connectTool(boolean make) throws Exception {
+			settings("ACCESS");
+			tau.ui.settings.AccessPanel panel = find(window, tau.ui.settings.AccessPanel.class);
+			Class<?> type = panel.getClass();
+			if (make) {
+				Method choose = type.getDeclaredMethod("chooseClient", tau.ConnectTool.Client.class);
+				Method connect = type.getDeclaredMethod("connectNow");
+				choose.setAccessible(true);
+				connect.setAccessible(true);
+				onEdt(() -> {
+					choose.invoke(panel, tau.ConnectTool.Client.CURSOR);
+					connect.invoke(panel);
+					return null;
+				});
+				Thread.sleep(2500);
+				Method test = type.getDeclaredMethod("testNow");
+				test.setAccessible(true);
+				onEdt(() -> test.invoke(panel));
+			}
+			Thread.sleep(2500);
+			onEdt(() -> {
+				for (java.awt.Component c : allComponents(panel)) {
+					if (c instanceof javax.swing.JScrollPane sp && sp.getParent() == panel) sp.getVerticalScrollBar().setValue(0);
+				}
+				return null;
+			});
+			Thread.sleep(400);
+		}
+
+		/** Two failures in the chat as the owner sees them, the second with its Details open; {@code add} adds them. */
+		void errorStates(boolean add) throws Exception {
+			home();
+			tau.ui.chat.ChatPanel chat = (tau.ui.chat.ChatPanel) field(window, "chatPanel");
+			if (add) onEdt(() -> {
+				chat.appendProblem(tau.ui.Problems.classify("HTTP 401 authentication_error: invalid x-api-key "
+					+ "sk-ant-api03-EXAMPLEEXAMPLEEXAMPLE"));
+				chat.appendProblem(tau.ui.Problems.classify("Capability denied: requires secret/use on "
+					+ "did:key:z6MkExample:u:sam/s/MODEL_PROVIDER_KEY. Your capabilities are: invoke on v/ops/, "
+					+ "crud/read on w/"));
+				tau.ui.components.Disclosure details = null;
+				for (java.awt.Component c : allComponents(chat)) {
+					if (c instanceof tau.ui.components.Disclosure d && "details".equals(d.getName())) details = d;
+				}
+				if (details != null) details.setExpanded(true);
+				return null;
+			});
+			Thread.sleep(1200);
+		}
+
+		static List<java.awt.Component> allComponents(java.awt.Container c) {
+			List<java.awt.Component> out = new ArrayList<>();
+			for (java.awt.Component k : c.getComponents()) {
+				out.add(k);
+				if (k instanceof java.awt.Container kc) out.addAll(allComponents(kc));
+			}
+			return out;
 		}
 
 		/** Opens Rooms, and room {@code name} on it when given. */

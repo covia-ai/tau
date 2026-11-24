@@ -91,6 +91,11 @@ public final class ChatPanel extends JPanel {
 
 		/** Show the conversation on screen among the others, on the Sessions tab. */
 		void showInSessions(String sessionId);
+
+		/** Stores {@code value} as secret {@code name} in your encrypted store; false when it couldn't. */
+		default boolean storeSecret(String name, String value) {
+			return false;
+		}
 	}
 
 	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ChatPanel.class);
@@ -756,9 +761,56 @@ public final class ChatPanel extends JPanel {
 	private void sendDraft(boolean reviewed, Voice.Sent sent) {
 		String text = input.getText().trim();
 		if (text.isEmpty()) return;
+		if (!keyChecked(text)) return;
 		ACell message = voice.message(text, reviewed, sent);
 		input.setText("");
 		deliver(text, message);
+	}
+
+	/** What to do with a message holding a key: store it as a secret, send it anyway, or neither. */
+	enum KeyChoice {
+		STORE, SEND, KEEP
+	}
+
+	/** Asks what to do with a message holding a key; a test answers instead. */
+	java.util.function.Function<tau.KeyShapes.Found, KeyChoice> askAboutKey = this::askAboutKey;
+
+	/**
+	 * A message with something shaped like a key in it is caught before it is
+	 * sent: it would stay in the conversation and its job records. The owner
+	 * can store it as a secret instead (the message is not sent, and the box
+	 * keeps their words with the key taken out), send it anyway, or go back.
+	 *
+	 * @return whether to send the message as it is
+	 */
+	boolean keyChecked(String text) {
+		tau.KeyShapes.Found found = tau.KeyShapes.find(text);
+		if (found == null) return true;
+		KeyChoice choice = askAboutKey.apply(found);
+		if (choice == KeyChoice.SEND) return true;
+		if (choice == KeyChoice.STORE) {
+			if (host != null && host.storeSecret(found.secretName(), found.text())) {
+				input.setText(text.replace(found.text(), "s/" + found.secretName()).trim());
+				appendSystem("Stored " + found.kind() + " as the secret " + found.secretName()
+					+ ". Your message wasn't sent; it now names the secret instead of the key.");
+			} else {
+				appendError("Couldn't store that as a secret: your Home/venue isn't ready. Nothing was sent.");
+			}
+		}
+		return false;
+	}
+
+	private KeyChoice askAboutKey(tau.KeyShapes.Found found) {
+		Object[] options = { "Store it as a secret", "Send anyway", "Go back" };
+		int picked = javax.swing.JOptionPane.showOptionDialog(this, "This message has what looks like " + found.kind()
+			+ " in it (" + found.masked() + ").\nAnything sent stays in the conversation and its job records. Store it "
+			+ "as the secret " + found.secretName() + " instead?", "Looks like a key", javax.swing.JOptionPane.DEFAULT_OPTION,
+			javax.swing.JOptionPane.WARNING_MESSAGE, null, options, options[0]);
+		return switch (picked) {
+			case 0 -> KeyChoice.STORE;
+			case 1 -> KeyChoice.SEND;
+			default -> KeyChoice.KEEP;
+		};
 	}
 
 	/** Sends {@code text} as the user's next message. */
@@ -826,7 +878,7 @@ public final class ChatPanel extends JPanel {
 					if (sid != null) conversationCommitted.accept(sid);
 				} else {
 					log.warn("Chat send failed", failure);
-					appendError(describe(failure));
+					appendProblem(tau.ui.Problems.describe(failure));
 				}
 				focusInput();
 			}
@@ -889,7 +941,7 @@ public final class ChatPanel extends JPanel {
 			if (failure != null) {
 				Throwable cause = unwrap(failure);
 				log.warn("Queued chat delivery failed", cause);
-				appendError(describe(cause));
+				appendProblem(tau.ui.Problems.describe(cause));
 			} else {
 				conversationCommitted.accept(result.sessionId());
 			}
@@ -1011,6 +1063,40 @@ public final class ChatPanel extends JPanel {
 	public void appendSystem(String text) {
 		hideEmptyState();
 		column.add(noticeRow(text, Styles.MUTED, false, false));
+		column.revalidate();
+		scrollToBottom();
+	}
+
+	/**
+	 * A failure in the chat: what happened and what to try, where the log
+	 * line is, and the raw text (cleaned) behind Details, never by itself.
+	 */
+	public void appendProblem(tau.ui.Problems.Problem p) {
+		hideEmptyState();
+		JPanel box = new JPanel();
+		box.setLayout(new javax.swing.BoxLayout(box, javax.swing.BoxLayout.Y_AXIS));
+		box.setOpaque(false);
+		box.setName("problem");
+		SelectableText line = new SelectableText(p.what() + " " + p.tryThis()).tone(Styles.ERROR).small().bold();
+		line.setAlignmentX(Component.LEFT_ALIGNMENT);
+		box.add(line);
+		SelectableText where = new SelectableText(p.where()).muted().small();
+		where.setAlignmentX(Component.LEFT_ALIGNMENT);
+		box.add(where);
+		if (!p.details().isBlank()) {
+			SelectableText details = new SelectableText(p.details()).mono().muted().small();
+			tau.ui.components.Disclosure more = new tau.ui.components.Disclosure(tau.ui.components.Labels.small("Details"),
+				details);
+			more.setName("details");
+			more.setAlignmentX(Component.LEFT_ALIGNMENT);
+			box.add(more);
+		}
+		JPanel row = new JPanel(new BorderLayout());
+		row.setOpaque(false);
+		row.setBorder(BorderFactory.createEmptyBorder(6, 24, 6, 24));
+		row.add(box, BorderLayout.CENTER);
+		row.setAlignmentX(Component.LEFT_ALIGNMENT);
+		column.add(row);
 		column.revalidate();
 		scrollToBottom();
 	}

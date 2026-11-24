@@ -252,7 +252,7 @@ public final class RecordScreen extends JPanel {
 			Files.writeString(file, sb.toString(), StandardCharsets.UTF_8);
 			note.accept("Exported " + rows.size() + (rows.size() == 1 ? " entry" : " entries") + " to " + file.getFileName());
 		} catch (java.io.IOException e) {
-			note.accept("Couldn't write " + file.getFileName() + ": " + e.getMessage() + ". Nothing was exported.");
+			note.accept("Couldn't write " + file.getFileName() + ". Nothing was exported. " + tau.ui.Problems.fileLine(e));
 		}
 	}
 

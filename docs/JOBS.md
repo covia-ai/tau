@@ -33,6 +33,11 @@ time range seeks by time-ordered job ID without reading records. Status and
 caller filters must scan records within that range. Row summaries are built
 on demand, and selection follows the job ID across refreshed indexes.
 
+A row's title is its operation's name and the agent it ran for, never the
+words the job was handed: a chat's first line can hold anything, a pasted key
+among it, and titles are what screenshots and notifications show. What a job
+was for appears in the detail, with anything shaped like a key masked.
+
 ## The detail
 
 `JobDetail` follows a `JobRecord` and shows its status, attribution, input,

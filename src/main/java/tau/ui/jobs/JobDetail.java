@@ -128,7 +128,8 @@ final class JobDetail extends JPanel implements AutoCloseable {
 
 		field("Operation", job.name() + (job.operation() != null && !job.operation().equals(job.name())
 			? "  (" + job.operation() + ")" : ""), false);
-		if (job.purpose() != null && !job.purpose().equals(job.title())) field("For", job.purpose(), false);
+		// What it was handed, with anything shaped like a key masked.
+		if (job.purpose() != null) field("For", tau.ui.Problems.clean(job.purpose()), false);
 		field("Started", job.created() > 0 ? Times.exact(job.created()) : null, false);
 		if (job.timedOut()) {
 			field("Timed out", job.updated() > 0 ? Times.exact(job.updated()) : null, false);

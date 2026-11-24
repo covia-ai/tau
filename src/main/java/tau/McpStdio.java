@@ -45,6 +45,13 @@ final class McpStdio {
 		APP_NAME + " MCP connection failed. Unlock " + APP_NAME + ", enable "
 		+ "'Keep a login as you for local tools' in Settings > Access, then reconnect the client.";
 	private static final TypeRef<Map<String, String>> HEADERS = new TypeRef<>() {};
+
+	/**
+	 * The environment variable that carries a named token's key for this
+	 * client (Settings → Access → Connect a tool). When it is set, the bridge
+	 * sends that scoped key instead of the local login in {@code tool-token.json}.
+	 */
+	static final String TOKEN_ENV = "TAU_MCP_TOKEN";
 	private final McpJsonMapper json = McpJsonDefaults.getMapper();
 	private final CompletableFuture<Void> finished = new CompletableFuture<>();
 	private final HttpClientStreamableHttpTransport transport;
@@ -65,6 +72,8 @@ final class McpStdio {
 
 	/** Read on every request, so rotation and disabling local access take effect. */
 	private String authorization(Path tokenFile) {
+		String scoped = scopedKey();
+		if (scoped != null) return "Bearer " + scoped;
 		try {
 			String header = json.readValue(Files.readString(tokenFile), HEADERS).get("Authorization");
 			if (header != null && header.startsWith("Bearer ") && header.length() > 7
@@ -73,6 +82,19 @@ final class McpStdio {
 			// Never include a credential, parser excerpt or server body in diagnostics.
 		}
 		throw new IllegalStateException(CONNECTION_FAILED);
+	}
+
+	/** The named token's key from {@value #TOKEN_ENV}, or null when it is unset or malformed. */
+	static String scopedKey() {
+		return scopedKey(System.getenv(TOKEN_ENV));
+	}
+
+	static String scopedKey(String value) {
+		if (value == null) return null;
+		String v = value.strip();
+		if (v.startsWith("Bearer ")) v = v.substring(7).strip();
+		if (v.isEmpty() || v.indexOf('\r') >= 0 || v.indexOf('\n') >= 0 || v.indexOf(' ') >= 0) return null;
+		return v;
 	}
 
 	private void failed() {
@@ -86,7 +108,9 @@ final class McpStdio {
 				.timeout(Duration.ofSeconds(2))
 				.header("Authorization", authorization(token))
 				.GET().build();
-			return client.send(request, HttpResponse.BodyHandlers.discarding()).statusCode() == 200;
+			int status = client.send(request, HttpResponse.BodyHandlers.discarding()).statusCode();
+			// A named token is accepted at the MCP endpoint alone, so any answer from the venue means it is up.
+			return status == 200 || (scopedKey() != null && status < 500);
 		} catch (Exception e) {
 			if (e instanceof InterruptedException) Thread.currentThread().interrupt();
 			return false;

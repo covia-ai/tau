@@ -379,7 +379,7 @@ public final class JobsScreen extends JPanel {
 					Thread.currentThread().interrupt();
 					return;
 				} catch (ExecutionException e) {
-					setNote("Couldn't filter your jobs: " + e.getCause().getMessage(), true);
+					setNote("Couldn't filter your jobs: " + tau.ui.Problems.describe(e).line(), true);
 					return;
 				}
 				renderer.now(System.currentTimeMillis());

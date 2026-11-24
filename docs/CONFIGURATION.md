@@ -511,22 +511,52 @@ has its own display label. Principal forms and authority are documented in
 ## Reaching the venue from other tools
 
 The venue speaks HTTP, MCP and A2A on loopback. Anonymous access is disabled, so
-a tool needs a key. *Settings → Access → New access* starts with the kind, and
-each says how the tool will appear:
+a tool needs a key.
 
-- **Named token for a tool (MCP)** — the usual choice for a tool that is not
+**Connect a tool** (*Settings → Access*, also *Vault → Access*) is the usual
+way: pick Claude Code, Codex, Cursor, Claude Desktop, or another MCP client
+(HTTP or stdio), and the access (*Ask the assistant* by default) and lifetime
+(30 days by default). Tau makes a named token for it, shows the exact settings
+for that client with the key in them, and *Test connection* lists the tools
+the key reaches at the MCP endpoint, as the client would. HTTP clients carry
+the key as a fixed `Authorization: Bearer` header; Claude Desktop and other
+stdio clients run Tau's `--mcp-stdio` bridge with the key in `TAU_MCP_TOKEN`,
+so the bridge sends that scoped key instead of a login. The shapes are:
+
+| Tool | Where it goes | Shape |
+|---|---|---|
+| Claude Code | a terminal | `claude mcp add --transport http --scope local tau <url> --header "Authorization: Bearer <key>"` |
+| Codex | `~/.codex/config.toml` | `[mcp_servers.tau]` with `url` and `http_headers = { "Authorization" = "Bearer <key>" }` |
+| Cursor | `~/.cursor/mcp.json` (or `.cursor/mcp.json`) | `mcpServers.tau` with `url` and `headers.Authorization` |
+| Claude Desktop | `claude_desktop_config.json` | `mcpServers.tau` running `java -jar <tau.jar> --mcp-stdio` with `env.TAU_MCP_TOKEN` |
+| Another client | its MCP settings | the HTTP or the stdio shape above |
+
+*New access* below makes a token by hand. Without the advanced options it
+offers named tokens with the scoped presets only; *Show advanced options*,
+after a warning and a confirmation, adds the logins and the *Unrestricted*
+preset, which can do everything you can. Each kind says how the tool will
+appear:
+
+- **Named token for a tool (MCP)**: the usual choice for a tool that is not
   you. Its turns show as the token's name, and it can use only the tools and
   caps it carries: a preset (*Ask the assistant*, *Read only*,
-  *Collaborate*, for an outside agent in [rooms](ROOMS.md), or
-  *Unrestricted*, marked with a warning sign, which can run any operation
-  as you) or a custom set.
+  *Collaborate*, for an outside agent in [rooms](ROOMS.md), or, among the
+  advanced options, *Unrestricted*, marked with a warning sign, which can run
+  any operation as you) or a custom set. Beside *Ask the assistant* the page
+  says that the assistant can run commands on this computer through Claude
+  Code, so whoever holds the key can ask it to; no scoped preset names Claude
+  Code's own tools. An outside tool's messages show in the chat as *via* its
+  token's name.
   It expires after the lifetime chosen when it is made (30 days by default;
   1, 7, or 90 days, or until revoked), and revoking ends it sooner. The page
   lists each token, when it expires, and its key (behind
   your passphrase), *New key* and *Revoke*.
-- **Login as you** — appears as you, with everything you can do, for a
-  chosen time; shown once and never written to disk.
-- **Venue operator login** (advanced) — the venue itself, for administration.
+- **Login as you** (advanced): appears as you, with everything you can do,
+  for a chosen time; shown once and never written to disk.
+- **Venue operator login** (advanced): the venue itself, for administration.
+
+The local-tool logins below (*Keep a login as you* and *Keep a venue operator
+login*) are advanced options too, and show at once when one is already kept.
 
 A named token's key goes in the tool's MCP settings as a fixed header,
 `Authorization: Bearer <key>`, against `http://127.0.0.1:8085/mcp`; paste it
@@ -820,7 +850,7 @@ venue operator (Identity → switch user) shows the operator's store instead.
 |---|---|
 | `ANTHROPIC_API_KEY` | Key for the default model operation. |
 | `TAU_NO_TRAY=1` | Skip the system tray; closing the window quits. |
-| `TAU_MCP_TOKEN` | Optional home for the venue-signed token a `.mcp.json` can reference as `${TAU_MCP_TOKEN}` instead of embedding it. |
+| `TAU_MCP_TOKEN` | A named token's key for the `--mcp-stdio` bridge, which then sends it instead of the local login in `tool-token.json` (what *Connect a tool* writes for stdio clients); also an optional home for the token a `.mcp.json` can reference as `${TAU_MCP_TOKEN}` instead of embedding it. |
 | `TAU_CHARACTER_DIR` | The directory holding the character's art pack (or the system property `tau.character.dir`); without one the τ glyph stands in. See [CHARACTER.md](CHARACTER.md). |
 
 The system property `tau.motion` (`full`, `reduced`, or `off`) sets how much the character moves, over the operating system's own setting.

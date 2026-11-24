@@ -184,11 +184,14 @@ public final class JobList {
 			return Group.of(status);
 		}
 
-		/** Its title on screen: what it is for when it says, else its operation's name. */
+		/**
+		 * Its title on screen: its operation's name and the agent it ran for,
+		 * never the words it was handed. A chat's first line can hold anything,
+		 * a pasted key among it, and titles are what screenshots and
+		 * notifications show; what it was for is in the detail view.
+		 */
 		public String title() {
-			if (purpose == null) return name;
-			int nl = purpose.indexOf('\n');
-			return (nl < 0) ? purpose : purpose.substring(0, nl);
+			return (agent != null && !agent.isBlank()) ? name + " · " + agent : name;
 		}
 
 		/** Whether it is still going: queued, running or paused. */
