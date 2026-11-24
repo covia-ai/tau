@@ -145,19 +145,29 @@ class JobListTest {
 
 	@Test
 	void aRunningJobIsCancelled() throws Exception {
-		String id = running.getID().toHexString();
-		JobList.Job job = view(Filter.ALL).job(view(Filter.ALL).rowOf(id));
+		// A principal and job of its own: cancelling ends the job and is itself
+		// a recorded action, so on the shared principal it would change what
+		// the other tests here read, in whatever order they run.
+		String did = Identity.of("jobs-canceller").userDID(venue.did());
+		Venue client = venue.clientAs(did);
+		Job mine = client.invoke("v/test/ops/never", Maps.empty()).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		String id = mine.getID().toHexString();
+		JobList.Job job = view(did, Filter.ALL).job(view(did, Filter.ALL).rowOf(id));
 		assertTrue(job.canCancel() && job.active() && !job.finished());
-		JobList.cancel(user, id);
-		assertThrows(Exception.class, () -> running.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS),
+		JobList.cancel(client, id);
+		assertThrows(Exception.class, () -> mine.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS),
 			"the cancelled job ends");
-		JobList.Job after = view(Filter.ALL).job(view(Filter.ALL).rowOf(id));
+		JobList.Job after = view(did, Filter.ALL).job(view(did, Filter.ALL).rowOf(id));
 		assertEquals(Group.CANCELLED, after.group(), String.valueOf(after.status()));
 		assertFalse(after.canCancel(), "and can't be cancelled again");
 	}
 
 	private static JobList.View view(Filter filter) {
-		return JobList.view(jobs(), userDID, filter, System.currentTimeMillis(), 0);
+		return view(userDID, filter);
+	}
+
+	private static JobList.View view(String did, Filter filter) {
+		return JobList.view(venue.jobs(did).getAll(), did, filter, System.currentTimeMillis(), 0);
 	}
 
 	private static String finish(java.util.concurrent.CompletableFuture<Job> submitted) throws Exception {
