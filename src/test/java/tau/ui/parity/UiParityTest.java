@@ -114,7 +114,7 @@ class UiParityTest {
 		try (InputStream in = UiParityTest.class.getResourceAsStream(name)) {
 			if (in == null) return List.of();
 			List<String> out = new ArrayList<>();
-			for (String line : new String(in.readAllBytes(), StandardCharsets.UTF_8).split("\n")) {
+			for (String line : new String(in.readAllBytes(), StandardCharsets.UTF_8).split("\\R")) {
 				if (!line.isEmpty() && !line.startsWith("#")) out.add(line);
 			}
 			return out;
