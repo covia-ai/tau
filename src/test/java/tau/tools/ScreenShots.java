@@ -111,6 +111,10 @@ public final class ScreenShots {
 			shoot(window, out, mode, "home-chat", size);
 			screens.sessions();
 			shoot(window, out, mode, "sessions-chat", size);
+			for (String view : List.of("AGENT", "RECORD")) {
+				screens.inspect(view);
+				shoot(window, out, mode, "inspect-" + view.toLowerCase(), size);
+			}
 		}
 		// The Inbox with seeded requests: one, twelve and over a hundred waiting.
 		for (int n : new int[] { 1, 12, 120 }) {
@@ -123,20 +127,45 @@ public final class ScreenShots {
 				shoot(window, out, mode, "home-inbox-" + n, size);
 			}
 		}
+		// A request from the identity the app is acting as: Approve is unavailable, and the card says why.
+		screens.seedSelfRequest();
+		for (Dimension size : SIZES) {
+			screens.resize(size);
+			screens.inbox();
+			shoot(window, out, mode, "inbox-self", size);
+		}
 		System.out.println("Screenshots written to " + out.toAbsolutePath());
 		System.exit(0);
+	}
+
+	/** Debug: how a button with this text is sized and measured (set -Dshots.probe=text). */
+	static void probe(java.awt.Component c) {
+		String want = System.getProperty("shots.probe");
+		if (want == null) return;
+		if (c instanceof javax.swing.AbstractButton b && want.equals(b.getText()) && b.isShowing()) {
+			java.awt.FontMetrics fm = b.getFontMetrics(b.getFont());
+			System.out.println("PROBE " + want + " w=" + b.getWidth() + " pref=" + b.getPreferredSize().width + " text="
+				+ fm.stringWidth(want) + " insets=" + b.getInsets() + " font=" + b.getFont() + " frc=" + fm.getFontRenderContext());
+		}
+		if (c instanceof java.awt.Container k) for (java.awt.Component ch : k.getComponents()) probe(ch);
 	}
 
 	/** Paints the window's root pane, as laid out at {@code size}, into a PNG. */
 	static void shoot(JFrame window, Path out, String mode, String name, Dimension size) throws Exception {
 		if (!name.contains(filter)) return;
 		Thread.sleep(400);
+		SwingUtilities.invokeAndWait(() -> probe(window));
 		AtomicReference<BufferedImage> img = new AtomicReference<>();
 		SwingUtilities.invokeAndWait(() -> {
 			JComponent root = window.getRootPane();
 			root.validate();
-			BufferedImage b = new BufferedImage(root.getWidth(), root.getHeight(), BufferedImage.TYPE_INT_RGB);
+			// Paint at the screen's own scale (2 on a Retina display): text is laid out with
+			// that scale's metrics, and painting it at another scale cuts bold text short.
+			double scale = window.getGraphicsConfiguration().getDefaultTransform().getScaleX();
+			BufferedImage b = new BufferedImage((int) Math.ceil(root.getWidth() * scale),
+				(int) Math.ceil(root.getHeight() * scale), BufferedImage.TYPE_INT_RGB);
 			Graphics2D g = b.createGraphics();
+			g.scale(scale, scale);
 			root.printAll(g);
 			g.dispose();
 			img.set(b);
@@ -270,6 +299,18 @@ public final class ScreenShots {
 			onEdt(() -> m.invoke(window, page));
 		}
 
+		/** The chat with its inspect views, one brought forward. */
+		void inspect(String view) throws Exception {
+			sessions();
+			Object views = field(window, "views");
+			Class<?> viewType = Class.forName("tau.ui.inspect.SessionViews$View");
+			@SuppressWarnings({ "unchecked", "rawtypes" })
+			Object v = Enum.valueOf((Class) viewType, view);
+			Method select = views.getClass().getMethod("select", viewType);
+			onEdt(() -> select.invoke(views, v));
+			Thread.sleep(800);
+		}
+
 		void sendMessage(String text) throws Exception {
 			home();
 			Object chat = field(window, "chatPanel");
@@ -278,6 +319,20 @@ public final class ScreenShots {
 			onEdt(() -> {
 				input.setText(text);
 				send.doClick();
+				return null;
+			});
+		}
+
+		/** One sample request from the identity the app acts as (sample only; it never reaches the venue). */
+		void seedSelfRequest() throws Exception {
+			String me = app().actingPrincipal();
+			long now = System.currentTimeMillis();
+			Inbox.Ask ask = new Inbox.Ask("ok", "approval", "Run the nightly tidy-up now?", true, true, List.of(),
+				List.of(), List.of());
+			Inbox.Request r = new Inbox.Request("self", me, "Tau", "Run the nightly tidy-up", "Asked as you.",
+				List.of(ask), covia.grid.hitl.Hitl.OPEN.toString(), now, now + 15 * 60_000L, null, null);
+			onEdt(() -> {
+				window.setInbox(List.of(r));
 				return null;
 			});
 		}

@@ -114,6 +114,18 @@ public final class MainWindow extends JFrame {
 	// The Workbench shell (ui.shell = rail, the default; classic keeps the bottom bar):
 	// the sidebar, the status strip, the menu bar and the command palette.
 	private static final String MAIN_FEED = "feed";
+	private static final String MAIN_AGENTS = "agents";
+	private static final String MAIN_JOBS = "jobs";
+	private static final String MAIN_RECORD = "record";
+	private static final String MAIN_VAULT = "vault";
+	/** In the sidebar layout Jobs and the Vault's pages are screens of their own, holding Settings' own panels. */
+	private final JPanel jobsHolder = new JPanel(new BorderLayout());
+	private tau.ui.vault.VaultScreen vaultScreen;
+	private tau.ui.record.RecordScreen recordScreen;
+	private tau.ui.agents.AgentsScreen agentsScreen;
+	/** The agents as last reported, for the Agents roster. */
+	private List<tau.model.AgentRef> lastAgents = List.of();
+	private String lastDefaultAgent;
 	/** The window opens at about this size the first time; a remembered size always wins. */
 	static final int DEFAULT_WIDTH = 1200, DEFAULT_HEIGHT = 800;
 	private Rail rail;
@@ -279,6 +291,11 @@ public final class MainWindow extends JFrame {
 			public void agentsChanged() {
 				app.refreshAgents();
 			}
+			@Override
+			public void openRecord() {
+				go(Destination.JOBS);
+			}
+
 
 			@Override
 			public void showSkill(String path) {
@@ -461,6 +478,7 @@ public final class MainWindow extends JFrame {
 			@Override
 			public void applyModel(String providerId, String modelId) {
 				app.applyModel(providerId, modelId);
+				updateModelChip();
 			}
 
 			@Override
@@ -724,6 +742,25 @@ public final class MainWindow extends JFrame {
 
 		navBar = new NavBar(this::selectTab);
 		mainDeck.add(new FeedScreen(), MAIN_FEED);
+		agentsScreen = new tau.ui.agents.AgentsScreen(new AgentsHost());
+		mainDeck.add(agentsScreen, MAIN_AGENTS);
+		jobsHolder.add(new tau.ui.components.ScreenHeader("Jobs"), BorderLayout.NORTH);
+		mainDeck.add(jobsHolder, MAIN_JOBS);
+		vaultScreen = new tau.ui.vault.VaultScreen();
+		mainDeck.add(vaultScreen, MAIN_VAULT);
+		recordScreen = new tau.ui.record.RecordScreen(new tau.ui.record.RecordScreen.Host() {
+			@Override
+			public void openInJobs(String jobId) {
+				go(Destination.JOBS);
+				settingsScreen.jobs().open(jobId);
+			}
+
+			@Override
+			public void copy(String text) {
+				tau.ui.components.Clipboard.copy(text, getRootPane());
+			}
+		});
+		mainDeck.add(recordScreen, MAIN_RECORD);
 		chatCard = new JPanel(new BorderLayout());
 		installShell();
 
@@ -794,6 +831,7 @@ public final class MainWindow extends JFrame {
 		updateWho();
 		chatPanel.restore(history);
 		chatPanel.setSession(session);
+		updateModelChip();
 		selectTab(NavBar.Tab.HOME);
 		show(CARD_CHAT);
 		app.refreshServedModels(); // answers through showServedModels, off the event thread
@@ -802,6 +840,7 @@ public final class MainWindow extends JFrame {
 	/** Switched to another agent: rebind the chat to its conversation (no name-change note). */
 	public void showAgentChat(ChatSession session, List<SessionHistory.Item> history, String agentName) {
 		chatPanel.setAgentName(agentName);
+		updateModelChip();
 		chatPanel.restore(history);
 		chatPanel.setSession(session);
 		chatPanel.appendSystem(history.isEmpty() ? "New conversation with " + agentName + "."
@@ -863,6 +902,9 @@ public final class MainWindow extends JFrame {
 	/** Replace the agents pane's list, highlighting the current agent; {@code defaultId} is the standard agent. */
 	public void setAgents(List<tau.model.AgentRef> agents, String selectedId, String defaultId) {
 		agentList.setAgents(agents, selectedId, defaultId);
+		lastAgents = List.copyOf(agents);
+		lastDefaultAgent = defaultId;
+		if (agentsScreen != null && destination == Destination.AGENTS) refreshAgentsScreen();
 		// The welcome greets by the current agent's name, and follows a rename.
 		String name = null;
 		for (tau.model.AgentRef a : agents) {
@@ -999,8 +1041,9 @@ public final class MainWindow extends JFrame {
 	}
 
 	private void showSettings(SettingsScreen.Tab tab) {
-		settingsScreen.select(tab);
-		selectTab(NavBar.Tab.SETTINGS);
+		boolean elsewhere = settingsScreen.isElsewhere(tab);
+		settingsScreen.select(tab); // a page with a screen of its own opens there
+		if (!elsewhere) selectTab(NavBar.Tab.SETTINGS);
 	}
 
 	/** Programmatic entry points into the Settings screen's sections. */
@@ -1077,10 +1120,12 @@ public final class MainWindow extends JFrame {
 	/** {@code owner}'s jobs for Settings → Jobs, which watches them while on screen; null for none. */
 	public void setJobs(covia.venue.Jobs jobs, String owner) {
 		settingsScreen.jobs().setJobs(jobs, owner);
+		recordScreen.setJobs(jobs, owner);
 	}
 
 	public void clearJobs() {
 		settingsScreen.jobs().clear();
+		recordScreen.clear();
 	}
 
 	public void clearInbox() {
@@ -1184,6 +1229,13 @@ public final class MainWindow extends JFrame {
 	// The Workbench shell
 	// ------------------------------------------------------------------
 
+	/** The composer's model chip follows the model the chat runs on. */
+	public void updateModelChip() {
+		String op = app.currentModelOp();
+		chatPanel.setModel(tau.model.Providers.label(op), tau.model.Providers.marker(op),
+			() -> showSettings(SettingsScreen.Tab.MODEL));
+	}
+
 	/** The New agent dialog: from the Agents list's + Agent, File → New agent, and the palette. */
 	private void newAgent() {
 		NewAgentPanel.Options options = NewAgentPanel.showDialog(this, app.currentModelOp(), servedModels);
@@ -1209,6 +1261,16 @@ public final class MainWindow extends JFrame {
 	/** {@code true}: the sidebar and status strip; {@code false}: the classic bottom bar. Live, remembered by the caller. */
 	private void applyShell(boolean railShell) {
 		this.railShell = railShell;
+		// The agents and Chats list: one column in the sidebar shell (the picker atop the
+		// conversations), two side by side in the classic layout, as before.
+		sessionsPane.removeAll();
+		agentList.setStacked(railShell);
+		sessionsPane.add(agentList, railShell ? BorderLayout.NORTH : BorderLayout.WEST);
+		sessionsPane.add(conversations, BorderLayout.CENTER);
+		sidebarWidth = railShell ? ShellLayout.LIST : SIDEBAR_WIDTH;
+		if (sessionsPane.isVisible()) split.setDividerLocation(sidebarWidth);
+		sessionsPane.revalidate();
+		placeMovedPages(railShell);
 		chatCard.removeAll();
 		if (railShell) {
 			JPanel content = new JPanel(new BorderLayout());
@@ -1240,11 +1302,19 @@ public final class MainWindow extends JFrame {
 		if (rail == null || split == null) return;
 		int width = getContentPane().getWidth();
 		if (width <= 0) width = getWidth();
-		boolean agents = activeTab == NavBar.Tab.SESSIONS;
+		// The Chats list lives beside the chat on Home and on Agents in the sidebar shell.
+		boolean agents = activeTab == NavBar.Tab.SESSIONS || (railShell && activeTab == NavBar.Tab.HOME);
 		// The layout's widths are window points, as the window's own size is.
-		ShellLayout.Plan plan = ShellLayout.plan(width, sidebarWidth, agents && chatsListOpen, false, railCollapsedByChoice);
-		if (!railShell) return; // the classic layout behaves exactly as before
+		// The inspector (the chat's Overview, Context and Agent) docks beside the chat from 1440.
+		boolean inspecting = activeTab == NavBar.Tab.SESSIONS;
+		ShellLayout.Plan plan = ShellLayout.plan(width, sidebarWidth, agents && chatsListOpen, inspecting,
+			railCollapsedByChoice);
+		if (!railShell) {
+			views.setInspectorDocked(false); // the classic layout behaves exactly as before
+			return;
+		}
 		rail.setCollapsed(plan.railCollapsed());
+		views.setInspectorDocked(inspecting && plan.side() == ShellLayout.Mode.DOCKED);
 		if (agents) {
 			boolean show = chatsListOpen && (plan.list() == ShellLayout.Mode.DOCKED || listForced);
 			if (show != sessionsPane.isVisible()) setSidebar(show);
@@ -1258,7 +1328,7 @@ public final class MainWindow extends JFrame {
 		if (rail == null) return;
 		switch (tab) {
 			case HOME -> markDestination(Destination.HOME);
-			case SESSIONS -> markDestination(Destination.AGENTS);
+			case SESSIONS -> markDestination(Destination.HOME); // the chat with its inspect tabs
 			case FILES -> markDestination(Destination.FILES);
 			case SKILLS -> markDestination(Destination.SKILLS);
 			case PEERS -> markDestination(Destination.PEERS);
@@ -1291,20 +1361,158 @@ public final class MainWindow extends JFrame {
 		destination = d;
 		switch (d) {
 			case HOME -> selectTab(NavBar.Tab.HOME);
-			case AGENTS -> selectTab(NavBar.Tab.SESSIONS);
+			case AGENTS -> {
+				selectTab(NavBar.Tab.HOME);
+				app.refreshAgents(); // agents can change out of band: re-read on entry
+				refreshAgentsScreen();
+				mainCards.show(mainDeck, MAIN_AGENTS);
+			}
 			case FEED -> {
 				selectTab(NavBar.Tab.HOME);
 				mainCards.show(mainDeck, MAIN_FEED);
 				markDestination(Destination.FEED);
 			}
-			case JOBS, RECORD -> showSettings(SettingsScreen.Tab.JOBS);
+			case JOBS -> {
+				if (railShell) openOwnScreen(MAIN_JOBS);
+				else showSettings(SettingsScreen.Tab.JOBS);
+			}
+			case RECORD -> {
+				if (railShell) openOwnScreen(MAIN_RECORD);
+				else showSettings(SettingsScreen.Tab.JOBS);
+			}
 			case INBOX -> selectTab(NavBar.Tab.INBOX);
 			case PEERS -> selectTab(NavBar.Tab.PEERS);
 			case SKILLS -> selectTab(NavBar.Tab.SKILLS);
 			case FILES -> selectTab(NavBar.Tab.FILES);
-			case VAULT -> showSettings(SettingsScreen.Tab.SECRETS);
+			case VAULT -> {
+				if (railShell) {
+					refreshVault();
+					openOwnScreen(MAIN_VAULT);
+				} else {
+					showSettings(SettingsScreen.Tab.SECRETS);
+				}
+			}
 		}
 		if (d != Destination.FEED) markDestination(d);
+	}
+
+	/**
+	 * The Agents roster: your own agents (the venue's own, with their roles,
+	 * when acting as the operator), then outside agents that reach the venue
+	 * with a named token.
+	 */
+	private void refreshAgentsScreen() {
+		List<tau.ui.agents.AgentsScreen.Row> rows = new java.util.ArrayList<>();
+		boolean operator = app.actingAsOperator();
+		for (tau.model.AgentRef a : lastAgents) {
+			String role = operator ? godRole(a.id()) : null;
+			rows.add(new tau.ui.agents.AgentsScreen.Row(a.id(), a.name(),
+				role != null ? tau.ui.agents.AgentsScreen.Kind.VENUE : tau.ui.agents.AgentsScreen.Kind.YOURS,
+				"This computer", "Ready", role != null ? "Looks after this computer" : "Acts for you", role,
+				app.actingPrincipal() != null ? app.actingPrincipal() + "/g/" + a.id() : null));
+		}
+		try {
+			for (AccessPanel.Row t : app.listTokens()) {
+				rows.add(new tau.ui.agents.AgentsScreen.Row(t.name(), t.name(),
+					tau.ui.agents.AgentsScreen.Kind.OUTSIDE_MCP, "A local client", "Token active",
+					t.unrestricted() ? "Unrestricted" : t.scope(), null));
+			}
+		} catch (RuntimeException e) {
+			// No token store yet (still starting): the roster shows the agents alone.
+		}
+		agentsScreen.setRows(rows, lastDefaultAgent);
+	}
+
+	private static String godRole(String id) {
+		return switch (id) {
+			case "Odin" -> "the administrator";
+			case "Thor" -> "the guardian";
+			case "Njord" -> "the treasurer";
+			case "Eir" -> "the healer";
+			default -> null;
+		};
+	}
+
+	/** What the Agents roster asks of the window. */
+	private final class AgentsHost implements tau.ui.agents.AgentsScreen.Host {
+		@Override
+		public void open(tau.ui.agents.AgentsScreen.Row agent) {
+			if (!agent.id().equals(currentAgentId)) app.switchAgent(agent.id());
+			MainWindow.this.go(Destination.HOME);
+		}
+
+		@Override public void info(tau.ui.agents.AgentsScreen.Row agent) { showAgentView(agent.id()); }
+		@Override public void delete(tau.ui.agents.AgentsScreen.Row agent) { app.deleteAgent(agent.id()); }
+		@Override public void createHere() { newAgent(); }
+
+		@Override
+		public void connectOutside() {
+			destination = Destination.VAULT;
+			showSettings(SettingsScreen.Tab.ACCESS);
+		}
+
+		@Override public void manageAccess(tau.ui.agents.AgentsScreen.Row agent) { connectOutside(); }
+
+		@Override
+		public void copy(String text) {
+			tau.ui.components.Clipboard.copy(text, getRootPane());
+		}
+	}
+
+	/** The open chat with its inspect tabs (Chat, Overview, Context, Agent) on view. */
+	private void inspectChat(boolean raw) {
+		selectTab(NavBar.Tab.SESSIONS);
+		if (raw) {
+			views.select(SessionViews.View.CONTEXT);
+			views.select(SessionViews.Part.RAW);
+		} else {
+			views.select(SessionViews.View.OVERVIEW);
+		}
+	}
+
+	/** Shows one of the sidebar's own screens in place of the chat. */
+	private void openOwnScreen(String card) {
+		selectTab(NavBar.Tab.HOME);
+		mainCards.show(mainDeck, card);
+	}
+
+	/**
+	 * Jobs, Secrets, Access, and the stored passphrase: screens of their own in
+	 * the sidebar layout (Jobs, and the Vault's pages), where Settings' entries
+	 * for them open them; in Settings, exactly as before, in the classic one.
+	 * The panels are the same either way, so nothing changes but where they sit.
+	 */
+	private void placeMovedPages(boolean railShell) {
+		if (railShell) {
+			jobsHolder.add(settingsScreen.jobs(), BorderLayout.CENTER);
+			vaultScreen.adopt(settingsScreen.secrets(), settingsScreen.access(), settingsScreen.vault());
+			settingsScreen.livesElsewhere(SettingsScreen.Tab.JOBS, () -> go(Destination.JOBS));
+			settingsScreen.livesElsewhere(SettingsScreen.Tab.SECRETS, () -> openVault(tau.ui.vault.VaultScreen.Page.SECRETS));
+			settingsScreen.livesElsewhere(SettingsScreen.Tab.ACCESS, () -> openVault(tau.ui.vault.VaultScreen.Page.ACCESS));
+			settingsScreen.livesElsewhere(SettingsScreen.Tab.VAULT, () -> openVault(tau.ui.vault.VaultScreen.Page.PASSPHRASE));
+		} else {
+			settingsScreen.restore(SettingsScreen.Tab.JOBS, settingsScreen.jobs());
+			settingsScreen.restore(SettingsScreen.Tab.SECRETS, settingsScreen.secrets());
+			settingsScreen.restore(SettingsScreen.Tab.ACCESS, settingsScreen.access());
+			settingsScreen.restore(SettingsScreen.Tab.VAULT, settingsScreen.vault());
+			for (SettingsScreen.Tab t : List.of(SettingsScreen.Tab.JOBS, SettingsScreen.Tab.SECRETS,
+					SettingsScreen.Tab.ACCESS, SettingsScreen.Tab.VAULT)) {
+				settingsScreen.livesElsewhere(t, null);
+			}
+		}
+		jobsHolder.revalidate();
+	}
+
+	private void openVault(tau.ui.vault.VaultScreen.Page page) {
+		go(Destination.VAULT);
+		vaultScreen.select(page);
+	}
+
+	/** The Vault's pages read afresh, as Settings does on entry. */
+	private void refreshVault() {
+		settingsScreen.secrets().refresh(app.listSecretNames());
+		settingsScreen.vault().refresh(app.hasRememberedPassphrase());
+		settingsScreen.access().bind();
 	}
 
 	/** The destination the sidebar shows as active, or null while Settings is open. */
@@ -1322,6 +1530,7 @@ public final class MainWindow extends JFrame {
 
 	/** The acting identity or the venue changed: the strip, the sidebar's identity menu, and the venue chip follow. */
 	private void identityChanged() {
+		if (inboxScreen != null) inboxScreen.setActing(app.actingPrincipal());
 		if (rail == null) return;
 		String name = (identity != null) ? (app.actingAsOperator() ? app.operatorName() : identity.name()) : null;
 		rail.setIdentity(name);
@@ -1477,7 +1686,8 @@ public final class MainWindow extends JFrame {
 
 		@Override
 		public void toggleChatsList() {
-			if (activeTab != NavBar.Tab.SESSIONS) {
+			boolean listHere = activeTab == NavBar.Tab.SESSIONS || (railShell && activeTab == NavBar.Tab.HOME);
+			if (!listHere) {
 				MainWindow.this.go(Destination.AGENTS);
 				chatsListOpen = true;
 				listForced = true;
@@ -1523,6 +1733,8 @@ public final class MainWindow extends JFrame {
 		}
 
 		@Override public void showShortcuts() { MainWindow.this.showShortcuts(); }
+		@Override public void inspect() { inspectChat(false); }
+		@Override public void inspectRaw() { inspectChat(true); }
 
 		@Override
 		public void fillIdentityMenu(JPopupMenu menu) {
