@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
@@ -66,7 +67,7 @@ class ClaudeCodeTest {
 	 * The owner stops what the tests started, through the adapter's own
 	 * operation: with {@code idleSeconds} 0 a session is kept alive until
 	 * stopped, and the shared venue outlives this class. Each process is seen
-	 * out, or the project directory it runs in cannot be deleted on Windows.
+	 * out, and the project directory deleted once Windows lets go of it.
 	 */
 	@AfterAll
 	static void stopSessions() throws Exception {
@@ -79,6 +80,27 @@ class ClaudeCodeTest {
 			user.run("v/ops/claudecode/stop", Maps.of(Fields.SESSION, id)).get(30, TimeUnit.SECONDS);
 			if (RT.getIn(session, "pid") instanceof CVMLong pid) {
 				ProcessHandle.of(pid.longValue()).ifPresent(p -> p.onExit().orTimeout(30, TimeUnit.SECONDS).join());
+			}
+		}
+		deleteOnceReleased(project);
+	}
+
+	/**
+	 * Deletes the empty directory a process ran in. Windows reports a process
+	 * as exited a moment before it releases the process's working directory,
+	 * and gives no signal for the release, so the delete itself is the check:
+	 * tried until it succeeds. JUnit's own delete of {@link #home} comes
+	 * straight after this and would otherwise fail in that moment.
+	 */
+	private static void deleteOnceReleased(Path dir) throws Exception {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+		while (true) {
+			try {
+				Files.deleteIfExists(dir);
+				return;
+			} catch (FileSystemException e) {
+				if (System.nanoTime() > deadline) throw e;
+				Thread.sleep(10);
 			}
 		}
 	}
