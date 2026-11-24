@@ -104,17 +104,29 @@ key derivation is also unchanged ([SECURITY.md](SECURITY.md)).
 
 ### `theme`
 
-`"dark"` (default) or `"light"`: the mode to start in — FlatLaf's Dark or
-Light theme with Tau's purple accent. *Settings → Theme* has the
-Light/Dark switch, and under it the themes of that mode that FlatLaf provides
-— its own, the IntelliJ theme pack (Dracula, Nord, One Dark, Solarized, …) and
+`"dark"` (default) or `"light"`: the mode to start in, in Tau's own theme for
+that mode: Tau Dark (the navy field) or Tau Light (the gold-ground system),
+both with Tau's Royal Purple accent. *Settings → Theme* has the Light/Dark
+switch, and under it the themes of that mode on offer: Tau's own first, then
+FlatLaf's, the IntelliJ theme pack (Dracula, Nord, One Dark, Solarized, …) and
 any `.theme.json` in the same format you drop into `themes/` beside this file
-(*Open themes folder* on that page; restart to pick new files up) — so each
-mode keeps its own theme and the switch flips between them; on FlatLaf's own
-themes there is an accent colour too. Choices apply at once and are remembered
-in `prefs.properties` (`ui.mode`, `ui.theme.dark`, `ui.theme.light`, and
-`ui.accent` as `#RRGGBB`), which then take precedence over this key; delete
-those lines to return to the file's setting and Tau's purple.
+(*Open themes folder* on that page; restart to pick new files up), so each
+mode keeps its own theme and the switch flips between them; on Tau's and
+FlatLaf's own themes there is an accent colour too. Choices apply at once and
+are remembered in `prefs.properties` (`ui.mode`, `ui.theme.dark`,
+`ui.theme.light`, and `ui.accent` as `#RRGGBB`), which then take precedence
+over this key; delete those lines to return to the file's setting and Tau's
+purple. A remembered choice of FlatLaf's plain Dark or Light is kept.
+
+The window's layout is remembered in `prefs.properties` too, all optional:
+`ui.shell` (`rail`, the default: the sidebar, a status strip and the menu
+bar; or `classic`: the bottom bar as before, *Settings → Theme → Layout* or
+*View → Layout*), `ui.rail.collapsed` (the sidebar as icons only, *View →
+Sidebar*), `ui.density` (`comfortable` or `compact` rows in tables and lists,
+*Settings → Theme → Density* or *View → Density*), and `ui.window.bounds` and
+`ui.window.maximised` (the window's last size and place; without them it
+opens at about 1200 × 800). Every screen is in the command palette (⌘K, Ctrl+K
+on Windows and Linux) and the menu bar, with its shortcut.
 
 ### `repairStore`
 

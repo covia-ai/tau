@@ -11,7 +11,7 @@ import javax.swing.JPanel;
 
 import tau.Inbox;
 import tau.ui.components.Card;
-import tau.ui.components.Chip;
+import tau.ui.components.StatusBadge;
 import tau.ui.components.Disclosure;
 import tau.ui.components.Labels;
 import tau.ui.components.Panels;
@@ -74,9 +74,9 @@ final class RequestCard extends Card {
 		disclosure.setExpanded(expanded);
 	}
 
-	/** "Waiting for you" as an accent chip while open; otherwise the outcome, quietly, with its icon. */
+	/** The amber "Waiting on you" badge while open; otherwise the outcome, quietly, with its icon. */
 	private static JLabel chip(Inbox.Request r) {
-		if (r.open()) return new Chip("Waiting for you");
+		if (r.open()) return StatusBadge.waiting();
 		StatusLabel outcome = switch (r.status() == null ? "" : r.status()) {
 			case "answered" -> new StatusLabel("Answered", "circle-check", Tone.MUTED);
 			case "rejected" -> new StatusLabel("Rejected", "circle-x", Tone.MUTED);

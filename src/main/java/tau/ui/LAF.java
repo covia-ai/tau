@@ -35,10 +35,11 @@ import com.formdev.flatlaf.util.ColorFunctions;
 import tau.ui.components.Theme;
 
 /**
- * Look and feel: the themes FlatLaf provides — its own six, the IntelliJ theme
+ * Look and feel: Tau's own Dark (the default) and Light, then the themes
+ * FlatLaf provides — its own six, the IntelliJ theme
  * pack, and any {@code .theme.json} in the same format the owner drops into
  * the data home's {@code themes} folder — each restyled by Tau's own UI
- * defaults and set in the bundled Lato at a comfortable size. {@link #init}
+ * defaults and set in the bundled Inter at a comfortable size. {@link #init}
  * once before any Swing component exists; {@link #apply} to switch the running
  * app (Settings → Theme).
  *
@@ -66,6 +67,7 @@ public final class LAF {
 		}
 	}
 
+	public static final String GROUP_TAU = "Tau";
 	public static final String GROUP_FLATLAF = "FlatLaf";
 	public static final String GROUP_INTELLIJ = "IntelliJ";
 	public static final String GROUP_OWN = "Yours";
@@ -74,30 +76,34 @@ public final class LAF {
 	public static final String DARK = "dark";
 	public static final String LIGHT = "light";
 
-	/** The default theme of each mode — what {@code config.json}'s {@code "dark"} and {@code "light"} mean. */
+	/** Tau's own themes: the default of each mode, what {@code config.json}'s {@code "dark"} and {@code "light"} mean. */
+	public static final String TAU_DARK = "tau-dark";
+	public static final String TAU_LIGHT = "tau-light";
+	/** FlatLaf's plain themes, still on offer: a remembered choice of either is kept. */
 	public static final String FLAT_DARK = "flat-dark";
 	public static final String FLAT_LIGHT = "flat-light";
 
-	/** Tau's own accent, a vivid modern purple: the core themes' default until another is chosen. */
-	public static final String TAU_ACCENT = "#7C6CF5";
+	/** Tau's accent, Royal Purple: the core themes' default until another is chosen. */
+	public static final String TAU_ACCENT = "#6B46C1";
 
 	/** The package FlatLaf searches for Tau's {@code *.properties} UI defaults. */
 	private static final String DEFAULTS_PACKAGE = "tau.ui";
 
-	/** Comfortable, slightly-larger base UI size (FlatLaf's own default is ~13). */
-	private static final int BASE_FONT_SIZE = 15;
+	/** Body text, 14 pt: the type scale's body size (caption 12, small 13, lead 16, section 18, title 24, display 32). */
+	private static final int BASE_FONT_SIZE = 14;
 
-	/** The UI font: Lato, bundled so it's identical on every platform. */
-	private static final String FONT_FAMILY = "Lato";
+	/** The UI font: Inter (SIL Open Font License), bundled so it's identical on every platform. */
+	private static final String FONT_FAMILY = "Inter";
 	/**
-	 * The bundled faces: Lato for the UI, and Inconsolata for code — named
+	 * The bundled faces: Inter for the UI, and Inconsolata for code — named
 	 * first in {@code monospaced.font} in the UI defaults, with the platform's
 	 * own monospaced faces behind it should the resource ever fail to register.
 	 */
 	private static final String[] FONT_RESOURCES = {
-		"/fonts/lato/Lato-Regular.ttf",
-		"/fonts/lato/Lato-Bold.ttf",
-		"/fonts/lato/Lato-Light.ttf",
+		"/fonts/inter/Inter-Regular.ttf",
+		"/fonts/inter/Inter-Medium.ttf",
+		"/fonts/inter/Inter-SemiBold.ttf",
+		"/fonts/inter/Inter-Bold.ttf",
 		"/fonts/inconsolata/Inconsolata-Regular.ttf",
 		"/fonts/inconsolata/Inconsolata-Bold.ttf",
 	};
@@ -120,10 +126,12 @@ public final class LAF {
 	 * @param ownThemes the folder of the owner's own {@code .theme.json} files, or null
 	 */
 	public static void init(String themeId, String mode, String accentHex, Path ownThemes) {
-		// Bundled Lato — register the faces, then make it the preferred family
+		// Bundled Inter: register the faces, then make it the preferred family
 		// before the theme installs so components pick it up.
 		registerFonts();
 		FlatLaf.setPreferredFontFamily(FONT_FAMILY);
+		// FlatLaf's semibold class (and the .lead and .section headings) use Inter's own SemiBold cut.
+		FlatLaf.setPreferredSemiboldFontFamily("Inter SemiBold");
 
 		// Tau's defaults load after the theme's, so they win. Registered
 		// once: the source list is additive.
@@ -147,7 +155,7 @@ public final class LAF {
 	 */
 	public static void apply(String themeId, String accentHex) {
 		Choice c = choice(themeId);
-		if (c == null) c = (current != null) ? current : choice(FLAT_DARK);
+		if (c == null) c = (current != null) ? current : choice(TAU_DARK);
 		FlatAnimatedLafChange.showSnapshot();
 		setup(c, accentHex);
 		installFont();
@@ -178,7 +186,7 @@ public final class LAF {
 
 	/** The id of a mode's default theme. */
 	public static String defaultTheme(String mode) {
-		return isLight(mode) ? FLAT_LIGHT : FLAT_DARK;
+		return isLight(mode) ? TAU_LIGHT : TAU_DARK;
 	}
 
 	/** The theme with {@code id}, or null. */
@@ -223,7 +231,7 @@ public final class LAF {
 			laf = c.laf().get();
 		} catch (RuntimeException e) {
 			log.warn("Could not load theme {}: {}", c.name(), e.toString());
-			c = choice(FLAT_DARK);
+			c = choice(TAU_DARK);
 			laf = c.laf().get();
 		}
 		if (!FlatLaf.setup(laf)) log.warn("FlatLaf could not be installed; using the default look and feel");
@@ -242,12 +250,20 @@ public final class LAF {
 		Color dark = Theme.accentDark();
 		// The accent as text on its own tint over the panel: moved in lightness until it reads there.
 		Color text = Theme.readableOn(accent, Theme.blend(Theme.panel(), accent, 0.22f), Theme.AA_CONTRAST);
+		// On Tau's own themes with Tau's own purple, the accent as text is the
+		// theme's link colour exactly (#B79BF0 on navy, Royal Purple on white).
+		if (current != null && GROUP_TAU.equals(current.group()) && accent.equals(Color.decode(TAU_ACCENT))) {
+			Color link = UIManager.getColor("Tau.link");
+			if (link != null) text = link;
+		}
 		UIManager.put("Tau.accent.dark", dark);
 		UIManager.put("Tau.accent.text", text);
-		// The primary button: white on the dark shade, hover a step lighter, pressed a step darker.
-		UIManager.put("Tau.primary.background", dark);
-		UIManager.put("Tau.primary.hoverBackground", ColorFunctions.lighten(dark, 0.06f));
-		UIManager.put("Tau.primary.pressedBackground", ColorFunctions.darken(dark, 0.06f));
+		// The primary button: white on the accent, darkened only until white reads on it at AA;
+		// hover a step lighter, pressed a step darker.
+		Color fill = Theme.primaryFill();
+		UIManager.put("Tau.primary.background", fill);
+		UIManager.put("Tau.primary.hoverBackground", ColorFunctions.lighten(fill, 0.05f));
+		UIManager.put("Tau.primary.pressedBackground", ColorFunctions.darken(fill, 0.06f));
 		// The tinted button: the accent as text on its faint tint, the tint deepening under the pointer.
 		UIManager.put("Tau.tinted.foreground", text);
 		UIManager.put("Tau.tinted.background", ColorFunctions.fade(accent, 0.22f));
@@ -255,7 +271,7 @@ public final class LAF {
 		UIManager.put("Tau.tinted.pressedBackground", ColorFunctions.fade(accent, 0.38f));
 	}
 
-	/** Bigger, comfortable default size in Lato: FlatLaf derives every other font from it and scales the UI to match. */
+	/** The body size in Inter: FlatLaf derives every other font from it and scales the UI to match. */
 	private static void installFont() {
 		UIManager.put("defaultFont", new Font(FONT_FAMILY, Font.PLAIN, BASE_FONT_SIZE));
 	}
@@ -266,6 +282,8 @@ public final class LAF {
 
 	private static List<Choice> catalogue(Path ownThemes) {
 		List<Choice> out = new ArrayList<>();
+		out.add(new Choice(TAU_DARK, TauDarkLaf.NAME, GROUP_TAU, true, true, TauDarkLaf::new));
+		out.add(new Choice(TAU_LIGHT, TauLightLaf.NAME, GROUP_TAU, false, true, TauLightLaf::new));
 		out.add(core(FLAT_DARK, "Dark", true, FlatDarkLaf::new));
 		out.add(core(FLAT_LIGHT, "Light", false, FlatLightLaf::new));
 		out.add(core("flat-mac-dark", "macOS Dark", true, FlatMacDarkLaf::new));
