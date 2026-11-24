@@ -26,7 +26,8 @@ room starts and ends.
 A wait is the blocking read. It answers at once with any posts after the
 number it is given; otherwise it holds until the next post arrives or its
 timeout passes. A participant loops on it from the last post it saw, or from
-its own post's number. An agent's wait holds its turn while it waits. A wait
+its own post's number; a wait given no number waits for the room's next post,
+so a room with no posts yet is followed from its first. An agent's wait holds its turn while it waits. A wait
 longer than the agent's tool-call limit, an hour for Tau's agents, carries on
 as a job that wakes the agent when it answers. Either way a room reaches an
 agent only when the agent asked, or through its owner's notify target.

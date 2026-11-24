@@ -16,7 +16,7 @@
 				"after": {
 					"type": "integer",
 					"minimum": 0,
-					"description": "The number of the last post already seen: posts numbered above it are given. Use the end of a read minus 1, or a post's own n."
+					"description": "The number of the last post already seen: posts numbered above it are given. Use the end of a read minus 1, or a post's own n. Optional: without it, the wait gives the room's next post, which follows a room with no posts yet from its first."
 				},
 				"limit": {
 					"type": "integer",
@@ -32,8 +32,7 @@
 				}
 			},
 			"required": [
-				"room",
-				"after"
+				"room"
 			],
 			"additionalProperties": false
 		},
