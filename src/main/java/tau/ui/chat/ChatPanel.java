@@ -138,6 +138,15 @@ public final class ChatPanel extends JPanel {
 	private JTextComponent lastSelectedBubble; // the bubble or step holding the current selection, if any
 	private Component thinkingRow; // assistant progress row while a reply is pending
 	private ThinkingBubble thinkingBubble;
+	/** The character beside the step line while a reply is pending, when there is art for it; else null. */
+	private tau.ui.character.CharacterView figure;
+	/** Agent calls already sparked this turn: one spark out to each, none back. */
+	private int sparked;
+	/** Whether something waits on the owner's decision (the Inbox count): the figure clasps its hands. */
+	private boolean waitingOnYou;
+	/** Told the beat of the turn in flight, for the sidebar's status slot; IDLE when none runs. */
+	private java.util.function.Consumer<tau.ui.character.Presence.Beat> presence = b -> {
+	};
 	private LiveTurn liveTurn; // the turn in flight, built from the agent's live events
 	private ExpandableActivity liveChip; // its steps so far, grown in place
 	private Component liveRow;
@@ -360,6 +369,49 @@ public final class ChatPanel extends JPanel {
 		if (!liveTurn.apply(event, toolLabel)) return;
 		showStatus(liveTurn.status());
 		showLiveSteps();
+		showBeat();
+	}
+
+	/** The beat of the turn in flight, from its phase; waiting on you outranks the rest. */
+	tau.ui.character.Presence.Beat beat() {
+		if (liveTurn == null) return tau.ui.character.Presence.Beat.IDLE;
+		if (waitingOnYou) return tau.ui.character.Presence.Beat.WAITING;
+		return switch (liveTurn.phase()) {
+			case PREPARING -> tau.ui.character.Presence.Beat.NEW_REQUEST;
+			case THINKING -> tau.ui.character.Presence.Beat.THINKING;
+			case WORKING -> tau.ui.character.Presence.Beat.WORKING;
+			case DELEGATING -> tau.ui.character.Presence.Beat.DELEGATING;
+		};
+	}
+
+	/** The figure and the sidebar follow the turn; a new agent call sends one spark out to the step line. */
+	private void showBeat() {
+		tau.ui.character.Presence.Beat b = beat();
+		presence.accept(b);
+		if (figure == null) return;
+		figure.setBeat(b);
+		if (liveTurn != null && liveTurn.delegations() > sparked) {
+			sparked = liveTurn.delegations();
+			tau.ui.character.Sparks.fly(figure, thinkingBubble);
+		}
+	}
+
+	/** Something waits on your decision, or no longer does. */
+	public void setWaitingOnYou(boolean waiting) {
+		if (waitingOnYou == waiting) return;
+		waitingOnYou = waiting;
+		if (liveTurn != null) showBeat();
+	}
+
+	/** Where the beat of the turn in flight goes: the window's status slot. */
+	public void onPresence(java.util.function.Consumer<tau.ui.character.Presence.Beat> listener) {
+		presence = (listener == null) ? b -> {
+		} : listener;
+	}
+
+	/** The figure beside the step line, or null: for tests. */
+	tau.ui.character.CharacterView figure() {
+		return figure;
 	}
 
 	/**
@@ -894,16 +946,34 @@ public final class ChatPanel extends JPanel {
 		if (thinkingRow != null) return;
 		hideEmptyState();
 		liveTurn = new LiveTurn();
+		sparked = 0;
 		thinkingBubble = new ThinkingBubble(liveTurn.status(), this::confirmStop);
 		JPanel row = new JPanel(new BorderLayout());
 		row.setOpaque(false);
 		row.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
-		row.add(thinkingBubble, BorderLayout.WEST);
+		// The full figure beside the step line while the reply runs, when there is art for it.
+		Component yours = column.getComponentCount() > 0 ? column.getComponent(column.getComponentCount() - 1) : null;
+		if (tau.ui.character.CharacterArt.get().present()) {
+			figure = new tau.ui.character.CharacterView(tau.ui.character.CharacterView.FULL_FIGURE);
+			JPanel beside = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 8, 0));
+			beside.setOpaque(false);
+			beside.add(figure);
+			beside.add(thinkingBubble);
+			row.add(beside, BorderLayout.WEST);
+		} else {
+			row.add(thinkingBubble, BorderLayout.WEST);
+		}
 		thinkingRow = row;
 		column.add(row);
 		column.revalidate();
 		scrollToBottom();
 		thinkingBubble.start();
+		showBeat();
+		// One spark in from your message; the gloves catch it.
+		if (figure != null && yours != null) {
+			tau.ui.character.CharacterView f = figure;
+			SwingUtilities.invokeLater(() -> tau.ui.character.Sparks.fly(yours, f));
+		}
 	}
 
 	private void hideThinking() {
@@ -918,6 +988,8 @@ public final class ChatPanel extends JPanel {
 			thinkingBubble.stop();
 			thinkingBubble = null;
 		}
+		figure = null;
+		presence.accept(tau.ui.character.Presence.Beat.IDLE);
 		if (thinkingRow != null) {
 			column.remove(thinkingRow);
 			thinkingRow = null;

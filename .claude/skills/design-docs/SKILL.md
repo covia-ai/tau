@@ -34,6 +34,7 @@ guide and points here.
 | `docs/JOBS.md` | the Jobs page: Covia's `Jobs` and `JobRecord` as its model, time ranges by seek, rows built only on screen, actions, known limits |
 | `docs/INBOX.md` | the Inbox: the composed source, observing whatever is on screen, one projection for cards, badge, tray mark and notifications, answering |
 | `docs/ROOMS.md` | collaboration rooms: posts and reading, waiting, rights and public rooms, the owner as moderator, telling the owner, letting an outside agent in |
+| `docs/CHARACTER.md` | the τ character: its art named at run time and the glyph without it, beats and poses, sizes and motion, where it shows and never shows |
 | `docs/APP_STATE.md` | Tau's own state in its adapters' venue state: state ownership, what stays in files, the rules for reading and writing it |
 | `docs/SELF_IMPROVEMENT.md` | the daily self-improvement loop: who does what, a run, what needs the owner, where things are; the procedure is the `improvement-loop` skill |
 | `docs/TRUST.md` | proposed trust standings for external message routes: standings, who raises and lowers them, Thor and suspicion, the requirements on the venue, skills and protocols; ahead of the code |

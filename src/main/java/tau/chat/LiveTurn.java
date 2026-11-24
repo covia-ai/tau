@@ -46,6 +46,38 @@ public final class LiveTurn {
 	/** Tool call id → its status label, for the progress it reports while it runs. */
 	private final Map<String, String> labels = new HashMap<>();
 	private String status = PREPARING;
+	private Phase phase = Phase.PREPARING;
+	/** Agent calls asked so far this turn: each gets one spark out, none back. */
+	private int delegations;
+
+	/**
+	 * What the turn is doing, for the character beside the step line: the
+	 * request just in, a model call, a tool running, or another agent asked.
+	 */
+	public enum Phase {
+		PREPARING, THINKING, WORKING, DELEGATING
+	}
+
+	/** The turn's phase, from the same events as the status. */
+	public Phase phase() {
+		return phase;
+	}
+
+	/** How many times this turn has asked another agent so far. */
+	public int delegations() {
+		return delegations;
+	}
+
+	/**
+	 * Whether a tool call asks another agent: an agent request or message, an
+	 * agent-to-agent call, or a coding agent run (Claude Code), by the tool's name.
+	 */
+	public static boolean asksAnAgent(String tool) {
+		if (tool == null) return false;
+		String t = tool.toLowerCase(java.util.Locale.ROOT).replace(':', '_').replace('/', '_');
+		return t.startsWith("agent_request") || t.startsWith("agent_message") || t.startsWith("agent_chat")
+			|| t.startsWith("a2a_") || t.contains("claude_code_run") || t.endsWith("_ask");
+	}
 
 	/** The one-line status for the bubble. */
 	public String status() {
@@ -59,6 +91,7 @@ public final class LiveTurn {
 
 	/** The venue accepted the message; only worth saying while nothing else has happened. */
 	public boolean accepted() {
+		// Preparing… then Working…: still the request coming in, for the character.
 		return PREPARING.equals(status) && setStatus(WORKING);
 	}
 
@@ -71,7 +104,10 @@ public final class LiveTurn {
 	 */
 	public boolean apply(AgentEvents.Event event, String toolLabel) {
 		AString type = event.type();
-		if (AgentEvents.INFERENCE_START.equals(type)) return setStatus(THINKING);
+		if (AgentEvents.INFERENCE_START.equals(type)) {
+			phase = Phase.THINKING;
+			return setStatus(THINKING);
+		}
 		if (AgentEvents.INFERENCE_END.equals(type)) return narrated(event.data());
 		if (AgentEvents.TOOL_START.equals(type)) return toolStarted(event.data(), toolLabel);
 		if (AgentEvents.TOOL_PROGRESS.equals(type)) return toolProgressed(event.data());
@@ -97,6 +133,12 @@ public final class LiveTurn {
 		SessionHistory.ToolCall started = SessionHistory.ToolCall.of(
 			str(RT.getIn(data, "name")), RT.getIn(data, "detail", "input"));
 		String title = (started.name() != null) ? started.name() : "tool";
+		if (asksAnAgent(title)) {
+			phase = Phase.DELEGATING;
+			delegations++;
+		} else {
+			phase = Phase.WORKING;
+		}
 		ACell input = started.input();
 		String call = (input != null) ? SessionHistory.renderContent(input) : null;
 		steps.add(new SessionHistory.Step(true, title, null, false, call));

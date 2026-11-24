@@ -540,15 +540,26 @@ public final class OnboardingWizard extends JPanel {
 
 	/** The τ large, greeting (Welcome, Finish), or small on every other card. */
 	private void greet(boolean large) {
-		mark.setIcon(large ? TauMark.brand(GREETING) : TauMark.plain(48));
+		greetingLarge = large;
+		if (large && greetingFigure != null) {
+			greetingFigure.setBeat(tau.ui.character.Presence.Beat.WELCOMING);
+			mark.setIcon(greetingFigure.asIcon());
+		} else {
+			mark.setIcon(large ? TauMark.brand(GREETING) : TauMark.plain(48));
+		}
 	}
+
+	/** The character greeting on Welcome and Finish, when there is art for it; else the brand τ. */
+	private final tau.ui.character.CharacterView greetingFigure = tau.ui.character.CharacterArt.get().present()
+		? new tau.ui.character.CharacterView(GREETING, TauMark.brand(GREETING)) : null;
+	private boolean greetingLarge;
 
 	/** The τ's size where it greets: within the 160 to 240 the brand sets. */
 	static final int GREETING = 176;
 
 	/** Whether the header shows the large τ greeting, for tests. */
 	boolean greeting() {
-		return mark.getIcon() instanceof TauMark t && t.isBrand();
+		return greetingLarge;
 	}
 
 	/** The new identity's mark and fingerprint, from the phrase chosen or imported. */

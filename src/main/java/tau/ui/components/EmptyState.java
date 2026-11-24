@@ -37,11 +37,13 @@ public final class EmptyState extends Card {
 
 	/**
 	 * The τ mark in place of the icon: for the empty states that greet you (an
-	 * empty chat, an empty Inbox, the Feed, no skills), never for errors.
+	 * empty chat, an empty Inbox, the Feed, no skills), never for errors. With
+	 * the character's art (docs/CHARACTER.md) the character stands there, at
+	 * rest; without it, the plain τ.
 	 */
 	public EmptyState withMark(int size) {
 		remove(badge);
-		add(new javax.swing.JLabel(TauMark.plain(size)), "gapbottom 6", 0);
+		add(tau.ui.character.CharacterView.orMark(size), "gapbottom 6", 0);
 		return this;
 	}
 

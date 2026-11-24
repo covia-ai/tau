@@ -43,8 +43,8 @@ final class EmptyChatState extends JPanel {
 		card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
 		card.setBorder(BorderFactory.createEmptyBorder(32, 48, 34, 48));
 
-		// The τ mark.
-		JLabel mark = Labels.icon(tau.ui.components.TauMark.plain(104));
+		// The τ mark, or the character at rest when there is art for it.
+		javax.swing.JComponent mark = tau.ui.character.CharacterView.orMark(104);
 		mark.setAlignmentX(Component.CENTER_ALIGNMENT);
 
 		greeting.setHorizontalAlignment(SwingConstants.CENTER);

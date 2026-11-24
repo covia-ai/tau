@@ -821,3 +821,6 @@ venue operator (Identity → switch user) shows the operator's store instead.
 | `ANTHROPIC_API_KEY` | Key for the default model operation. |
 | `TAU_NO_TRAY=1` | Skip the system tray; closing the window quits. |
 | `TAU_MCP_TOKEN` | Optional home for the venue-signed token a `.mcp.json` can reference as `${TAU_MCP_TOKEN}` instead of embedding it. |
+| `TAU_CHARACTER_DIR` | The directory holding the character's art pack (or the system property `tau.character.dir`); without one the τ glyph stands in. See [CHARACTER.md](CHARACTER.md). |
+
+The system property `tau.motion` (`full`, `reduced`, or `off`) sets how much the character moves, over the operating system's own setting.

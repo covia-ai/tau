@@ -218,6 +218,10 @@ public final class MainWindow extends JFrame {
 		chatPanel.sendAfterPause(app::sendAfterPauseSeconds);
 
 		// The conversation menu beside Send acts on the conversation on screen.
+		chatPanel.onPresence(b -> {
+			chatBeat = b;
+			showPresence();
+		});
 		chatPanel.setHost(new ChatPanel.Host() {
 			@Override
 			public void newConversation() {
@@ -1286,8 +1290,11 @@ public final class MainWindow extends JFrame {
 			if (venue.did() != null) sb.append("\nIdentity: ").append(identity != null
 				? identity.userDID(venue.did()) : venue.did());
 		}
-		Dialogs.info(this, "About " + Tau.APP_NAME, new SelectableText(sb.toString()),
-			tau.ui.components.TauMark.brand(128));
+		// The character at rest when there is art for it (docs/CHARACTER.md); else the brand τ, as before.
+		javax.swing.Icon mark = tau.ui.character.CharacterArt.get().present()
+			? new tau.ui.character.CharacterView(160, tau.ui.components.TauMark.brand(128)).asIcon()
+			: tau.ui.components.TauMark.brand(128);
+		Dialogs.info(this, "About " + Tau.APP_NAME, new SelectableText(sb.toString()).wrapAt(420), mark);
 	}
 
 
@@ -1642,8 +1649,25 @@ public final class MainWindow extends JFrame {
 		relayout();
 		rail.setInboxCount(waiting);
 		strip.setWaiting(waiting);
-		rail.slot().setState(waiting > 0 ? StatusSlot.State.WAITING : StatusSlot.State.RESTING,
-			waiting > 0 ? waiting + (waiting == 1 ? " decision" : " decisions") : null);
+		chatPanel.setWaitingOnYou(waiting > 0);
+		showPresence();
+	}
+
+	/** The beat of the reply in flight, from the chat: the status slot follows it. */
+	private tau.ui.character.Presence.Beat chatBeat = tau.ui.character.Presence.Beat.IDLE;
+
+	/** The status slot: waiting on you first, else what the reply in flight is doing, else resting. */
+	private void showPresence() {
+		if (rail == null) return;
+		StatusSlot.State state = switch (chatBeat) {
+			case THINKING -> StatusSlot.State.THINKING;
+			case NEW_REQUEST, WORKING, DELEGATING -> StatusSlot.State.AT_WORK;
+			case WAITING -> StatusSlot.State.WAITING;
+			default -> StatusSlot.State.RESTING;
+		};
+		if (waitingCount > 0) state = StatusSlot.State.WAITING;
+		rail.slot().setState(state,
+			waitingCount > 0 ? waitingCount + (waitingCount == 1 ? " decision" : " decisions") : null);
 	}
 
 	/** The acting identity or the venue changed: the strip, the sidebar's identity menu, and the venue chip follow. */

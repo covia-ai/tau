@@ -86,6 +86,14 @@ public final class ScreenShots {
 			}
 		}
 
+		// The character's first-launch slot: onboarding's greeting card.
+		for (Dimension size : SIZES) {
+			screens.resize(size);
+			screens.onboardingStep(screens.onboardingSteps().get(0));
+			Thread.sleep(1200);
+			shoot(window, out, mode, "character-first-launch", size);
+		}
+
 		// Finish onboarding as a new person called Sam with the echo model.
 		char[] pass = "scratch-only-passphrase".toCharArray();
 		String seed = "11".repeat(32);
@@ -102,6 +110,28 @@ public final class ScreenShots {
 				shoot(window, out, mode, e.getKey(), size);
 			}
 		}
+		// The character's slots (with a pack named by tau.character.dir), and the never-list screens beside them.
+		for (Dimension size : SIZES) {
+			screens.resize(size);
+			for (String[] place : new String[][] { { "home-empty", "HOME" }, { "inbox-empty", "INBOX" } }) {
+				screens.tab(place[1]);
+				Thread.sleep(800);
+				shoot(window, out, mode, "character-" + place[0], size);
+			}
+			for (String d : List.of("FEED", "SKILLS", "RECORD", "VAULT", "AGENTS", "PEERS", "ROOMS")) {
+				onEdtGo(window, d);
+				Thread.sleep(800);
+				shoot(window, out, mode, "character-" + d.toLowerCase(), size);
+			}
+			screens.home();
+			for (String beat : List.of("NEW_REQUEST", "THINKING", "WORKING", "DELEGATING", "WAITING")) {
+				screens.stageBeat(beat);
+				shoot(window, out, mode, "character-chat-" + beat.toLowerCase().replace('_', '-'), size);
+			}
+			screens.endStage();
+		}
+		screens.about(out.resolve(mode).resolve("character-about.png"));
+
 		// A conversation with the echo model, then Home again with it in view.
 		screens.sendMessage("Hello, what can you do?");
 		Thread.sleep(4000);
@@ -158,6 +188,13 @@ public final class ScreenShots {
 		}
 		System.out.println("Screenshots written to " + out.toAbsolutePath());
 		System.exit(0);
+	}
+
+	static void onEdtGo(MainWindow window, String destination) throws Exception {
+		Screens.onEdt(() -> {
+			window.go(tau.ui.shell.Destination.valueOf(destination));
+			return null;
+		});
 	}
 
 	/** Debug: how a button with this text is sized and measured (set -Dshots.probe=text). */
@@ -381,7 +418,92 @@ public final class ScreenShots {
 		}
 
 		/** The sidebar's Jobs, with job {@code id} open beside the list. */
-		/** Opens the Rooms screen, and room {@code name} on it when given. */
+		/**
+		 * The reply in flight with the figure beside its step line, at {@code beat}:
+		 * the chat's own thinking row, staged without a model call.
+		 */
+		void stageBeat(String beat) throws Exception {
+			Object chat = field(window, "chatPanel");
+			if (field(chat, "thinkingBubble") == null) {
+				Method show = chat.getClass().getDeclaredMethod("showThinking");
+				show.setAccessible(true);
+				onEdt(() -> show.invoke(chat));
+				Thread.sleep(1600);
+			}
+			Object figure = field(chat, "figure");
+			Object bubble = field(chat, "thinkingBubble");
+			String words = switch (beat) {
+				case "THINKING" -> "Thinking…";
+				case "WORKING" -> "Reading offsite-notes.md…";
+				case "DELEGATING" -> "Asking Odin…";
+				case "WAITING" -> "Waiting on you · Approve sending the summary?";
+				default -> "Preparing…";
+			};
+			Method summary = bubble.getClass().getDeclaredMethod("setSummary", String.class);
+			summary.setAccessible(true);
+			onEdt(() -> {
+				summary.invoke(bubble, words);
+				if ("WAITING".equals(beat)) chat.getClass().getMethod("setWaitingOnYou", boolean.class).invoke(chat, true);
+				if (figure != null) {
+					figure.getClass().getMethod("setBeat", tau.ui.character.Presence.Beat.class).invoke(figure,
+						tau.ui.character.Presence.Beat.valueOf(beat));
+				}
+				return null;
+			});
+			Thread.sleep(1500);
+		}
+
+		void endStage() throws Exception {
+			Object chat = field(window, "chatPanel");
+			Method hide = chat.getClass().getDeclaredMethod("hideThinking");
+			hide.setAccessible(true);
+			onEdt(() -> {
+				chat.getClass().getMethod("setWaitingOnYou", boolean.class).invoke(chat, false);
+				hide.invoke(chat);
+				Method empty = chat.getClass().getDeclaredMethod("showEmptyState");
+				empty.setAccessible(true);
+				empty.invoke(chat);
+				return null;
+			});
+		}
+
+		/** Opens About and writes its dialog to {@code file}. */
+		void about(Path file) throws Exception {
+			Method m = MainWindow.class.getDeclaredMethod("showAbout");
+			m.setAccessible(true);
+			SwingUtilities.invokeLater(() -> {
+				try {
+					m.invoke(window);
+				} catch (Exception e) {
+					System.err.println("  could not open About: " + e);
+				}
+			});
+			javax.swing.JDialog d = waitFor(() -> {
+				for (java.awt.Window w : java.awt.Window.getWindows()) {
+					if (w instanceof javax.swing.JDialog j && j.isShowing()) return j;
+				}
+				return null;
+			}, 10_000);
+			Thread.sleep(1500);
+			AtomicReference<BufferedImage> img = new AtomicReference<>();
+			SwingUtilities.invokeAndWait(() -> {
+				JComponent root = d.getRootPane();
+				double scale = d.getGraphicsConfiguration().getDefaultTransform().getScaleX();
+				BufferedImage b = new BufferedImage((int) Math.ceil(root.getWidth() * scale),
+					(int) Math.ceil(root.getHeight() * scale), BufferedImage.TYPE_INT_RGB);
+				Graphics2D g = b.createGraphics();
+				g.scale(scale, scale);
+				root.printAll(g);
+				g.dispose();
+				img.set(b);
+			});
+			Files.createDirectories(file.getParent());
+			ImageIO.write(img.get(), "png", file.toFile());
+			System.out.println("  " + file);
+			SwingUtilities.invokeAndWait(d::dispose);
+		}
+
+		/** Opens Rooms, and room {@code name} on it when given. */
 		void room(String name) throws Exception {
 			onEdt(() -> {
 				window.go(tau.ui.shell.Destination.ROOMS);

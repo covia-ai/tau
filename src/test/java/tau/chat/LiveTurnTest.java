@@ -146,4 +146,26 @@ class LiveTurnTest {
 		assertTrue(cut.length() <= LiveTurn.STATUS_CHARS + 1, cut);
 		assertFalse(cut.endsWith(" …"), "cut at a word boundary, trailing space dropped: " + cut);
 	}
+
+	@Test
+	void thePhaseFollowsTheEventsAndCountsEachAgentAsked() {
+		LiveTurn t = new LiveTurn();
+		assertEquals(LiveTurn.Phase.PREPARING, t.phase());
+		t.accepted();
+		assertEquals(LiveTurn.Phase.PREPARING, t.phase(), "Preparing… then Working…: still the request coming in");
+		t.apply(event("inference:start", Maps.empty()), null);
+		assertEquals(LiveTurn.Phase.THINKING, t.phase());
+		t.apply(event("tool:start", Maps.of("id", "c1", "name", "http_get", "detail", Maps.empty())), null);
+		assertEquals(LiveTurn.Phase.WORKING, t.phase());
+		assertEquals(0, t.delegations());
+		t.apply(event("tool:start", Maps.of("id", "c2", "name", "agent_request", "detail", Maps.empty())), null);
+		assertEquals(LiveTurn.Phase.DELEGATING, t.phase());
+		t.apply(event("tool:result", Maps.of("id", "c2", "name", "agent_request", "detail", Maps.empty())), null);
+		assertEquals(1, t.delegations(), "one out to the agent; its answer coming back adds none");
+		t.apply(event("tool:start", Maps.of("id", "c3", "name", "claude_code_run", "detail", Maps.empty())), null);
+		assertEquals(2, t.delegations());
+		assertTrue(LiveTurn.asksAnAgent("a2a_send"));
+		assertFalse(LiveTurn.asksAnAgent("file_read"));
+		assertFalse(LiveTurn.asksAnAgent(null));
+	}
 }

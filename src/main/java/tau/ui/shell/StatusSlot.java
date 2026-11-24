@@ -45,6 +45,9 @@ public final class StatusSlot extends JPanel {
 	}
 
 	private final Glyph glyph = new Glyph();
+	/** The character at 32 px, when there is art for it: it only crossfades and blinks. */
+	private final tau.ui.character.CharacterView figure;
+	private boolean showingFigure;
 	private final JLabel label = Labels.small("");
 	private State state = State.RESTING;
 	private String detail;
@@ -52,7 +55,13 @@ public final class StatusSlot extends JPanel {
 	private boolean quietScreenOpen;
 
 	public StatusSlot() {
+		this(tau.ui.character.CharacterArt.get());
+	}
+
+	/** With {@code art} for the character, or {@link tau.ui.character.CharacterArt#NONE} for the glyph alone. */
+	StatusSlot(tau.ui.character.CharacterArt art) {
 		super(new BorderLayout(UIScale.scale(8), 0));
+		figure = art.present() ? tau.ui.character.CharacterView.withArt(32, art) : null;
 		setOpaque(false);
 		setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
 		Styles.classes(label, Styles.SMALL, Styles.STRONG);
@@ -85,16 +94,31 @@ public final class StatusSlot extends JPanel {
 	/** A quiet screen is open: the slot shows the glyph alone. */
 	public void setQuietScreenOpen(boolean open) {
 		quietScreenOpen = open;
-		repaint();
+		update();
 	}
 
 	public boolean quietScreenOpen() {
 		return quietScreenOpen;
 	}
 
-	/** Whether the slot shows anything beyond the τ glyph and its words. Always false in this version. */
+	/**
+	 * Whether the slot shows anything beyond the τ glyph and its words: the
+	 * character, at 32 px, when there is art for it, the slot is open, and no
+	 * quiet screen is. Collapsed (below 32 px of room) it is the glyph alone.
+	 */
 	public boolean showsMoreThanGlyph() {
-		return false;
+		return showingFigure;
+	}
+
+	/** The beat the character plays for each state. */
+	static tau.ui.character.Presence.Beat beat(State s) {
+		return switch (s) {
+			case RESTING -> tau.ui.character.Presence.Beat.IDLE;
+			case THINKING -> tau.ui.character.Presence.Beat.THINKING;
+			case AT_WORK -> tau.ui.character.Presence.Beat.WORKING;
+			case WAITING -> tau.ui.character.Presence.Beat.WAITING;
+			case DONE -> tau.ui.character.Presence.Beat.DONE;
+		};
 	}
 
 	private void update() {
@@ -102,6 +126,15 @@ public final class StatusSlot extends JPanel {
 		// The word on the card; the count rides in the tooltip and the accessible name.
 		label.setText(collapsed ? null : state.word);
 		label.setVisible(!collapsed);
+		boolean show = figure != null && !collapsed && !quietScreenOpen;
+		java.awt.Component want = show ? figure : glyph;
+		java.awt.Component now = ((BorderLayout) getLayout()).getLayoutComponent(BorderLayout.WEST);
+		if (now != want) {
+			if (now != null) remove(now);
+			add(want, BorderLayout.WEST);
+		}
+		showingFigure = show;
+		if (figure != null) figure.setBeat(beat(state));
 		setToolTipText(APP_NAME + ": " + t);
 		getAccessibleContext().setAccessibleName(APP_NAME + " is " + t.toLowerCase());
 		revalidate();
