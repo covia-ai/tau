@@ -267,7 +267,7 @@ public final class MainWindow extends JFrame {
 			boolean main = !app.actingAsOperator() && aid.equals(app.mainAgentId());
 			return tau.ui.peers.Colours.agent(owner, aid, main);
 		});
-		agentList.setIdentities(aid -> app.actingPrincipal() != null ? app.actingPrincipal() + "/g/" + aid : null);
+		agentList.setIdentities(this::agentDID);
 		sessionsPane = new JPanel(new BorderLayout());
 		sessionsPane.add(agentList, BorderLayout.WEST);
 		sessionsPane.add(conversations, BorderLayout.CENTER);
@@ -1498,7 +1498,7 @@ public final class MainWindow extends JFrame {
 			rows.add(new tau.ui.agents.AgentsScreen.Row(a.id(), a.name(),
 				role != null ? tau.ui.agents.AgentsScreen.Kind.VENUE : tau.ui.agents.AgentsScreen.Kind.YOURS,
 				"This computer", "Ready", role != null ? "Looks after this computer" : "Acts for you", role,
-				app.actingPrincipal() != null ? app.actingPrincipal() + "/g/" + a.id() : null));
+				agentDID(a.id())));
 		}
 		try {
 			for (AccessPanel.Row t : app.listTokens()) {
@@ -1510,6 +1510,13 @@ public final class MainWindow extends JFrame {
 			// No token store yet (still starting): the roster shows the agents alone.
 		}
 		agentsScreen.setRows(rows, lastDefaultAgent);
+	}
+
+	/** The DID of the acting principal's agent {@code aid}, {@code <owner>:g:<id>}, or null before an identity is bound. */
+	private String agentDID(String aid) {
+		String owner = app.actingPrincipal();
+		return (owner == null) ? null
+			: covia.grid.Principals.agentDID(convex.core.data.Strings.create(owner), convex.core.data.Strings.create(aid)).toString();
 	}
 
 	private static String godRole(String id) {
