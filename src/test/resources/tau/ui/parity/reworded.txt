@@ -88,3 +88,4 @@ A custom token needs caps: \"unrestricted\" or a list.	A custom token needs its 
 Nothing leaves this computer except the model calls you ask for.<br><br>	Your data is stored here. Models and connected services may receive data when you use them.<br><br>
  · until revoked	until revoked
 Its turns show as the token's name, so you can tell them apart. Kept until you revoke it.	Its turns show as the token's name, so you can tell them apart. It stops working when it expires, or when you revoke it.
+Voice typing needs an OpenAI key; add one in Settings → Model	Voice typing needs an OpenAI key; add one in Settings → Models

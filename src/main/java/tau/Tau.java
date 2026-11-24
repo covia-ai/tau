@@ -585,7 +585,7 @@ public final class Tau {
 				Providers.Provider keyless = keylessProvider(op, this::keyResolves);
 				if (keyless != null) {
 					String notice = "No " + keyless.label() + " API key is set, so " + op
-						+ " can't answer yet. Add the key in Settings → Model and it takes effect straight away.";
+						+ " can't answer yet. Add the key in Settings → Models and it takes effect straight away.";
 					SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
 				}
 			}
@@ -1070,7 +1070,7 @@ public final class Tau {
 			// in Settings → Model takes effect immediately, so no restart needed.
 			String label = keyless.label();
 			SwingUtilities.invokeLater(() -> window.showSystemMessage(
-				"Saved. Add the " + label + " API key (Settings → Model) and it takes effect straight away."));
+				"Saved. Add the " + label + " API key (Settings → Models) and it takes effect straight away."));
 			return;
 		}
 		ensureGods(venue);

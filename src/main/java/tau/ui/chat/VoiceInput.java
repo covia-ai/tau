@@ -233,7 +233,7 @@ final class VoiceInput {
 				fail("Voice typing isn't available", failure);
 			} else if (engine.needsKey()) {
 				idle();
-				note("Voice typing needs an OpenAI key; add one in Settings → Model", "key-round", Tone.WARNING);
+				note("Voice typing needs an OpenAI key; add one in Settings → Models", "key-round", Tone.WARNING);
 			} else if (engine.downloading()) {
 				prepare(v);
 			} else if (engine.needsDownload()) {

@@ -42,6 +42,11 @@ public final class Problems {
 	public record Problem(Kind kind, String what, String tryThis, String where, String details, String ability,
 			String resource) {
 
+		/** Whether it shows in the calm Refused style, never the error colour: a refusal is not a fault. */
+		public boolean calm() {
+			return kind == Kind.REFUSED;
+		}
+
 		/** What happened and what to try, on one line: for a note, a toast or a dialog. */
 		public String line() {
 			return what + " " + tryThis;
@@ -49,7 +54,7 @@ public final class Problems {
 	}
 
 	/** Where the log is, as the menus name it. */
-	public static final String LOG = "Developer → Open logs folder, tau.log";
+	public static final String LOG = "Settings → General → Open logs folder, tau.log";
 
 	private static final AtomicLong SEQUENCE = new AtomicLong(System.currentTimeMillis() % 100_000);
 
@@ -87,8 +92,10 @@ public final class Problems {
 			String[] ar = refusal(text);
 			String ability = ar[0], resource = ar[1];
 			String what = (ability == null) ? "Refused." : "Refused: " + ability + (resource == null ? "." : " on " + resource + ".");
-			String tryThis = (ability == null) ? "This needs a permission that wasn't given."
-				: "This needs " + ability + (resource == null ? "" : " on " + resource) + ", which wasn't given.";
+			String tryThis = (resource != null && resource.startsWith("room "))
+				? "That permission wasn't given to this agent or token. A room's owner decides who takes part, in Rooms."
+				: "That permission wasn't given to this agent or token. If a tool's token should have it, change its "
+					+ "access in Vault → Access.";
 			return new Problem(Kind.REFUSED, what, tryThis, where, details, ability, resource);
 		}
 		if (VENUE.matcher(e).find()) {
@@ -96,21 +103,21 @@ public final class Problems {
 				"Wait a moment and try again; if it keeps happening, restart " + tau.Tau.APP_NAME + ".", where, details, null, null);
 		}
 		if (NO_KEY.matcher(e).find()) {
-			return new Problem(Kind.NO_KEY, "No model key is set.", "Add one in Settings → Model.", where, details, null, null);
+			return new Problem(Kind.NO_KEY, "No model key is set.", "Add one in Settings → Models.", where, details, null, null);
 		}
 		if (RATE_PER_PERIOD.matcher(e).find()) return rateLimited(where, details);
 		if (HTTP_AUTH.matcher(e).find() || FORBIDDEN.matcher(e).find() || BAD_KEY.matcher(e).find() && !NO_CREDIT.matcher(e).find()) {
 			return new Problem(Kind.MODEL_AUTH, "The model provider didn't accept your key.",
-				"Check the key in Settings → Model, or paste a new one.", where, details, null, null);
+				"Check the key in Settings → Models, or paste a new one.", where, details, null, null);
 		}
 		if (NO_CREDIT.matcher(e).find()) {
 			return new Problem(Kind.QUOTA, "The model provider's account is out of credit or quota.",
-				"Check billing on the provider's site, or choose another model in Settings → Model.", where, details, null, null);
+				"Check billing on the provider's site, or choose another model in Settings → Models.", where, details, null, null);
 		}
 		if (RATE_LIMITED.matcher(e).find()) return rateLimited(where, details);
 		if (MODEL_UNAVAILABLE.matcher(e).find()) {
 			return new Problem(Kind.MODEL_NOT_FOUND, "That model isn't available to your key.",
-				"Choose another model in Settings → Model.", where, details, null, null);
+				"Choose another model in Settings → Models.", where, details, null, null);
 		}
 		if (PROVIDER_ERROR.matcher(e).find()) {
 			return new Problem(Kind.PROVIDER_DOWN, "The model provider had a problem on its side.",

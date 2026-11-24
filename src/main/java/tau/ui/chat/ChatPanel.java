@@ -267,7 +267,7 @@ public final class ChatPanel extends JPanel {
 		modelChip.putClientProperty("JButton.buttonType", "toolBarButton");
 		tau.ui.components.Styles.classes(modelChip, tau.ui.components.Styles.SMALL);
 		modelChip.setIcon(tau.ui.components.Lucide.icon("cpu", 14, tau.ui.components.Theme::muted));
-		modelChip.setToolTipText("The model this chat runs on: click to choose another (Settings → Model)");
+		modelChip.setToolTipText("The model this chat runs on: click to choose another (Settings → Models)");
 		modelChip.setVisible(false);
 		modelChip.addActionListener(e -> {
 			if (onModelChip != null) onModelChip.run();
@@ -1077,9 +1077,22 @@ public final class ChatPanel extends JPanel {
 		box.setLayout(new javax.swing.BoxLayout(box, javax.swing.BoxLayout.Y_AXIS));
 		box.setOpaque(false);
 		box.setName("problem");
-		SelectableText line = new SelectableText(p.what() + " " + p.tryThis()).tone(Styles.ERROR).small().bold();
-		line.setAlignmentX(Component.LEFT_ALIGNMENT);
-		box.add(line);
+		if (p.calm()) {
+			// A refusal is not a fault: the calm Refused badge and plain text, never the error colour.
+			tau.ui.components.StatusBadge badge = new tau.ui.components.StatusBadge("Refused", "ban",
+				tau.ui.components.Tone.REFUSED);
+			badge.setAlignmentX(Component.LEFT_ALIGNMENT);
+			box.add(badge);
+			// The badge says Refused, so the line starts with what was refused.
+			String what = p.what().startsWith("Refused: ") ? p.what().substring(9) : p.what();
+			SelectableText line = new SelectableText(what + " " + p.tryThis()).small();
+			line.setAlignmentX(Component.LEFT_ALIGNMENT);
+			box.add(line);
+		} else {
+			SelectableText line = new SelectableText(p.what() + " " + p.tryThis()).tone(Styles.ERROR).small().bold();
+			line.setAlignmentX(Component.LEFT_ALIGNMENT);
+			box.add(line);
+		}
 		SelectableText where = new SelectableText(p.where()).muted().small();
 		where.setAlignmentX(Component.LEFT_ALIGNMENT);
 		box.add(where);

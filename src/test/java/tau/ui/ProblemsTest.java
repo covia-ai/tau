@@ -58,6 +58,9 @@ class ProblemsTest {
 			assertFalse(shown.contains("agent/request") || shown.contains("secret/extract") || shown.contains("crud/read"),
 				"no other rights: " + shown);
 		}
+		assertTrue(p.calm(), "a refusal is calm, never the error colour");
+		assertFalse(Problems.classify("401 Unauthorized").calm(), "a refused model key is a fault");
+		assertEquals(1, p.line().split("secret/use", -1).length - 1, "the ability is named once: " + p.line());
 		Problems.Problem room = Problems.classify("This request may not post in room ci-watch");
 		assertEquals("room/post", room.ability());
 		assertEquals("room ci-watch", room.resource());

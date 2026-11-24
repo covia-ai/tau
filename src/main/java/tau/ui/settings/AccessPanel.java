@@ -419,7 +419,7 @@ public final class AccessPanel extends SettingsPage {
 				try {
 					showConnected(c, tokenName, url, get());
 				} catch (java.util.concurrent.ExecutionException e) {
-					setNote(tau.ui.Problems.describe(e).line(), true);
+					problem(null, e);
 				} catch (InterruptedException e) {
 					Thread.currentThread().interrupt();
 				}
@@ -725,7 +725,7 @@ public final class AccessPanel extends SettingsPage {
 				try {
 					then.accept(get());
 				} catch (java.util.concurrent.ExecutionException e) {
-					setNote(failed("That didn't work.", e), true);
+					problem("That didn't work.", e);
 				} catch (InterruptedException e) {
 					Thread.currentThread().interrupt();
 				}
@@ -779,7 +779,7 @@ public final class AccessPanel extends SettingsPage {
 				try {
 					use.accept(get());
 				} catch (java.util.concurrent.ExecutionException ex) {
-					setNote(failed("Couldn't read the key.", ex), true);
+					problem("Couldn't read the key.", ex);
 				} catch (InterruptedException ex) {
 					Thread.currentThread().interrupt();
 				}
@@ -787,10 +787,15 @@ public final class AccessPanel extends SettingsPage {
 		}.execute();
 	}
 
-	/** A failure's words: {@code lead} when nothing more specific is known, else what happened and what to try. */
-	private static String failed(String lead, Throwable e) {
+	/**
+	 * Shows a failure in the note: {@code lead} when nothing more specific is
+	 * known (and given), else what happened and what to try. A refusal is calm,
+	 * never in the error colour.
+	 */
+	private void problem(String lead, Throwable e) {
 		tau.ui.Problems.Problem p = tau.ui.Problems.describe(e);
-		return (p.kind() == tau.ui.Problems.Kind.OTHER) ? lead + " " + p.tryThis() : p.line();
+		String text = (lead != null && p.kind() == tau.ui.Problems.Kind.OTHER) ? lead + " " + p.tryThis() : p.line();
+		setNote(text, !p.calm());
 	}
 
 	/** Drops every key or login shown, and stops following the store, when the user logs out or switches. */
