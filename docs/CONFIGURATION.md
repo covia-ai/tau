@@ -104,25 +104,40 @@ key derivation is also unchanged ([SECURITY.md](SECURITY.md)).
 
 ### `theme`
 
-`"dark"` (default) or `"light"`: the mode to start in — FlatLaf's Dark or
-Light theme with Tau's purple accent. *Settings → Theme* has the
-Light/Dark switch, and under it the themes of that mode that FlatLaf provides
-— its own, the IntelliJ theme pack (Dracula, Nord, One Dark, Solarized, …) and
+`"dark"` (default) or `"light"`: the mode to start in, in Tau's own theme for
+that mode: Tau Dark (the navy field) or Tau Light (the gold-ground system),
+both with Tau's Royal Purple accent. *Settings → Theme* has the Light/Dark
+switch, and under it the themes of that mode on offer: Tau's own first, then
+FlatLaf's, the IntelliJ theme pack (Dracula, Nord, One Dark, Solarized, …) and
 any `.theme.json` in the same format you drop into `themes/` beside this file
-(*Open themes folder* on that page; restart to pick new files up) — so each
-mode keeps its own theme and the switch flips between them; on FlatLaf's own
-themes there is an accent colour too. Choices apply at once and are remembered
-in `prefs.properties` (`ui.mode`, `ui.theme.dark`, `ui.theme.light`, and
-`ui.accent` as `#RRGGBB`), which then take precedence over this key; delete
-those lines to return to the file's setting and Tau's purple. Whatever the
-theme, Tau's own text colours — secondary text, links and the accent as text,
-and its red, green and orange — are made lighter or darker until they read at
-WCAG AA (4.5:1) on the theme's background and cards, and cards and selected
-rows stay close enough to the background for text to read on them too.
-*Higher contrast*, beside the Light/Dark switch and remembered as
+(*Open themes folder* on that page; restart to pick new files up), so each
+mode keeps its own theme and the switch flips between them; on Tau's and
+FlatLaf's own themes there is an accent colour too. Choices apply at once and
+are remembered in `prefs.properties` (`ui.mode`, which may also be `system`
+to follow the operating system's dark or light setting, `ui.theme.dark`,
+`ui.theme.light`, and `ui.accent` as `#RRGGBB`), which then take precedence
+over this key; delete those lines to return to the file's setting and Tau's
+purple. A remembered choice of FlatLaf's plain Dark or Light is kept.
+Whatever the theme, Tau's own text colours — secondary text, links and the
+accent as text, and its red, green and orange — are made lighter or darker
+until they read at WCAG AA (4.5:1) on the theme's background and cards, and
+cards and selected rows stay close enough to the background for text to read
+on them too. *Higher contrast*, beside the Light/Dark switch and remembered as
 `ui.higherContrast`, raises all text to AAA (7:1) — the theme's own controls'
 as well as Tau's — placeholders to AA, and the borders of fields, buttons and
 check boxes to 3:1.
+
+The window's layout is remembered in `prefs.properties` too, all optional:
+`ui.shell` (`rail`, the default: the sidebar, a status strip and the menu
+bar; or `classic`: the bottom bar, *Settings → Theme → Layout* or *View →
+Layout*), `ui.rail.collapsed` (the sidebar as icons only, *View →
+Sidebar*), `ui.density` (`comfortable` or `compact` rows in tables and lists,
+*Settings → Theme → Density* or *View → Density*), `ui.window.bounds` and
+`ui.window.maximised` (the window's last size and place; without them it
+opens at about 1200 × 800), and `ui.peers.examples` (`off` hides the example
+homes on the Peers map, *Show examples*; `on`, the default, shows them).
+Every screen is in the command palette (⌘K, Ctrl+K on Windows and Linux) and
+the menu bar, with its shortcut.
 
 ### `repairStore`
 
@@ -153,6 +168,10 @@ Tau's defaults:
 - the MCP endpoint enabled at `http://127.0.0.1:8085/mcp`
 - `maxToolIterations` 1000, so an agent's turn is not cut off after Covia's
   default of 30 tool calls
+- `logging.audit` and `logging.access` on: Covia's audit trail (sign-ins,
+  refusals, token issue, secret writes) goes to `logs/audit.log` and one line
+  per HTTP request to `logs/access.log`, so a connection from another tool
+  leaves a record; neither holds request bodies or query strings
 - `adapters.token.keepRawTokens` true, so the venue keeps each named token's
   key sealed and *Settings → Access* can show it again; set it false and a key
   is shown only when it is made or replaced
@@ -509,7 +528,9 @@ each says how the tool will appear:
   *Collaborate*, for an outside agent in [rooms](ROOMS.md), or
   *Unrestricted*, marked with a warning sign, which can run any operation
   as you) or a custom set.
-  It lasts until revoked. The page lists each token with its key (behind
+  It expires after the lifetime chosen when it is made (30 days by default;
+  1, 7, or 90 days, or until revoked), and revoking ends it sooner. The page
+  lists each token, when it expires, and its key (behind
   your passphrase), *New key* and *Revoke*.
 - **Login as you** — appears as you, with everything you can do, for a
   chosen time; shown once and never written to disk.

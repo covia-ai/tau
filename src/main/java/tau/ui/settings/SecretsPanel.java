@@ -73,14 +73,15 @@ public final class SecretsPanel extends SettingsPage {
 		addSpan(rows);
 		group(null);
 		addField("Name",
-			"Letters, digits, dots, dashes and underscores — how operations reference it (s/<name>)", nameField);
+			"Letters, digits, dots, dashes, and underscores: how operations reference it (s/<name>)", nameField);
 		// The action belongs beside the fields it acts on: adding the primary
 		// button here re-parents it out of the bottom action bar, which then
 		// carries only the status note.
+		// The field gives way inside the row's width cap, so the button keeps its whole label.
 		JPanel saveRow = new JPanel(new MigLayout("insets 0, fillx", "[grow,fill]8[]", ""));
 		saveRow.setOpaque(false);
-		saveRow.add(valueField, "growx");
-		saveRow.add(primary);
+		saveRow.add(valueField, "growx, wmin 0");
+		saveRow.add(primary, "wmin pref");
 		addField("Value", "Stored encrypted; saving under an existing name replaces its value", saveRow);
 		primary.setToolTipText("Encrypt and store the secret under this name");
 		onPrimary(this::onSave);
@@ -197,7 +198,7 @@ public final class SecretsPanel extends SettingsPage {
 				try {
 					use.accept(get());
 				} catch (Exception ex) {
-					setNote("That passphrase didn't unlock this identity.", true);
+					setNote("That passphrase isn't the one for this identity.", true);
 				}
 			}
 		}.execute();
@@ -221,7 +222,7 @@ public final class SecretsPanel extends SettingsPage {
 			refresh(host.listSecrets());
 			setNote("Stored " + name + ".", false);
 		} else {
-			setNote("Couldn't store it — names use letters, digits, dots, dashes and underscores.", true);
+			setNote("Couldn't store it: names use letters, digits, dots, dashes, and underscores.", true);
 			Fields.flag(nameField);
 		}
 	}

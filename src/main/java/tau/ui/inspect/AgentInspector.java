@@ -67,10 +67,14 @@ public final class AgentInspector {
 		JPanel h = new JPanel(new MigLayout("insets 18 24 14 24, fillx, gapy 2", "[]12[grow,fill]", ""));
 		h.setOpaque(false);
 		h.setBorder(Borders.hairline(false, false, true, false));
-		h.add(new Badge("bot", Tone.ACCENT, 38), "spany 2, aligny center");
+		// The agent's identity mark, a pattern from its Agent ID: agents never get a face.
+		String identity = (a.did() != null && !a.did().isBlank()) ? a.did() : a.id();
+		h.add(Labels.icon(tau.ui.components.IdentityMark.icon(identity, 38)), "spany 3, aligny top");
 		JPanel title = new JPanel(new MigLayout("insets 0, gap 10", "", ""));
 		title.setOpaque(false);
-		title.add(Labels.section(a.name()), "wmin 0");
+		// The name everyday screens use: the standard agent without a configured name is the app itself.
+		String shown = (a.standard() && (a.name() == null || a.name().equals(a.id()))) ? APP_NAME : a.name();
+		title.add(Labels.section(shown), "wmin 0");
 		StatusLabel state = state(a);
 		state.setToolTipText(a.error());
 		title.add(state);
@@ -90,7 +94,18 @@ public final class AgentInspector {
 			title.add(button);
 		}
 		h.add(title, "wmin 0, wrap");
-		h.add(Labels.small(activity(a)), "wmin 0");
+		// The short fingerprint of its Agent ID (mono; the copy button gives the full ID) and where it lives.
+		JPanel who = new JPanel(new MigLayout("insets 0, gap 8", "", ""));
+		who.setOpaque(false);
+		if (a.did() != null && !a.did().isBlank()) {
+			who.add(Styles.classes(Labels.small(tau.ui.components.IdentityMark.fingerprint(a.did())),
+				Styles.SMALL, Styles.MONOSPACED, Styles.MUTED));
+			who.add(tau.ui.components.Buttons.copy("Agent ID", a::did));
+		}
+		h.add(who, "wmin 0, wrap");
+		// These wrap, so the header reads in full in the docked inspector too.
+		h.add(tau.ui.components.SelectableText.description("Lives on this computer · " + activity(a)).small(),
+			"growx, wmin 0, w 10::");
 		return h;
 	}
 
@@ -140,7 +155,7 @@ public final class AgentInspector {
 		if (!a.defaultTools() && a.tools().isEmpty()) d.note("None.");
 		d.section("Skill libraries").tip("The skillsets the agent searches for skills, in order; the first skill "
 			+ "of a name wins.");
-		list(d, a.skillsets(), "None — the agent cannot discover skills.");
+		list(d, a.skillsets(), "None: the agent cannot discover skills.");
 		if (!a.unavailable().isEmpty()) {
 			d.section("Unavailable", Styles.ERROR).tip("Configured entries that did not resolve.");
 			list(d, a.unavailable(), "");

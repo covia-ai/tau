@@ -56,7 +56,8 @@ import net.miginfocom.swing.MigLayout;
 public final class AccessPanel extends SettingsPage {
 
 	/** One of the owner's tokens, as the list shows it; {@code unrestricted} when it can do all the owner can. */
-	public record Row(String name, String scope, long created, String madeBy, boolean unrestricted) {}
+	/** A named token as listed; {@code expires} is in milliseconds since the epoch, or null for until revoked. */
+	public record Row(String name, String scope, long created, String madeBy, boolean unrestricted, Long expires) {}
 
 	/** What the page can do; calls that may fail throw with a message fit to show. */
 	public interface Host {
@@ -70,7 +71,8 @@ public final class AccessPanel extends SettingsPage {
 		String chatAgentId();
 
 		/** Makes a named token and returns its key. */
-		String createToken(String name, Tokens.Scope scope) throws Exception;
+		/** Makes a named token lasting {@code lifetimeSeconds}, or until revoked when null; returns its key. */
+		String createToken(String name, Tokens.Scope scope, Long lifetimeSeconds) throws Exception;
 
 		/** Gives a token a new key and returns it. */
 		String newTokenKey(String name) throws Exception;
@@ -98,10 +100,10 @@ public final class AccessPanel extends SettingsPage {
 	/** A kind of access, with how it appears to the venue. */
 	private enum Kind {
 		TOKEN("Named token for a tool (MCP)", "A key for one tool, with the tools and access you choose. "
-			+ "Its turns show as the token's name, so you can tell them apart. Kept until you revoke it."),
+			+ "Its turns show as the token's name, so you can tell them apart. It stops working when it expires, or when you revoke it."),
 		LOGIN("Login as you", "A login that appears as you, with everything you can do. "
 			+ "Shown once and kept nowhere; it stops working when it expires."),
-		OPERATOR("Venue operator login (advanced)", "A login as the venue itself, for administration only. "
+		OPERATOR("Venue operator login (advanced)", "A login as the operator, the identity that runs this Home/venue, for administration only. "
 			+ "Shown once and kept nowhere; it stops working when it expires.");
 
 		final String label;
@@ -118,7 +120,8 @@ public final class AccessPanel extends SettingsPage {
 		}
 	}
 
-	private record Exp(String label, long seconds) {
+	/** A lifetime choice; {@code seconds} is null for until revoked, which only named tokens offer. */
+	private record Exp(String label, Long seconds) {
 		@Override
 		public String toString() {
 			return label;
@@ -133,13 +136,15 @@ public final class AccessPanel extends SettingsPage {
 	private final JPanel tokenList = new JPanel(new MigLayout(
 		"insets 0, fillx, wrap 6, gapy 4", "[grow 25,fill]12[grow 75,fill]8[]2[]6[]4[]", ""));
 	private final JComboBox<Kind> kind = new JComboBox<>(Kind.values());
-	private final JLabel kindHint = Labels.small(" ");
+	private final JLabel kindHint = Labels.allowHtml(Labels.small(" ")); // wraps its escaped hint
 	private final JTextField name = new JTextField(16);
 	private final JComboBox<Object> preset = new JComboBox<>();
-	private final JLabel presetHint = Labels.small(" ");
+	private final JLabel presetHint = Labels.allowHtml(Labels.small(" ")); // wraps its escaped hint
 	private final TextArea tools = new TextArea(4, 34).placeholder("One operation per line, such as v/ops/covia/read");
 	private final TextArea caps = new TextArea(4, 34).placeholder("\"unrestricted\", or a list of {\"with\", \"can\"}");
 	private final JComboBox<Exp> expiry = new JComboBox<>();
+	/** A named token's lifetime; seconds null means until revoked. */
+	private final JComboBox<Exp> tokenExpiry = new JComboBox<>();
 	private final TextArea issued = new TextArea(3, 34).placeholder("The new key or login appears here");
 	private final JButton copy = Buttons.small("Copy");
 	private final JCheckBox keepToolToken = new JCheckBox("Keep a login as you for local tools");
@@ -172,15 +177,16 @@ public final class AccessPanel extends SettingsPage {
 
 		preset.addActionListener(e -> showPreset());
 		tokenRows = rows(() -> {
-			addField("Name", "Lower-case letters, digits and hyphens, such as claude-code: the name its turns show", name);
+			addField("Name", "Lower-case letters, digits, and hyphens, such as claude-code: the name its turns show", name);
 			addField("Access", "What the token's tools are, and what they may reach", preset);
 			addSpan(presetHint);
+			addField("Expires in", "How long the token works before you make a new one; revoking ends it sooner", tokenExpiry);
 		});
 		JScrollPane toolsScroll = new JScrollPane(tools);
 		JScrollPane capsScroll = new JScrollPane(caps);
 		customRows = rows(() -> {
 			addFieldTop("Tools", toolsScroll);
-			addFieldTop("Caps", capsScroll);
+			addFieldTop("Permissions", capsScroll);
 		});
 		Styles.classes(tools, Styles.MONOSPACED);
 		Styles.classes(caps, Styles.MONOSPACED);
@@ -192,6 +198,14 @@ public final class AccessPanel extends SettingsPage {
 			new Exp("30 days", 2_592_000L),
 		}));
 		expiry.setSelectedIndex(1);
+		tokenExpiry.setModel(new DefaultComboBoxModel<>(new Exp[] {
+			new Exp("1 day", 86_400L),
+			new Exp("7 days", 604_800L),
+			new Exp("30 days", Tokens.DEFAULT_LIFETIME_SECONDS),
+			new Exp("90 days", 7_776_000L),
+			new Exp("Until revoked", null),
+		}));
+		tokenExpiry.setSelectedIndex(2);
 		loginRows = rows(() -> addField("Expires in", "How long the login stays valid", expiry));
 
 		issued.setEditable(false);
@@ -282,7 +296,7 @@ public final class AccessPanel extends SettingsPage {
 			tools.setText(String.join("\n", scope.tools().stream().map(String::valueOf).toList()));
 			caps.setText(JSON.toStringPretty(scope.caps()));
 		} else {
-			presetHint.setText("Any tools, within caps you write; it starts from the preset you last chose.");
+			presetHint.setText("Any tools, within the permissions you write; it starts from the preset you last chose.");
 		}
 		customRows.setVisible(token && custom);
 		revalidate();
@@ -329,8 +343,10 @@ public final class AccessPanel extends SettingsPage {
 
 	private void addRow(Row row) {
 		JLabel label = Styles.classes(new JLabel(row.name()), Styles.MONOSPACED);
+		boolean expired = row.expires() != null && row.expires() <= System.currentTimeMillis();
 		JLabel details = Labels.small(row.scope() + " · made " + Times.absolute(row.created()) + " by " + row.madeBy()
-			+ " · until revoked");
+			+ " · " + (row.expires() == null ? "until revoked"
+				: (expired ? "expired " : "expires ") + Times.absolute(row.expires())));
 		if (row.unrestricted()) warn(details, "It can do everything you can: keep its key like your passphrase");
 		SelectableText key = new SelectableText(MASK).mono().muted();
 		EyeButton eye = new EyeButton("Show the key (behind your passphrase)", "Hide the key", 16);
@@ -398,7 +414,7 @@ public final class AccessPanel extends SettingsPage {
 			String jwt = host.mintLogin(sel.seconds(), k == Kind.OPERATOR);
 			if (jwt == null) {
 				clearIssued();
-				setNote("Couldn't make a login: the venue isn't ready.", true);
+				setNote("Couldn't make a login: the venue isn't ready. Nothing was made; try again in a moment.", true);
 				return;
 			}
 			showIssued(jwt, "A login " + (k == Kind.OPERATOR ? "as the venue operator" : "as you")
@@ -407,7 +423,7 @@ public final class AccessPanel extends SettingsPage {
 		}
 		String tokenName = name.getText().trim();
 		if (!tokenName.matches("[a-z0-9-]{1,64}")) {
-			setNote("A token's name is lower-case letters, digits and hyphens.", true);
+			setNote("A token's name is lower-case letters, digits, and hyphens.", true);
 			Fields.flag(name);
 			return;
 		}
@@ -418,7 +434,8 @@ public final class AccessPanel extends SettingsPage {
 			setNote(e.getMessage(), true);
 			return;
 		}
-		act(() -> host.createToken(tokenName, scope), key -> {
+		Exp lifetime = (Exp) tokenExpiry.getSelectedItem();
+		act(() -> host.createToken(tokenName, scope, lifetime.seconds()), key -> {
 			name.setText("");
 			showIssued(key, "Made " + tokenName + ". Paste the key into the tool's MCP settings as "
 				+ "Authorization: Bearer; it is shown again from the list.");
@@ -438,9 +455,9 @@ public final class AccessPanel extends SettingsPage {
 		try {
 			parsed = JSON.parse(caps.getText().trim());
 		} catch (RuntimeException e) {
-			throw new IllegalArgumentException("The caps aren't valid JSON: " + e.getMessage(), e);
+			throw new IllegalArgumentException("The permissions aren't valid JSON: " + e.getMessage(), e);
 		}
-		if (parsed == null) throw new IllegalArgumentException("A custom token needs caps: \"unrestricted\" or a list.");
+		if (parsed == null) throw new IllegalArgumentException("A custom token needs its permissions: \"unrestricted\" or a list.");
 		return new Tokens.Scope(ops, parsed);
 	}
 

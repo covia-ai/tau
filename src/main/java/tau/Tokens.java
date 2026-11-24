@@ -56,9 +56,23 @@ public final class Tokens {
 		return adapter().list(inPerson(), token -> true);
 	}
 
+	/** How long a named token lasts unless the owner chooses otherwise: 30 days. */
+	public static final long DEFAULT_LIFETIME_SECONDS = 30L * 24 * 3600;
+
 	/** Makes token {@code name} with {@code scope}, lasting until revoked, and returns it with its key. */
 	public Issued create(String name, Scope scope) {
-		return adapter().create(inPerson(), Strings.create(name), access(scope), scope.caps(), null,
+		return create(name, scope, null);
+	}
+
+	/**
+	 * Makes token {@code name} with {@code scope}, lasting {@code lifetimeSeconds}
+	 * from now, or until revoked when that is null, and returns it with its key.
+	 */
+	public Issued create(String name, Scope scope, Long lifetimeSeconds) {
+		if (lifetimeSeconds != null && lifetimeSeconds <= 0) throw new IllegalArgumentException("A token's lifetime must be positive");
+		ACell expires = (lifetimeSeconds == null) ? null
+			: convex.core.data.prim.CVMLong.create(System.currentTimeMillis() + lifetimeSeconds * 1000);
+		return adapter().create(inPerson(), Strings.create(name), access(scope), scope.caps(), expires,
 			adapter().administration());
 	}
 

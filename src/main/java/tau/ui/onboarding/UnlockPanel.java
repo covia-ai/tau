@@ -12,7 +12,6 @@ import java.awt.event.KeyEvent;
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
-import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
@@ -24,7 +23,6 @@ import javax.swing.SwingConstants;
 
 import com.formdev.flatlaf.FlatClientProperties;
 
-import tau.ui.Icons;
 import tau.ui.components.Buttons;
 import tau.ui.components.Labels;
 import tau.ui.components.Lucide;
@@ -54,7 +52,7 @@ public final class UnlockPanel extends JPanel {
 	private final Listener listener;
 	private final JPasswordField field = new JPasswordField(22);
 	private final JCheckBox remember = new JCheckBox("Store passphrase in plaintext on this computer");
-	private final JButton unlock = Buttons.primary("Unlock");
+	private final JButton unlock = Buttons.primary("Open " + APP_NAME);
 	private final JLabel status = Labels.small(" ");
 
 	public UnlockPanel(Listener listener) {
@@ -64,11 +62,11 @@ public final class UnlockPanel extends JPanel {
 		JPanel col = Panels.column();
 		col.setBorder(BorderFactory.createEmptyBorder(24, 32, 24, 32));
 
-		JLabel mark = Labels.icon(new ImageIcon(Icons.icon(64)));
+		JLabel mark = Labels.icon(tau.ui.components.TauMark.plain(64));
 		mark.setAlignmentX(CENTER_ALIGNMENT);
 		JLabel title = Labels.title("Welcome back");
 		title.setAlignmentX(CENTER_ALIGNMENT);
-		JLabel sub = Styles.classes(Labels.html("Enter your passphrase to unlock " + APP_NAME + ".", 420, SwingConstants.CENTER), Styles.MUTED);
+		JLabel sub = Styles.classes(Labels.html("Enter your passphrase to open " + APP_NAME + ".", 420, SwingConstants.CENTER), Styles.MUTED);
 		sub.setAlignmentX(CENTER_ALIGNMENT);
 
 		field.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Passphrase");
@@ -80,7 +78,7 @@ public final class UnlockPanel extends JPanel {
 		remember.setOpaque(false);
 		remember.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		JLabel info = Labels.icon(Lucide.icon("info", 16, Theme::muted));
-		info.setToolTipText("Anyone who can read files as your OS account can unlock " + APP_NAME + ". "
+		info.setToolTipText("Anyone who can read files as your OS account can open " + APP_NAME + ". "
 			+ "Only enable this on a computer and account you trust; untick it to delete the file.");
 		info.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		JPanel rememberRow = Panels.row();
@@ -146,7 +144,7 @@ public final class UnlockPanel extends JPanel {
 		char[] pw = field.getPassword();
 		if (pw.length == 0) return;
 		field.setText("");
-		showProgress("Unlocking…");
+		showProgress("Opening " + APP_NAME + "…");
 		listener.onUnlock(pw, remember.isSelected());
 	}
 

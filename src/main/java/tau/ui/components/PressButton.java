@@ -66,6 +66,39 @@ public class PressButton extends JToggleButton {
 	}
 
 	/** What a press does. */
+	/** Wears the list-row selection: the warm surface with a 3 px bar on the left, as the sidebar marks its item. */
+	private boolean listRow;
+
+	/**
+	 * The selected look of a row in a list beside the content (the Chats
+	 * column): the warm surface, since the column's ground is the content's
+	 * own and a white selection would not show on it, plus the sidebar's 3 px
+	 * bar, so selection reads the same everywhere.
+	 */
+	public PressButton listRow() {
+		listRow = true;
+		// Added to any style already set, so a font or margin set earlier is kept.
+		Object was = getClientProperty(com.formdev.flatlaf.FlatClientProperties.STYLE);
+		String row = "toolbar.selectedBackground: $Tau.warmSurface";
+		Styles.style(this, (was instanceof String w && !w.isBlank()) ? w + "; " + row : row);
+		return this;
+	}
+
+	@Override
+	protected void paintComponent(java.awt.Graphics g) {
+		super.paintComponent(g);
+		if (!listRow || !isSelected()) return;
+		java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+		try {
+			com.formdev.flatlaf.ui.FlatUIUtils.setRenderingHints(g2);
+			int w = com.formdev.flatlaf.util.UIScale.scale(3), inset = com.formdev.flatlaf.util.UIScale.scale(6);
+			g2.setColor(Theme.sidebarBar());
+			g2.fillRoundRect(0, inset, w, getHeight() - 2 * inset, w, w);
+		} finally {
+			g2.dispose();
+		}
+	}
+
 	public PressButton onPress(Runnable action) {
 		this.onPress = action;
 		return this;

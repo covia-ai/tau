@@ -56,12 +56,21 @@ public final class AgentList extends JPanel {
 
 	private static final int WIDTH = 158;
 
+	/** In the sidebar shell the picker sits atop the Chats list: this many rows show before it scrolls. */
+	private static final int STACKED_ROWS = 4;
+
 	private final Listener listener;
 	private final JPanel rows = Panels.column();
+	private final JPanel top = new JPanel(new BorderLayout());
+	private final JPanel bottom = new JPanel(new BorderLayout());
+	private final JButton add;
+	private boolean stacked;
 	private String selectedId;
 	private String defaultId;
 	/** Each agent's colour by id, as the Peers map draws its moon; muted until told. */
 	private Function<String, Color> colours = id -> Theme.muted();
+	/** Each agent's identity (its Agent ID), by id, for its mark; null until told. */
+	private Function<String, String> identities = id -> null;
 
 	public AgentList(Listener listener) {
 		super(new BorderLayout());
@@ -72,22 +81,63 @@ public final class AgentList extends JPanel {
 		setBorder(Borders.hairlineRight());
 
 		JLabel header = Labels.small("Agents");
-		JButton add = Buttons.tinted("Agent", Lucide.icon("plus", 16, Theme::accentText));
+		add = Buttons.tinted("Agent", Lucide.icon("plus", 16, Theme::accentText));
 		add.setToolTipText("Create a new agent");
 		add.addActionListener(e -> listener.onNewAgent());
 
-		JPanel top = new JPanel(new BorderLayout());
 		top.setOpaque(false);
 		top.setBorder(BorderFactory.createEmptyBorder(10, 12, 8, 10));
 		top.add(header, BorderLayout.WEST);
 
 		add(top, BorderLayout.NORTH);
 		add(Scrolls.vertical(Scrolls.hugTop(rows)), BorderLayout.CENTER);
-		JPanel bottom = new JPanel(new BorderLayout());
 		bottom.setOpaque(false);
 		bottom.setBorder(BorderFactory.createEmptyBorder(8, 10, 10, 10));
 		bottom.add(add, BorderLayout.CENTER);
 		add(bottom, BorderLayout.SOUTH);
+	}
+
+	/**
+	 * Stacked: the picker sits atop the Chats list in one column, with + Agent
+	 * beside its heading and a few rows before it scrolls. Otherwise its own
+	 * column beside the list, as in the classic layout.
+	 */
+	public void setStacked(boolean stacked) {
+		if (this.stacked == stacked) return;
+		this.stacked = stacked;
+		remove(bottom);
+		top.remove(add);
+		if (stacked) {
+			// Beside the heading it is a quiet icon: + Chat is the column's main action,
+			// and Add an agent also lives on the Agents page.
+			add.setText(null);
+			add.putClientProperty("JButton.buttonType", "toolBarButton");
+			add.getAccessibleContext().setAccessibleName("New agent");
+			top.add(add, BorderLayout.EAST);
+			setBorder(Borders.hairline(false, false, true, false));
+		} else {
+			add.setText("Agent");
+			add.putClientProperty("JButton.buttonType", null);
+			bottom.add(add, BorderLayout.CENTER);
+			add(bottom, BorderLayout.SOUTH);
+			setBorder(Borders.hairlineRight());
+		}
+		revalidate();
+		repaint();
+	}
+
+	@Override
+	public Dimension getPreferredSize() {
+		if (!stacked) return super.getPreferredSize();
+		int row = rows.getComponentCount() > 0 ? rows.getComponent(0).getPreferredSize().height : 36;
+		int shown = Math.max(1, Math.min(STACKED_ROWS, rows.getComponentCount()));
+		return new Dimension(0, top.getPreferredSize().height + shown * row + 8);
+	}
+
+	/** Each agent's identity by id, so its row shows the same identity mark as the roster. */
+	public void setIdentities(Function<String, String> identities) {
+		this.identities = identities;
+		rows.repaint();
 	}
 
 	/** How to colour each agent's mini moon, by id, so it matches the Peers map. */
@@ -108,8 +158,11 @@ public final class AgentList extends JPanel {
 
 	/** One agent: a {@link PressButton} row, selected when it is the one open. */
 	private Component agentRow(AgentRef agent) {
-		PressButton row = new PressButton(agent.name());
-		row.setIcon(Colours.moon(() -> colours.apply(agent.id()), 14));
+		PressButton row = new PressButton(agent.name()).listRow();
+		// The agent's identity mark, the same as the roster's: one identity visual everywhere.
+		String identity = identities.apply(agent.id());
+		row.setIcon((identity != null) ? tau.ui.components.IdentityMark.icon(identity, 16)
+			: Colours.moon(() -> colours.apply(agent.id()), 14));
 		row.setIconTextGap(8);
 		row.setHorizontalAlignment(SwingConstants.LEFT);
 		row.setMargin(new Insets(9, 12, 9, 12));

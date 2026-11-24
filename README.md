@@ -66,6 +66,11 @@ mvn package
 java -jar target/tau.jar
 ```
 
+While `covia.version` in `pom.xml` ends in `-SNAPSHOT`, Tau builds on an
+unreleased Covia: install it first, as in
+[building against a local Covia checkout](#building-against-a-local-covia-checkout)
+below, or `mvn package` cannot resolve `ai.covia:venue`.
+
 For an existing installation, see [data directories and manual setup](docs/CONFIGURATION.md#selecting-an-existing-installation).
 
 On first launch, choose a passphrase, save the recovery phrase and choose what
@@ -77,14 +82,13 @@ end, with echoed replies.
 conversation or an agent for what you can do with it; everything else is under
 **Settings**.
 
-<details>
-<summary><b>Building against a local Covia checkout</b></summary>
+### Building against a local Covia checkout
 
 `covia.version` in `pom.xml` names the Covia line. A release resolves from
 Maven Central; a SNAPSHOT needs Covia cloned beside Tau and installed locally:
 
 ```bash
-git clone https://github.com/covia-ai/covia.git ../covia
+git clone https://github.com/covia-ai/covia.git ../covia   # once, beside tau
 cd ../covia
 mvn -pl venue,workbench,covia-discord,covia-telegram,covia-claude-code,covia-speech -am install -DskipTests
 cd ../tau
@@ -96,7 +100,6 @@ version first. Covia normally resolves Convex from Maven Central; if its
 `convex.version` is a SNAPSHOT, install `../convex` first with
 `mvn clean install -DskipTests`. Install every module listed above together so
 the embedded runtime, shared UI and integrations all use the same snapshot.
-</details>
 
 ## Under the hood
 

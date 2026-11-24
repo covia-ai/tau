@@ -87,11 +87,15 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 		void sessionsChanged(List<SessionHistory.Session> sessions, String selectedId);
 
 		void agentsChanged();
+
+		/** Open the record of what was done (Jobs, until the Record view lands). */
+		default void openRecord() {
+		}
 	}
 
 	/** The top row, in order: the chat, the conversation's overview and context, its agent. */
 	public enum View {
-		CHAT("Chat"), OVERVIEW("Overview"), CONTEXT("Context"), AGENT("Agent");
+		CHAT("Chat"), OVERVIEW("Overview"), CONTEXT("Context"), AGENT("Agent"), RECORD("Record");
 
 		final String title;
 
@@ -122,7 +126,7 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 	}
 
 	private static JComponent noAgent() {
-		return new EmptyState("bot", Tone.MUTED, "No agent on screen", null).bare();
+		return new EmptyState("user-round", Tone.MUTED, "No agent on screen", null).bare();
 	}
 
 	private static JComponent reading() {
@@ -141,6 +145,10 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 	private final JTabbedPane tabs = new JTabbedPane();
 	/** Inside the Context tab: one tab per piece. */
 	private final JTabbedPane parts = new JTabbedPane();
+	/** The inspector docked beside the chat on wide windows: the same views, in a column of their own. */
+	private final JTabbedPane side = new JTabbedPane();
+	private final JPanel sideWrap = new JPanel(new BorderLayout());
+	private boolean docked;
 	/** Each top-row view's tab content: a slot whose document is replaced on every read (Context's holds {@link #parts}). */
 	private final Map<View, JPanel> slots = new EnumMap<>(View.class);
 	/** Each piece's tab content, likewise. */
@@ -180,13 +188,44 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 			parts.addTab(p.title, slot);
 		}
 		slots.get(View.CONTEXT).add(parts, BorderLayout.CENTER);
+		slots.get(View.RECORD).add(recordNote(), BorderLayout.CENTER);
 		noteSession(SessionViews::noConversation);
 		noteAgent(SessionViews::noAgent);
 		tabs.addChangeListener(e -> onSelected());
+		side.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
+		side.putClientProperty(FlatClientProperties.TABBED_PANE_TAB_TYPE, FlatClientProperties.TABBED_PANE_TAB_TYPE_UNDERLINED);
+		side.addChangeListener(e -> onSelected());
+		sideWrap.add(side, BorderLayout.CENTER);
+		sideWrap.setBorder(tau.ui.components.Borders.hairline(false, true, false, false));
+		sideWrap.setPreferredSize(new java.awt.Dimension(tau.ui.shell.ShellLayout.SIDE, 0));
 		add(tabs, BorderLayout.CENTER);
 		addHierarchyListener(e -> {
 			if ((e.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0 && isShowing()) refresh();
 		});
+	}
+
+	/**
+	 * The chat's Record tab: what this chat's agents did, as recorded. Jobs are
+	 * not yet tied to the chat that started them, so it says where the record
+	 * is today and opens it; this chat's own slice comes with the Record view.
+	 */
+	private JPanel recordNote() {
+		JPanel p = new JPanel(new BorderLayout());
+		p.setOpaque(false);
+		// Wraps to any width, the docked inspector's 320 pt included.
+		JPanel column = new JPanel(new net.miginfocom.swing.MigLayout("insets 24 16 16 16, fillx, wrap 1", "[grow,fill]", ""));
+		column.setOpaque(false);
+		column.add(tau.ui.components.Labels.icon(tau.ui.components.Lucide.icon("scroll-text", 28,
+			tau.ui.components.Theme::muted)), "align center");
+		tau.ui.components.SelectableText title = new tau.ui.components.SelectableText(
+			"This chat's record is coming").bold();
+		column.add(title, "growx, wmin 0, w 10::");
+		column.add(tau.ui.components.SelectableText.description(
+			"Every job your agents run is recorded in Jobs, in order, with who ran it and when.").small(),
+			"growx, wmin 0, w 10::");
+		column.add(tau.ui.components.Buttons.link("Open Jobs", () -> host.openRecord()), "gaptop 8");
+		p.add(column, BorderLayout.NORTH);
+		return p;
 	}
 
 	/** Bind the live transcript and its subscription to this view's current agent. Event thread. */
@@ -336,7 +375,7 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 				if (feed != bound) return;
 				if (summary == null || summary.isBlank() || "null".equals(summary)) {
 					if (e != null) log.warn("Could not summarise the conversation", e);
-					Dialogs.warn(this, "Summary", "Sorry — " + APP_NAME + " couldn't summarise that conversation.");
+					Dialogs.warn(this, "Summary", "Sorry, " + APP_NAME + " couldn't summarise that conversation.");
 					return;
 				}
 				show.accept(summary);
@@ -364,7 +403,7 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 			} catch (Exception e) {
 				log.warn("Could not run {}", operation, e);
 				SwingUtilities.invokeLater(() -> {
-					if (feed == bound) chat.appendSystem("Sorry — " + APP_NAME + " couldn't change that conversation.");
+					if (feed == bound) chat.appendSystem("Sorry, " + APP_NAME + " couldn't change that conversation.");
 				});
 			}
 		});
@@ -378,7 +417,7 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 			SwingUtilities.invokeLater(() -> {
 				if (feed != bound) return;
 				if (snapshot != null && id.equals(snapshot.sessionId())) Clipboard.copy(SessionHistory.plainText(snapshot.items()));
-				else chat.appendSystem("Sorry — " + APP_NAME + " couldn't read that conversation.");
+				else chat.appendSystem("Sorry, " + APP_NAME + " couldn't read that conversation.");
 			});
 		});
 	}
@@ -413,20 +452,52 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 	/** Sessions shows the tab row; Home hides it and shows the chat alone. */
 	public void setTabsVisible(boolean visible) {
 		if (visible == tabsVisible) return;
+		if (!visible) chosen = current();
 		tabsVisible = visible;
-		if (visible) {
+		rebuild();
+	}
+
+	/**
+	 * Docked: Overview, Context and Agent sit in an inspector column beside
+	 * the chat (wide windows); otherwise they are tabs above it. Nothing is
+	 * lost either way: the same views, in one place or the other.
+	 */
+	public void setInspectorDocked(boolean docked) {
+		if (docked == this.docked) return;
+		View keep = tabsVisible ? current() : chosen;
+		this.docked = docked;
+		rebuild();
+		if (tabsVisible) select(keep);
+	}
+
+	public boolean inspectorDocked() {
+		return docked && tabsVisible;
+	}
+
+	private void rebuild() {
+		while (tabs.getTabCount() > 1) tabs.removeTabAt(1);
+		side.removeAll();
+		remove(sideWrap);
+		if (tabsVisible) {
 			for (View v : View.values()) {
-				if (v != View.CHAT) tabs.addTab(v.title, slots.get(v));
+				if (v == View.CHAT) continue;
+				if (docked) side.addTab(v.title, slots.get(v));
+				else tabs.addTab(v.title, slots.get(v));
 			}
+			if (docked) add(sideWrap, BorderLayout.EAST);
 			select(chosen);
-		} else {
-			chosen = current();
-			while (tabs.getTabCount() > 1) tabs.removeTabAt(1);
 		}
+		revalidate();
+		repaint();
 	}
 
 	/** Bring a view to the front; on Home only the chat can be. */
 	public void select(View v) {
+		if (docked && tabsVisible && v != View.CHAT) {
+			tabs.setSelectedIndex(0);
+			side.setSelectedComponent(slots.get(v));
+			return;
+		}
 		int i = (v == View.CHAT) ? 0 : tabs.indexOfComponent(slots.get(v));
 		if (i >= 0) tabs.setSelectedIndex(i);
 	}
@@ -438,7 +509,8 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 	}
 
 	private View current() {
-		Component c = tabs.getSelectedComponent();
+		Component c = (docked && tabsVisible && side.getSelectedComponent() != null) ? side.getSelectedComponent()
+			: tabs.getSelectedComponent();
 		for (Map.Entry<View, JPanel> e : slots.entrySet()) {
 			if (e.getValue() == c) return e.getKey();
 		}

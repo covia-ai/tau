@@ -110,6 +110,14 @@ class ToneTest {
 		assertReads(Theme.foreground(), selected, contrast, theme + " text on a selected row");
 		assertReads(Theme.muted(), selected, contrast, theme + " secondary text on a selected row");
 		for (Tone tone : Tone.values()) {
+			if (tone.isStatus()) {
+				// A named status paints only on its own ground: its text there, its icon as a mark.
+				for (Color ground : List.of(Theme.over(tone.tint(), panel), Theme.over(tone.tint(), card))) {
+					assertReads(tone.text(), ground, contrast, theme + " " + tone + " text");
+					assertReads(tone.colour(), ground, Theme.NON_TEXT_CONTRAST, theme + " " + tone + " icon");
+				}
+				continue;
+			}
 			for (Color ground : List.of(panel, card, Theme.over(tone.tint(), panel), Theme.over(tone.tint(), card))) {
 				assertReads(tone.colour(), ground, contrast, theme + " " + tone);
 			}
@@ -138,6 +146,7 @@ class ToneTest {
 
 	private static void assertTints(float alpha) {
 		for (Tone tone : Tone.values()) {
+			if (tone.isStatus()) continue; // solid grounds of their own, see StatusBadgeTest
 			String key = "Tau." + tone.name().toLowerCase() + ".tint";
 			assertNotNull(UIManager.getColor(key), key);
 			assertEquals(Math.round(alpha * 255), tone.tint().getAlpha(), 1, tone.name());

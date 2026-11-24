@@ -200,7 +200,7 @@ public final class SkillsScreen extends JPanel {
 	private JComponent nothing() {
 		return (root.getChildCount() == 0)
 			? new EmptyState("book-open", Tone.MUTED, "No skills to discover",
-				"The assistant names no skillsets, so there is nothing for it to discover.").bare()
+				"The assistant names no skillsets, so there is nothing for it to discover.").withMark(104).bare()
 			: new EmptyState("book-open", Tone.MUTED, "Nothing selected",
 				"Choose a skill to see what it does, the tools it grants and what it reveals.").bare();
 	}
@@ -208,7 +208,7 @@ public final class SkillsScreen extends JPanel {
 	private static Readout skill(SkillIndex.Skill s) {
 		Readout d = new Readout();
 		d.pair("Name", s.name()).tip("What the assistant loads the skill by.");
-		d.pair("Path", s.path()).tip("Where the skill lives on the venue: what a load refers to.");
+		d.pair("Path", s.path()).tip("A set of skills in your Home/venue.");
 		d.pair("Directory", s.skillset()).tip("The skillset or parent skill it is filed under.");
 		if (s.shadowed()) {
 			d.note("Shadowed: an earlier skillset has a skill of this name, which the index keeps, so the "
@@ -218,7 +218,7 @@ public final class SkillsScreen extends JPanel {
 			+ "and all it sees before loading.");
 		d.prose((s.description() != null && !s.description().isBlank()) ? s.description() : "(no description)");
 		d.section("Tools it grants").tip("Operations the assistant can call once the skill is loaded, and not before.");
-		if (s.tools().isEmpty()) d.note("None — it teaches judgement, not mechanics.");
+		if (s.tools().isEmpty()) d.note("None: it teaches judgement and has no tools of its own.");
 		else d.lines(true, s.tools());
 		d.section("What it reveals").tip("Skills and directories that enter the index only once this one is loaded.");
 		if (s.children().isEmpty()) d.note("Nothing further.");
@@ -228,7 +228,7 @@ public final class SkillsScreen extends JPanel {
 
 	private static Readout directory(SkillTree.Node n) {
 		Readout d = new Readout();
-		d.pair("Path", n.path()).tip("A directory of skills on the venue.");
+		d.pair("Path", n.path()).tip("A set of skills in your Home/venue.");
 		int count = n.children().size();
 		d.pair("Skills", (count == 0) ? "none yet" : Integer.toString(count));
 		d.note("A skillset: a directory of skills the assistant can discover. The ones it searches are at the "

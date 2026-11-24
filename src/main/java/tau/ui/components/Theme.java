@@ -24,7 +24,7 @@ public final class Theme {
 
 	/** The Tau accent ({@code @accentColor}). */
 	public static Color accent() {
-		return FlatUIUtils.getUIColor("Component.accentColor", 0x7C6CF5);
+		return FlatUIUtils.getUIColor("Component.accentColor", 0x6B46C1);
 	}
 
 	/** The contrast white text reaches on {@link #accentDark}: WCAG's AAA for body text. */
@@ -241,6 +241,93 @@ public final class Theme {
 
 	public static boolean isDark() {
 		return FlatLaf.isLafDark();
+	}
+
+	/**
+	 * The primary button's fill: the accent, darkened only until white reads on
+	 * it at the {@linkplain #textContrast text contrast}, so Tau's Royal Purple
+	 * fills as it is at AA (6.4:1) and any accent an owner chooses still passes.
+	 */
+	public static Color primaryFill() {
+		return darkenFor(accent(), Color.WHITE, textContrast());
+	}
+
+	// ---- Tau roles: set by Tau Dark and Tau Light, derived on other themes (FlatLaf.properties) ----
+
+	/** Cerulean: outlines, link underlines, focus, the active tab, connections. */
+	public static Color blue() {
+		return FlatUIUtils.getUIColor("Tau.blue", 0x4A90E2);
+	}
+
+	/** The sidebar's ground: gold 100 on Light, sunken navy on Dark. */
+	public static Color sidebar() {
+		return FlatUIUtils.getUIColor("Tau.sidebar.background", panel());
+	}
+
+	/** Behind the sidebar's active item. */
+	public static Color sidebarSelected() {
+		return FlatUIUtils.getUIColor("Tau.sidebar.selectedBackground", surface());
+	}
+
+	/** The 3 px bar beside the sidebar's active item. */
+	public static Color sidebarBar() {
+		return FlatUIUtils.getUIColor("Tau.sidebar.selectedBar", accent());
+	}
+
+	/** Chrome: status strip, title bar, toolbars, the Inbox panel. Gold 200 on Light. */
+	public static Color chrome() {
+		return FlatUIUtils.getUIColor("Tau.chrome.background", panel());
+	}
+
+	/** The warm surface: hovered and selected rows, empty-state cards, chip grounds. Gold 50 on Light. */
+	public static Color warmSurface() {
+		return FlatUIUtils.getUIColor("Tau.warmSurface", surface());
+	}
+
+	/** Cards, lists, tables and badges: white on Light, raised navy on Dark. */
+	public static Color card() {
+		return FlatUIUtils.getUIColor("Tau.card.background", surface());
+	}
+
+	/** The card radius as a FlatLaf arc (twice the radius). */
+	public static int cardArc() {
+		int arc = UIManager.getInt("Tau.card.arc");
+		return (arc > 0) ? arc : 24;
+	}
+
+	/** Link text: Royal Purple on Light, #B79BF0 on Dark. Never on amber. */
+	public static Color link() {
+		return FlatUIUtils.getUIColor("Tau.link", accentText());
+	}
+
+	/** Under link text: a second cue beside the colour, never the only one. */
+	public static Color linkUnderline() {
+		return FlatUIUtils.getUIColor("Tau.link.underline", blue());
+	}
+
+	/** What is yours: amber on Dark (the acting-as ring, the local node, the count pill). */
+	public static Color yours() {
+		return FlatUIUtils.getUIColor("Tau.yours", 0xF2AE30);
+	}
+
+	/** The local node in the Constellation: Royal Purple on Light, amber on Dark. */
+	public static Color localNode() {
+		return FlatUIUtils.getUIColor("Tau.localNode", accent());
+	}
+
+	/** An edge between nodes: a follow, a connection. */
+	public static Color connection() {
+		return FlatUIUtils.getUIColor("Tau.connection", blue());
+	}
+
+	/** The count pill's fill: navy on Light, amber on Dark. */
+	public static Color countPill() {
+		return FlatUIUtils.getUIColor("Tau.countPill.background", accent());
+	}
+
+	/** The count pill's text: amber on Light, navy on Dark. */
+	public static Color countPillText() {
+		return FlatUIUtils.getUIColor("Tau.countPill.foreground", 0xFFFFFF);
 	}
 
 	/** {@code base} moved {@code amount} (0–1) of the way towards {@code towards}. */

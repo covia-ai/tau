@@ -234,6 +234,9 @@ public final class Tau {
 			return;
 		}
 		Path path = launch.config();
+		// macOS: the menu bar at the top of the screen, named for the app. Before any AWT class loads.
+		System.setProperty("apple.laf.useScreenMenuBar", "true");
+		System.setProperty("apple.awt.application.name", APP_NAME);
 		configureLogging(path.getParent());
 		// Threads' uncaught exceptions — the event thread's included — go to the
 		// log file, not only to a console nobody is watching.
@@ -254,7 +257,7 @@ public final class Tau {
 		}
 		// The look chosen in Settings → Theme (remembered in prefs) wins over config.json's light/dark.
 		Prefs prefs = Prefs.load(config.home());
-		String mode = prefs.getString(PREF_MODE, config.theme());
+		String mode = LAF.effective(prefs.getString(PREF_MODE, config.theme()));
 		LAF.init(prefs.getString(themeKey(mode), null), mode, prefs.getString(PREF_ACCENT, null),
 			prefs.getBool(PREF_HIGHER_CONTRAST, false), themesDir(config));
 		new Tau(config, path, prefs).start(launch);
@@ -390,7 +393,7 @@ public final class Tau {
 			}, this::onUnlockClosing);
 		}
 		unlockDialog.showUnlock(prefill);
-		if (takeoverApproved) unlockDialog.showNote("Another " + APP_NAME + " is running; it will hand over once you unlock.");
+		if (takeoverApproved) unlockDialog.showNote("Another " + APP_NAME + " is running; it will hand over once you open it.");
 	}
 
 	/** The passphrase was accepted (or the identity recovered): drop the unlock dialog and bring up the window. */
@@ -535,7 +538,7 @@ public final class Tau {
 				if (StoreRepair.isInterruptedCollection(e)) {
 					log.error("The store was left part-way through a collection", e);
 					startupFailed(APP_NAME + " was stopped part-way through compacting its data store, and can't open"
-						+ " it until that is put right by hand. Nothing has been lost: keep every venue.etch file in "
+						+ " it until that is put right by hand. Your data is still in the store: keep every venue.etch file in "
 						+ space.store().getParent() + " as it is; putting it right needs Convex's etch tools.");
 					return;
 				}
@@ -843,7 +846,7 @@ public final class Tau {
 				SwingUtilities.invokeLater(() -> unlockFailed("That passphrase didn't work."));
 			} catch (Exception e) {
 				log.error("Unlock failed", e);
-				SwingUtilities.invokeLater(() -> unlockFailed("Couldn't unlock — see the logs."));
+				SwingUtilities.invokeLater(() -> unlockFailed("Couldn't open: see the logs."));
 			} finally {
 				java.util.Arrays.fill(passphrase, '\0');
 			}
@@ -1693,7 +1696,7 @@ public final class Tau {
 			long created = convex.core.lang.RT.ensureLong(token.record().get(covia.api.Fields.CREATED)).longValue();
 			boolean unrestricted = scope != null && covia.lattice.Caps.UNRESTRICTED.equals(scope.caps());
 			rows.add(new tau.ui.settings.AccessPanel.Row(token.name().toString(), shown, created, madeBy,
-				unrestricted));
+				unrestricted, token.expires()));
 		}
 		rows.sort(java.util.Comparator.comparingLong(tau.ui.settings.AccessPanel.Row::created).reversed());
 		return rows;
@@ -1705,8 +1708,9 @@ public final class Tau {
 		return (t == null) ? null : t.store();
 	}
 
-	public String createToken(String name, Tokens.Scope scope) throws IOException {
-		return requireTokens().create(name, scope).bearer();
+	/** Makes a named token lasting {@code lifetimeSeconds}, or until revoked when null, and returns its key. */
+	public String createToken(String name, Tokens.Scope scope, Long lifetimeSeconds) throws IOException {
+		return requireTokens().create(name, scope, lifetimeSeconds).bearer();
 	}
 
 	public String newTokenKey(String name) throws IOException {
@@ -1937,7 +1941,7 @@ public final class Tau {
 		SwingUtilities.invokeLater(() -> {
 			window.refreshSettings();
 			window.showSystemMessage("The venue operator is now shown as " + id.operatorName() + ".");
-			if (tray != null) tray.setTooltip(APP_NAME + " — " + id.name() + " (" + id.operatorName() + ")");
+			if (tray != null) tray.setTooltip(APP_NAME + ": " + id.name() + " (" + id.operatorName() + ")");
 		});
 	}
 
@@ -2561,8 +2565,8 @@ public final class Tau {
 		if (aid.equals(config.chat().agentId())) {
 			return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), config.systemPromptFor(displayNameFor(aid)));
 		}
-		String persona = "You are " + displayNameFor(aid) + ", a private personal AI assistant running on the user's "
-			+ "own computer. Be genuinely helpful, warm, and concise.";
+		String persona = "You are " + displayNameFor(aid) + ", your own agent, running on this computer under an "
+			+ "identity you own. Be genuinely helpful, warm, and concise.";
 		return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), persona);
 	}
 
@@ -3003,6 +3007,11 @@ public final class Tau {
 		return LAF.mode();
 	}
 
+	/** The mode chosen: dark, light, or {@link LAF#SYSTEM} to match the operating system. */
+	public String modeChoice() {
+		return prefs.getString(PREF_MODE, config.theme());
+	}
+
 	/** The id of the theme in use (the chosen one for the mode, else the mode's default). */
 	public String theme() {
 		return LAF.current().id();
@@ -3013,10 +3022,21 @@ public final class Tau {
 		return LAF.accent();
 	}
 
+	/** A remembered window and layout choice ({@code ui.*} in prefs.properties), or {@code fallback}. */
+	public String uiPref(String key, String fallback) {
+		return prefs.getString("ui." + key, fallback);
+	}
+
+	/** Remembers a window or layout choice on this computer; null forgets it. */
+	public void setUiPref(String key, String value) {
+		prefs.setString("ui." + key, value);
+	}
+
 	/** Switches to light or dark — each mode keeps its own chosen theme — and remembers it. */
 	public void setMode(String mode) {
 		prefs.setString(PREF_MODE, mode);
-		applyLook(prefs.getString(themeKey(mode), LAF.defaultTheme(mode)), accent());
+		String shown = LAF.effective(mode);
+		applyLook(prefs.getString(themeKey(shown), LAF.defaultTheme(shown)), accent());
 	}
 
 	/** Remembers the theme as its mode's choice, switches to that mode, and switches every window to it. */
@@ -3025,7 +3045,8 @@ public final class Tau {
 		if (chosen == null) return;
 		String mode = chosen.dark() ? LAF.DARK : LAF.LIGHT;
 		prefs.setString(themeKey(mode), id);
-		prefs.setString(PREF_MODE, mode);
+		// Matching the system stays on: the theme becomes that mode's choice.
+		if (!LAF.SYSTEM.equalsIgnoreCase(prefs.getString(PREF_MODE, null))) prefs.setString(PREF_MODE, mode);
 		applyLook(id, accent());
 	}
 

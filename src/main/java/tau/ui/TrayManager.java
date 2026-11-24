@@ -47,7 +47,7 @@ public final class TrayManager {
 		if ("1".equals(System.getenv("TAU_NO_TRAY"))) return null;
 		try {
 			if (GraphicsEnvironment.isHeadless() || !SystemTray.isSupported()) {
-				log.info("System tray not available — running as a plain window");
+				log.info("System tray not available; running as a plain window");
 				return null;
 			}
 			PopupMenu menu = new PopupMenu();
@@ -107,7 +107,7 @@ public final class TrayManager {
 		hiddenNoticeShown = true;
 		try {
 			icon.displayMessage(Tau.APP_NAME,
-				"Still running in the tray. Click the icon to reopen; use Exit to stop the venue.",
+				"Still running in the tray. Click the icon to reopen; use Exit to stop " + Tau.APP_NAME + " and your agents.",
 				TrayIcon.MessageType.INFO);
 		} catch (Exception e) {
 			// balloons are decoration

@@ -172,6 +172,22 @@
 	</dependencies>
 
 	<build>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+				<excludes>
+					<exclude>tau/build.properties</exclude>
+				</excludes>
+			</resource>
+			<!-- Only this file is filtered: it names the build (tau.BuildInfo). -->
+			<resource>
+				<directory>src/main/resources</directory>
+				<filtering>true</filtering>
+				<includes>
+					<include>tau/build.properties</include>
+				</includes>
+			</resource>
+		</resources>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -189,7 +205,9 @@
 									<version>[3.9,)</version>
 								</requireMavenVersion>
 								<requireJavaVersion>
-									<version>[21,)</version>
+									<!-- Matches maven.compiler.release, so an older JDK is
+									     named at the start rather than failing mid-compile. -->
+									<version>[25,)</version>
 								</requireJavaVersion>
 							</rules>
 						</configuration>

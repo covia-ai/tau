@@ -62,7 +62,7 @@ final class OnboardingUI {
 				for (int i = 0; i < count; i++) {
 					boolean on = i == current;
 					int r = UIScale.scale(on ? 5 : 4);
-					g2.setColor(on ? Theme.accent() : Theme.blend(Theme.surface(), Theme.foreground(), 0.35f));
+					g2.setColor(on ? Theme.accentText() : Theme.blend(Theme.surface(), Theme.foreground(), 0.35f));
 					g2.fillOval(x + i * gap - r / 2, y - r / 2, r, r);
 				}
 			} finally {
@@ -77,7 +77,10 @@ final class OnboardingUI {
 		p.setLayout(new BorderLayout(8, 0));
 		p.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
 		p.add(Labels.small(Integer.toString(index)), BorderLayout.WEST);
-		p.add(Labels.heading(word), BorderLayout.CENTER);
+		// The words in mono, so each letter reads unambiguously when written down.
+		JLabel w = Labels.heading(word);
+		Styles.style(w, "font: +2 $monospaced.font");
+		p.add(w, BorderLayout.CENTER);
 		return p;
 	}
 

@@ -15,7 +15,7 @@ import com.formdev.flatlaf.ui.FlatEmptyBorder;
 import com.formdev.flatlaf.util.UIScale;
 
 import tau.ui.components.Borders;
-import tau.ui.components.Lucide;
+import tau.ui.components.IconTile;
 import tau.ui.components.Panels;
 import tau.ui.components.PressButton;
 import tau.ui.components.Scrolls;
@@ -35,24 +35,38 @@ import tau.ui.components.Theme;
 public final class SettingsScreen extends JPanel {
 
 	public enum Tab {
-		// You and the app.
-		PROFILE("Identity", "user-round", false), GENERAL("General", "sliders-horizontal", false),
-		THEME("Theme", "palette", false),
-		// What the assistant runs on and reaches.
-		MODEL("Model", "sparkles", true), INTEGRATIONS("Integrations", "plug", false),
-		SCHEDULE("Schedule", "calendar-clock", false), JOBS("Jobs", "list-checks", false),
+		// Who you are, what you run on, who you know, and what you pay with.
+		PROFILE("Identity", IconTile.Concept.IDENTITY, false),
+		MODEL("Models", IconTile.Concept.MODEL, false),
+		PEERS("Peers", IconTile.Concept.CONSTELLATION, false),
+		TREASURY("Treasury", IconTile.Concept.TREASURY, false),
+		// The app.
+		GENERAL("General", "sliders-horizontal", IconTile.Family.NEUTRAL, true),
+		THEME("Theme", "palette", IconTile.Family.NEUTRAL, false),
+		INTEGRATIONS("Integrations", IconTile.Concept.INTEGRATIONS, false),
+		SCHEDULE("Schedule", IconTile.Concept.SCHEDULE, false),
+		// On screens of their own in the sidebar layout.
+		JOBS("Jobs", IconTile.Concept.JOBS, true),
 		// Keys and access.
-		SECRETS("Secrets", "key-round", true), VAULT("Vault", "lock", false), ACCESS("Access", "ticket", false);
+		SECRETS("Secrets", IconTile.Concept.SECRETS, false), VAULT("Vault", IconTile.Concept.VAULT, false),
+		ACCESS("Access", IconTile.Concept.ACCESS, false);
 
 		final String label;
-		/** The {@link Lucide} icon beside the label. */
+		/** The {@link Lucide} icon in the section's tile. */
 		final String icon;
+		/** The colour family the tile is tinted from. */
+		final IconTile.Family family;
 		/** Whether a gap sets this section apart from the one above, starting a group. */
 		final boolean startsGroup;
 
-		Tab(String label, String icon, boolean startsGroup) {
+		Tab(String label, IconTile.Concept concept, boolean startsGroup) {
+			this(label, concept.icon, concept.family, startsGroup);
+		}
+
+		Tab(String label, String icon, IconTile.Family family, boolean startsGroup) {
 			this.label = label;
 			this.icon = icon;
+			this.family = family;
 			this.startsGroup = startsGroup;
 		}
 
@@ -109,13 +123,28 @@ public final class SettingsScreen extends JPanel {
 		// muted otherwise. The column is as wide as its widest section.
 		JPanel column = Panels.column();
 		column.setBorder(new FlatEmptyBorder(8, 6, 8, 6));
+		// Search: by a section's name or what is on it ("lock", "passphrase", "token"); Enter opens the first match.
+		search.putClientProperty(com.formdev.flatlaf.FlatClientProperties.PLACEHOLDER_TEXT, "Search settings");
+		search.putClientProperty(com.formdev.flatlaf.FlatClientProperties.TEXT_FIELD_LEADING_ICON,
+			tau.ui.components.Lucide.icon("search", 14, tau.ui.components.Theme::muted));
+		search.getAccessibleContext().setAccessibleName("Search settings");
+		search.setAlignmentX(LEFT_ALIGNMENT);
+		search.setMaximumSize(new Dimension(Integer.MAX_VALUE, search.getPreferredSize().height));
+		tau.ui.components.Documents.onChange(search, this::filter);
+		search.addActionListener(e -> {
+			for (Tab t : Tab.values()) if (nav.get(t).isVisible()) { select(t); return; }
+		});
+		column.add(search);
+		column.add(Box.createVerticalStrut(UIScale.scale(8)));
 		for (Tab t : Tab.values()) {
+			// Selected as the Chats list is: the warm surface and the sidebar's 3 px bar.
 			PressButton b = new PressButton(t.label);
-			b.setIcon(Lucide.icon(t.icon, 16, () -> b.isSelected() ? Theme.accent() : Theme.muted()));
+			b.setIcon(new IconTile(t.icon, t.family, 24).asIcon());
 			b.setIconTextGap(10);
 			b.setHorizontalAlignment(SwingConstants.LEFT);
-			b.setMargin(new Insets(8, 12, 8, 16));
+			b.setMargin(new Insets(4, 8, 4, 16)); // the tile carries its own padding
 			Styles.style(b, "font: +1");
+			b.listRow();
 			b.setAlignmentX(LEFT_ALIGNMENT);
 			// As wide as the column; the column hugs the top, so each is as tall as it prefers.
 			b.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
@@ -125,7 +154,14 @@ public final class SettingsScreen extends JPanel {
 			column.add(b);
 			column.add(Box.createVerticalStrut(UIScale.scale(2)));
 		}
-		JPanel navHolder = Scrolls.hugTop(column);
+		// Scrolls when the window is too short for every section, so none is ever out of reach.
+		// The view keeps its own width (the widest section), so no label is cut short.
+		javax.swing.JScrollPane navHolder = new javax.swing.JScrollPane(Scrolls.hugTop(column),
+			javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+			javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+		navHolder.setOpaque(false);
+		navHolder.getViewport().setOpaque(false);
+		navHolder.getVerticalScrollBar().setUnitIncrement(UIScale.scale(16));
 		navHolder.setBorder(Borders.hairlineRight());
 
 		add(navHolder, BorderLayout.WEST);
@@ -133,13 +169,94 @@ public final class SettingsScreen extends JPanel {
 		select(Tab.values()[0]);
 	}
 
+	private Tab selected = Tab.values()[0];
+	private final javax.swing.JTextField search = new javax.swing.JTextField();
+
+	/** What each section is about, beyond its name, for search. */
+	static String keywords(Tab t) {
+		return switch (t) {
+			case PROFILE -> "identity name operator switch user acting as id did seed recovery key";
+			case MODEL -> "models model provider api key included plan";
+			case PEERS -> "peers people homes follow relay discovery network map";
+			case TREASURY -> "treasury plan free paid payments money njord limits billing";
+			case GENERAL -> "general lock quit startup sign in tray voice read aloud data store compact dashboard logs about";
+			case THEME -> "theme dark light system accent colour density layout sidebar bottom bar";
+			case INTEGRATIONS -> "integrations discord moltbook connections";
+			case SCHEDULE -> "schedule timer remind repeat later";
+			case JOBS -> "jobs tasks running record";
+			case SECRETS -> "secrets keys passwords";
+			case VAULT -> "vault passphrase remember stored";
+			case ACCESS -> "access tokens token mcp login permissions connect";
+		};
+	}
+
+	/** Shows the sections whose name or keywords match the search; all of them when it is empty. */
+	void filter() {
+		String q = search.getText().strip().toLowerCase(java.util.Locale.ROOT);
+		for (Tab t : Tab.values()) nav.get(t).setVisible(matches(t, q));
+		revalidate();
+		repaint();
+	}
+
+	/** Whether section {@code t} answers the search {@code query} (by its name or what is on it). */
+	static boolean matches(Tab t, String query) {
+		String q = query.strip().toLowerCase(java.util.Locale.ROOT);
+		return q.isEmpty() || t.label.toLowerCase(java.util.Locale.ROOT).contains(q) || keywords(t).contains(q);
+	}
+
+	/** The sections shown just now, for tests. */
+	java.util.List<Tab> visibleSections() {
+		return java.util.Arrays.stream(Tab.values()).filter(t -> nav.get(t).isVisible()).toList();
+	}
+
+	/** Types into the search, for tests. */
+	void search(String text) {
+		search.setText(text);
+	}
+	/** Pages that live on a screen of their own (the sidebar layout): their entry here opens it instead. */
+	private final Map<Tab, Runnable> elsewhere = new EnumMap<>(Tab.class);
+
+	/** Puts a page that is built outside the constructor (Peers, Treasury) into its section. */
+	public void install(Tab tab, java.awt.Component page) {
+		content.add(page, tab.name());
+		content.revalidate();
+	}
+
+	/** Whether {@code tab}'s page lives on a screen of its own just now. */
+	public boolean isElsewhere(Tab tab) {
+		return elsewhere.containsKey(tab);
+	}
+
+	/** {@code tab}'s page lives elsewhere: its entry opens it there. Null brings it back here. */
+	public void livesElsewhere(Tab tab, Runnable open) {
+		if (open == null) elsewhere.remove(tab);
+		else elsewhere.put(tab, open);
+	}
+
+	/** Puts a page's panel back in this screen, after it was shown on a screen of its own. */
+	public void restore(Tab tab, java.awt.Component panel) {
+		content.add(panel, tab.name());
+		content.revalidate();
+	}
+
+	/** The section on view. */
+	public Tab selected() {
+		return selected;
+	}
+
 	/** Select a section (also shows its content). */
 	public void select(Tab t) {
+		Runnable open = elsewhere.get(t);
+		if (open != null) {
+			open.run();
+			return;
+		}
+		selected = t;
 		for (Map.Entry<Tab, PressButton> e : nav.entrySet()) {
 			boolean on = e.getKey() == t;
 			e.getValue().setSelected(on);
-			if (on) Styles.classes(e.getValue(), Styles.ACCENT);
-			else Styles.classes(e.getValue());
+			// Navy text on the warm surface, with the bar, as in the sidebar; no accent fill.
+			Styles.classes(e.getValue());
 		}
 		cards.show(content, t.name());
 	}

@@ -79,13 +79,24 @@ final class SolarMap extends JComponent {
 	static final double MIN_ZOOM = 0.035, MAX_ZOOM = 3.2;
 	/** How near a ring's line the pointer must be to take hold of it, in pixels. */
 	private static final float ORBIT_GRIP = 6f;
+	// The sky by theme: deep navy on Dark; on Light, the warm surface fading to white.
 	private static final Color SPACE_CENTRE = new Color(0x161C33);
 	private static final Color SPACE_EDGE = new Color(0x06080E);
+	private static final Color LIGHT_CENTRE = new Color(0xFDF6E7);
+	private static final Color LIGHT_EDGE = new Color(0xFFFFFF);
+
+	/** What the map draws its stars, orbits and labels in: white on the night sky, navy on the light one. */
+	static Color ink() {
+		return Theme.isDark() ? Color.WHITE : new Color(0x1E2642);
+	}
+
+	private static Color ink(float alpha) {
+		Color c = ink();
+		return new Color(c.getRed(), c.getGreen(), c.getBlue(), Math.max(0, Math.min(255, Math.round(alpha * 255))));
+	}
 	static final Color CONNECTED = new Color(0x4ADE80);
 	static final Color IDLE = new Color(0xFBBF24);
 	static final Color OFFLINE = new Color(0x6B7280);
-	/** Whoever you are acting as. */
-	static final Color YOU = new Color(0xFACC15);
 
 	/**
 	 * How bodies at a depth look: the smallest they are drawn, in pixels;
@@ -403,13 +414,14 @@ final class SolarMap extends JComponent {
 	}
 
 	/**
-	 * Whoever you are acting as is yellow; your venue and your main assistant
-	 * wear the brand colour; anything else is coloured by its DID.
+	 * The local node, whoever you are acting as and your own venue, wears the
+	 * theme's local-node colour (Royal Purple on Light, amber on Dark); your
+	 * main assistant wears the brand colour; anything else is coloured by its DID.
 	 */
 	Color colourOf(Node n) {
-		if (n.did().equals(acting)) return YOU;
+		if (n.did().equals(acting)) return Theme.localNode();
 		if (Node.MAIN.equals(n.relation())) return Theme.accent();
-		if (n.is(Node.VENUE) && Node.SELF.equals(n.relation())) return Theme.accent();
+		if (n.is(Node.VENUE) && Node.SELF.equals(n.relation())) return Theme.localNode();
 		return hue(n.did());
 	}
 
@@ -438,7 +450,7 @@ final class SolarMap extends JComponent {
 	static String labelOf(Node n) {
 		if (n.is(Node.VENUE) && Node.SELF.equals(n.relation())) return "Home";
 		if (n.name() != null && !n.name().isBlank()) return n.name();
-		return n.is(Node.VENUE) ? "Unknown venue" : "Unknown";
+		return n.is(Node.VENUE) ? "Unknown home" : "Unknown";
 	}
 
 	// ------------------------------------------------------------------
@@ -678,7 +690,7 @@ final class SolarMap extends JComponent {
 		}
 		Node n = p.node();
 		if (n == null) return null;
-		if (n.name() == null && n.is(Node.VENUE)) return "A venue you don't know";
+		if (n.name() == null && n.is(Node.VENUE)) return "A home you don't know";
 		int kids = childCount(n.did());
 		return labelOf(n) + " · " + statusLabel(n) + (kids == 0 ? "" : " · " + plural(kids, MapLayout.childNoun(n)));
 	}
@@ -835,7 +847,7 @@ final class SolarMap extends JComponent {
 			try {
 				float rad = (float) Math.max(w, h) * 0.75f;
 				s.setPaint(new RadialGradientPaint(new Point2D.Double(w / 2.0 + panX * 0.05, h / 2.0 + panY * 0.05), rad,
-					new float[] { 0f, 1f }, new Color[] { SPACE_CENTRE, SPACE_EDGE }));
+					new float[] { 0f, 1f }, Theme.isDark() ? new Color[] { SPACE_CENTRE, SPACE_EDGE } : new Color[] { LIGHT_CENTRE, LIGHT_EDGE }));
 				s.fillRect(0, 0, w, h);
 				nebula(s, w * 0.22 + panX * 0.08, h * 0.28 + panY * 0.08, Math.max(w, h) * 0.38, accent, 0.10f);
 				nebula(s, w * 0.82 + panX * 0.08, h * 0.78 + panY * 0.08, Math.max(w, h) * 0.30, new Color(0x2DD4BF), 0.07f);
@@ -855,7 +867,7 @@ final class SolarMap extends JComponent {
 			double y = ((st[1] * h + panY * 0.06) % h + h) % h;
 			float tw = 0.55f + 0.45f * (float) Math.sin(t * st[4] + st[3]);
 			float size = UIScale.scale(st[2]);
-			g.setColor(new Color(1f, 1f, 1f, Math.min(1f, 0.25f + 0.6f * tw * (st[2] / 2f))));
+			g.setColor(ink(Math.min(1f, 0.25f + 0.6f * tw * (st[2] / 2f)) * (Theme.isDark() ? 1f : 0.35f)));
 			g.fill(new Ellipse2D.Double(x - size / 2, y - size / 2, size, size));
 		}
 	}
@@ -968,7 +980,7 @@ final class SolarMap extends JComponent {
 				if (child.ring() >= 0) continue;
 				double ro = child.k() * b.radius() * s;
 				g.setStroke(new BasicStroke(UIScale.scale(0.8f)));
-				g.setColor(new Color(1f, 1f, 1f, 0.07f * a));
+				g.setColor(ink(0.07f * a * (Theme.isDark() ? 1f : 1.6f)));
 				g.draw(new Ellipse2D.Double(c.x - ro, c.y - ro * TILT, 2 * ro, 2 * ro * TILT));
 			}
 		}
@@ -993,7 +1005,7 @@ final class SolarMap extends JComponent {
 		float dash = UIScale.scale(3f);
 		g.setStroke(new BasicStroke(UIScale.scale(held ? 1.8f : lit ? 1.4f : 1f), BasicStroke.CAP_ROUND,
 			BasicStroke.JOIN_ROUND, 1f, last ? new float[] { dash, dash * 2 } : null, (float) (t * 4 % (dash * 3))));
-		g.setColor(new Color(1f, 1f, 1f, a * (held ? 0.5f : lit ? 0.32f : 0.11f)));
+		g.setColor(ink(a * (held ? 0.5f : lit ? 0.32f : Theme.isDark() ? 0.11f : 0.2f)));
 		g.draw(new Ellipse2D.Double(c.x - r, c.y - r * TILT, 2 * r, 2 * r * TILT));
 		float names = held ? 1 : alpha * fadeIn(r, UIScale.scale(120f), UIScale.scale(180f));
 		if (names <= 0) return;
@@ -1003,7 +1015,7 @@ final class SolarMap extends JComponent {
 		float spacing = UIScale.scale(1.2f);
 		FontMetrics fm = g.getFontMetrics();
 		float width = fm.stringWidth(name) + spacing * (name.length() - 1);
-		g.setColor(new Color(1f, 1f, 1f, names * (lit ? 0.7f : 0.32f)));
+		g.setColor(ink(names * (lit ? 0.7f : Theme.isDark() ? 0.32f : 0.5f)));
 		drawTracked(g, name, (float) (c.x - width / 2), (float) (c.y + r * TILT + UIScale.scale(13)), spacing);
 	}
 
@@ -1056,7 +1068,7 @@ final class SolarMap extends JComponent {
 			if (marker > 0) {
 				double mr = UIScale.scale(14f) * (1 + 0.12 * Math.sin(t * 2.2));
 				g.setStroke(new BasicStroke(UIScale.scale(1.4f)));
-				g.setColor(fade(Theme.accent(), 0.75f * marker));
+				g.setColor(fade(Theme.localNode(), 0.75f * marker));
 				g.draw(new Ellipse2D.Double(x - mr, y - mr, 2 * mr, 2 * mr));
 			}
 		}
@@ -1197,12 +1209,13 @@ final class SolarMap extends JComponent {
 		Rectangle2D box = new Rectangle2D.Double(pl.x() - w / 2, y - fm.getAscent(), w, h);
 		if (!focus) for (Rectangle2D other : labelled) if (other.intersects(box)) return;
 		labelled.add(box);
-		// The name of whoever you are acting as in yellow; everyone else's in white.
+		// The name of whoever you are acting as in the local node's colour (amber on
+		// Dark, Royal Purple on Light); everyone else's in the map's ink.
 		boolean you = n.did().equals(acting);
-		centred(g, name, pl.x(), y, fade(you ? YOU : Color.WHITE, Math.min(1f, 0.85f * alpha + (focus ? 0.13f : 0))));
+		centred(g, name, pl.x(), y, fade(you ? Theme.localNode() : ink(), Math.min(1f, 0.85f * alpha + (focus ? 0.13f : 0))));
 		if (sub != null) {
 			g.setFont(getFont().deriveFont(UIScale.scale(10f)));
-			centred(g, sub, pl.x(), y + UIScale.scale(13), new Color(1f, 1f, 1f, 0.55f));
+			centred(g, sub, pl.x(), y + UIScale.scale(13), ink(0.55f));
 		}
 	}
 
@@ -1219,7 +1232,9 @@ final class SolarMap extends JComponent {
 	private static void centred(Graphics2D g, String text, double x, double y, Color colour) {
 		FontMetrics fm = g.getFontMetrics();
 		float tx = (float) (x - fm.stringWidth(text) / 2.0);
-		g.setColor(new Color(0, 0, 0, Math.min(160, colour.getAlpha())));
+		// A halo behind the label: dark on the night sky, light on the light one.
+		g.setColor(Theme.isDark() ? new Color(0, 0, 0, Math.min(160, colour.getAlpha()))
+			: new Color(255, 255, 255, Math.min(200, colour.getAlpha())));
 		g.drawString(text, tx + 1, (float) y + 1);
 		g.setColor(colour);
 		g.drawString(text, tx, (float) y);

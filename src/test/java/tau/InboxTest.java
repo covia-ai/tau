@@ -79,7 +79,7 @@ class InboxTest {
 		assertEquals(List.of(new Inbox.Grant("w/payments/", "crud/read", null)), pay.grants());
 		assertTrue(r.asks().get(1).allowComment());
 		assertEquals(List.of("Now", "Later"), r.asks().get(2).options().stream().map(Inbox.Option::label).toList());
-		assertEquals(1, Inbox.pending(Inbox.parse(venue.inbox(userDID))));
+		assertEquals(1, Inbox.pending(Inbox.parse(venue.inbox(userDID), userDID)));
 
 		Map<String, Object> answers = new LinkedHashMap<>();
 		answers.put("pay", true);
@@ -105,7 +105,7 @@ class InboxTest {
 		assertEquals("Email, SMS", resp.answers().get("notify"));
 		assertEquals("Approved for this invoice only", resp.comment());
 		assertTrue(resp.grants().isEmpty());
-		assertEquals(0, Inbox.pending(Inbox.parse(venue.inbox(userDID))));
+		assertEquals(0, Inbox.pending(Inbox.parse(venue.inbox(userDID), userDID)));
 	}
 
 	/**

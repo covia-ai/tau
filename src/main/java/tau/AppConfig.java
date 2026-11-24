@@ -66,7 +66,7 @@ public final class AppConfig {
 	public static final String DEFAULT_SYSTEM_PROMPT = defaultSystemPrompt(DEFAULT_AGENT_ID);
 
 	private static String defaultSystemPrompt(String name) {
-		return "You are " + name + ", a private personal AI assistant running on the user's own computer, "
+		return "You are " + name + ", your own agent, running on this computer under an identity you own, "
 		+ "powered by the Covia Grid (keep that under the hood unless they ask). Be warm, concise and "
 		+ "genuinely helpful, and use the user's name naturally rather than in every message. Follow "
 		+ "your loaded skills, and quietly keep your memory of what the user is like and prefers, so it "
@@ -204,11 +204,19 @@ public final class AppConfig {
 			Config.USERS, Maps.of(Config.AUTO_CREATE, true),
 			// This is a private personal venue: HTTP and MCP require authentication.
 			Config.AUTH, Maps.of(Config.PUBLIC, Maps.of(Config.ENABLED, false)),
-			Config.ALLOW_PRIVATE_NETWORK, true,
+			// Private Network Access preflights are left to Covia, which answers
+			// them while the venue is bound to loopback (so local web tooling
+			// can reach it) and refuses them once it is bound wider.
 			// A turn is not cut off after Covia's default of 30 tool calls: long
 			// work such as working through a feed needs more. Covia should have
 			// no default limit at all (covia#694).
 			Config.MAX_TOOL_ITERATIONS, 1000L,
+			// A record of who signed in and what outside tools called, from the
+			// first connection on: Covia's audit trail (sign-ins, refusals, token
+			// issue, secret writes) and one line per HTTP request, each to its own
+			// rolling file under logs/ (tau/logback.xml). Covia logs neither
+			// request bodies nor query strings.
+			Config.LOGGING, Maps.of(Config.AUDIT, true, Config.ACCESS, true),
 			// Confined host-file roots: a durable area Tau may manage, the
 			// source checkouts the assistant works on (Tau's own at
 			// code/tau, see ClaudeCode), and a server-enforced read-only

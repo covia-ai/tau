@@ -11,13 +11,18 @@ import java.awt.CardLayout;
 import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.Toolkit;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
 import javax.swing.AbstractAction;
-import javax.swing.ImageIcon;
 import javax.swing.JComponent;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JPopupMenu;
 import javax.swing.JFrame;
 import javax.swing.JSplitPane;
 import javax.swing.JPanel;
@@ -50,6 +55,14 @@ import tau.ui.settings.SecretsPanel;
 import tau.ui.settings.SettingsScreen;
 import tau.ui.settings.ThemePanel;
 import tau.ui.settings.VaultPanel;
+import tau.ui.shell.CommandPalette;
+import tau.ui.shell.Commands;
+import tau.ui.shell.Destination;
+import tau.ui.shell.Rail;
+import tau.ui.shell.ShellCommands;
+import tau.ui.shell.ShellLayout;
+import tau.ui.shell.StatusSlot;
+import tau.ui.shell.StatusStrip;
 
 /**
  * The Tau window. Two full-window screens on a {@link CardLayout}: the
@@ -100,6 +113,39 @@ public final class MainWindow extends JFrame {
 	private NavBar.Tab activeTab = NavBar.Tab.HOME;
 	private tau.ui.peers.PeersScreen peersScreen;
 
+	// The Workbench shell (ui.shell = rail, the default; classic keeps the bottom bar):
+	// the sidebar, the status strip, the menu bar and the command palette.
+	private static final String MAIN_FEED = "feed";
+	private static final String MAIN_AGENTS = "agents";
+	private static final String MAIN_JOBS = "jobs";
+	private static final String MAIN_RECORD = "record";
+	private static final String MAIN_VAULT = "vault";
+	/** In the sidebar layout Jobs and the Vault's pages are screens of their own, holding Settings' own panels. */
+	private final JPanel jobsHolder = new JPanel(new BorderLayout());
+	private tau.ui.vault.VaultScreen vaultScreen;
+	private tau.ui.record.RecordScreen recordScreen;
+	private tau.ui.settings.TreasuryPanel treasuryPanel;
+	/** The Inbox panel, docked beside Home and Jobs from 1440 while requests wait. */
+	private tau.ui.inbox.InboxPanel inboxPanel;
+	private JPanel railContent;
+	private int waitingCount;
+	private tau.ui.agents.AgentsScreen agentsScreen;
+	/** The agents as last reported, for the Agents roster. */
+	private List<tau.model.AgentRef> lastAgents = List.of();
+	private String lastDefaultAgent;
+	/** The window opens at about this size the first time; a remembered size always wins. */
+	static final int DEFAULT_WIDTH = 1200, DEFAULT_HEIGHT = 800;
+	private Rail rail;
+	private StatusStrip strip;
+	private CommandPalette palette;
+	private Commands commands;
+	private JPanel chatCard;
+	private boolean railShell;
+	private boolean railCollapsedByChoice;
+	/** On Agents, whether the person wants the agents and Chats list; it docks where there is room. */
+	private boolean chatsListOpen = true;
+	private Destination destination = Destination.HOME;
+
 	private EmbeddedVenue venue; // set once ready
 	private Identity identity;
 	/** What the venue last reported each provider serving, for the new-agent dialog. */
@@ -111,7 +157,6 @@ public final class MainWindow extends JFrame {
 		this.app = app;
 		setIconImages(Icons.appIcons());
 		setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-		installShortcuts();
 
 		onboarding = new tau.ui.onboarding.OnboardingWizard(app::onOnboardingComplete);
 
@@ -202,11 +247,7 @@ public final class MainWindow extends JFrame {
 
 			@Override
 			public void onNewAgent() {
-				NewAgentPanel.Options options = NewAgentPanel.showDialog(MainWindow.this, app.currentModelOp(),
-					servedModels);
-				if (options != null) {
-					app.createAgent(options.name(), options.modelOp(), options.systemPrompt(), options.template().skill());
-				}
+				newAgent();
 			}
 
 			@Override
@@ -226,6 +267,7 @@ public final class MainWindow extends JFrame {
 			boolean main = !app.actingAsOperator() && aid.equals(app.mainAgentId());
 			return tau.ui.peers.Colours.agent(owner, aid, main);
 		});
+		agentList.setIdentities(aid -> app.actingPrincipal() != null ? app.actingPrincipal() + "/g/" + aid : null);
 		sessionsPane = new JPanel(new BorderLayout());
 		sessionsPane.add(agentList, BorderLayout.WEST);
 		sessionsPane.add(conversations, BorderLayout.CENTER);
@@ -262,6 +304,11 @@ public final class MainWindow extends JFrame {
 			public void agentsChanged() {
 				app.refreshAgents();
 			}
+			@Override
+			public void openRecord() {
+				go(Destination.JOBS);
+			}
+
 
 			@Override
 			public void showSkill(String path) {
@@ -431,12 +478,25 @@ public final class MainWindow extends JFrame {
 			public void openThemesFolder() {
 				app.openThemesFolder();
 			}
+
+			@Override
+			public void setShell(boolean rail) {
+				app.setUiPref("shell", rail ? "rail" : "classic");
+				applyShell(rail);
+			}
+
+			@Override
+			public void setDensity(boolean compact) {
+				app.setUiPref("density", compact ? "compact" : "comfortable");
+				applyDensity(compact);
+			}
 		});
 
 		ModelPanel modelPanel = new ModelPanel(new ModelPanel.Handler() {
 			@Override
 			public void applyModel(String providerId, String modelId) {
 				app.applyModel(providerId, modelId);
+				updateModelChip();
 			}
 
 			@Override
@@ -584,8 +644,8 @@ public final class MainWindow extends JFrame {
 			}
 
 			@Override
-			public String createToken(String name, tau.Tokens.Scope scope) throws Exception {
-				return app.createToken(name, scope);
+			public String createToken(String name, tau.Tokens.Scope scope, Long lifetimeSeconds) throws Exception {
+				return app.createToken(name, scope, lifetimeSeconds);
 			}
 
 			@Override
@@ -633,8 +693,24 @@ public final class MainWindow extends JFrame {
 				app.setKeepOperatorToken(keep);
 			}
 		});
+		treasuryPanel = new tau.ui.settings.TreasuryPanel();
+		treasuryPanel.setPlan(tau.ui.settings.TreasuryPanel.Plan.stub());
 		settingsScreen = new SettingsScreen(generalPanel, themePanel, modelPanel, profilePanel, integrationsPanel,
 			schedulePanel, jobsScreen, secretsPanel, vaultPanel, accessPanel);
+		settingsScreen.install(SettingsScreen.Tab.PEERS, new tau.ui.settings.PeersSettingsPanel(
+			new tau.ui.settings.PeersSettingsPanel.Host() {
+				@Override
+				public void openPeersMap() {
+					go(Destination.PEERS);
+				}
+
+				@Override
+				public void copyMyIdentity() {
+					String did = myIdentity();
+					if (did != null) tau.ui.components.Clipboard.copy(did, getRootPane());
+				}
+			}));
+		settingsScreen.install(SettingsScreen.Tab.TREASURY, treasuryPanel);
 
 		mainDeck = new JPanel(mainCards);
 		mainDeck.add(split, MAIN_CHAT);
@@ -671,7 +747,7 @@ public final class MainWindow extends JFrame {
 			@Override public void removeFolder(String name) throws Exception { app.fileRoots().remove(name); }
 			@Override public void createDrive(String name) throws Exception {
 				tau.PersonalDrives drives = app.personalDrives();
-				if (drives == null) throw new IllegalStateException("Unlock " + APP_NAME + " to make a drive.");
+				if (drives == null) throw new IllegalStateException("Open " + APP_NAME + " to make a drive.");
 				drives.create(name);
 			}
 			@Override public String folderNameProblem(String name) { return tau.FileRoots.nameProblem(name); }
@@ -682,8 +758,10 @@ public final class MainWindow extends JFrame {
 
 		// Your venue, live from the embedded venue, among sample venues: nothing on the wire.
 		// How the map is drawn is the acting person's own, kept apart from the data.
-		peersScreen = new tau.ui.peers.PeersScreen(tau.peers.PeerSource.combined(
-			new tau.peers.SamplePeerSource(), new tau.peers.LiveSource(app::homePeers)), app::peersMapSettings,
+		peersScreen = new tau.ui.peers.PeersScreen(tau.peers.ExamplesSource.with(
+			new tau.peers.ExamplesSource(new tau.peers.SamplePeerSource(),
+				!"off".equals(app.uiPref("peers.examples", "on"))),
+			new tau.peers.LiveSource(app::homePeers)), app::peersMapSettings,
 			new tau.ui.peers.PeersScreen.Actions() {
 				@Override
 				public boolean actingAsOperator() {
@@ -701,13 +779,36 @@ public final class MainWindow extends JFrame {
 					selectTab(NavBar.Tab.HOME);
 				}
 			});
+		peersScreen.onExamplesChanged(on -> app.setUiPref("peers.examples", on ? "on" : "off"));
 		mainDeck.add(peersScreen, MAIN_PEERS);
 
 		navBar = new NavBar(this::selectTab);
+		mainDeck.add(new FeedScreen(), MAIN_FEED);
+		agentsScreen = new tau.ui.agents.AgentsScreen(new AgentsHost());
+		mainDeck.add(agentsScreen, MAIN_AGENTS);
+		jobsHolder.add(new tau.ui.components.ScreenHeader("Jobs"), BorderLayout.NORTH);
+		mainDeck.add(jobsHolder, MAIN_JOBS);
+		vaultScreen = new tau.ui.vault.VaultScreen();
+		mainDeck.add(vaultScreen, MAIN_VAULT);
+		recordScreen = new tau.ui.record.RecordScreen(new tau.ui.record.RecordScreen.Host() {
+			@Override
+			public void openInJobs(String jobId) {
+				go(Destination.JOBS);
+				settingsScreen.jobs().open(jobId);
+			}
 
-		JPanel chatCard = new JPanel(new BorderLayout());
-		chatCard.add(mainDeck, BorderLayout.CENTER);
-		chatCard.add(navBar, BorderLayout.SOUTH);
+			@Override
+			public void copy(String text) {
+				tau.ui.components.Clipboard.copy(text, getRootPane());
+			}
+		});
+		mainDeck.add(recordScreen, MAIN_RECORD);
+		chatCard = new JPanel(new BorderLayout());
+		inboxPanel = new tau.ui.inbox.InboxPanel(r -> {
+			go(Destination.INBOX);
+			inboxScreen.focus(r);
+		});
+		installShell();
 
 		deck.add(onboarding, CARD_ONBOARD);
 		deck.add(welcomePanel, CARD_WELCOME);
@@ -717,6 +818,7 @@ public final class MainWindow extends JFrame {
 		addWindowListener(new WindowAdapter() {
 			@Override
 			public void windowClosing(WindowEvent e) {
+				saveGeometry();
 				app.onWindowClosing();
 			}
 
@@ -731,9 +833,14 @@ public final class MainWindow extends JFrame {
 			}
 		});
 
-		setSize(1040, 760);
 		setMinimumSize(new Dimension(720, 520));
-		setLocationRelativeTo(null);
+		restoreGeometry();
+		addComponentListener(new ComponentAdapter() {
+			@Override
+			public void componentResized(ComponentEvent e) {
+				relayout();
+			}
+		});
 		// The first screen is chosen by Tau.start() (onboarding / name /
 		// chat), via the show* methods below; a returning owner unlocks in the
 		// UnlockDialog before this window is shown at all.
@@ -758,25 +865,6 @@ public final class MainWindow extends JFrame {
 	// Keyboard shortcuts (visible actions live in Settings → General)
 	// ------------------------------------------------------------------
 
-	private void installShortcuts() {
-		int shortcut = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
-		bindShortcut("new-chat", KeyStroke.getKeyStroke(KeyEvent.VK_N, shortcut), this::showNewChat);
-		bindShortcut("refresh", KeyStroke.getKeyStroke(KeyEvent.VK_R, shortcut), app::refreshNow);
-		if (app.hasTray()) {
-			bindShortcut("hide-to-tray", KeyStroke.getKeyStroke(KeyEvent.VK_H, shortcut), app::hideToTray);
-		}
-		bindShortcut("quit", KeyStroke.getKeyStroke(KeyEvent.VK_Q, shortcut), app::exit);
-	}
-
-	private void bindShortcut(String name, KeyStroke key, Runnable action) {
-		getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(key, name);
-		getRootPane().getActionMap().put(name, new AbstractAction() {
-			@Override
-			public void actionPerformed(java.awt.event.ActionEvent e) {
-				action.run();
-			}
-		});
-	}
 
 	private void showNewChat() {
 		selectTab(NavBar.Tab.HOME);
@@ -794,6 +882,7 @@ public final class MainWindow extends JFrame {
 		updateWho();
 		chatPanel.restore(history);
 		chatPanel.setSession(session);
+		updateModelChip();
 		selectTab(NavBar.Tab.HOME);
 		show(CARD_CHAT);
 		app.refreshServedModels(); // answers through showServedModels, off the event thread
@@ -802,6 +891,7 @@ public final class MainWindow extends JFrame {
 	/** Switched to another agent: rebind the chat to its conversation (no name-change note). */
 	public void showAgentChat(ChatSession session, List<SessionHistory.Item> history, String agentName) {
 		chatPanel.setAgentName(agentName);
+		updateModelChip();
 		chatPanel.restore(history);
 		chatPanel.setSession(session);
 		chatPanel.appendSystem(history.isEmpty() ? "New conversation with " + agentName + "."
@@ -815,7 +905,7 @@ public final class MainWindow extends JFrame {
 		updateWho();
 		chatPanel.restore(history);
 		chatPanel.setSession(session);
-		chatPanel.appendSystem("Okay — I'll call you " + identity.name() + " from now on.");
+		chatPanel.appendSystem("Okay, I'll call you " + identity.name() + " from now on.");
 		show(CARD_CHAT);
 	}
 
@@ -823,6 +913,7 @@ public final class MainWindow extends JFrame {
 	public void userLoggedOut() {
 		views.close();
 		identity = null;
+		identityChanged();
 		chatPanel.clearSession();
 		conversations.setSessions(List.of(), null);
 		agentList.setAgents(List.of(), null, null);
@@ -862,6 +953,9 @@ public final class MainWindow extends JFrame {
 	/** Replace the agents pane's list, highlighting the current agent; {@code defaultId} is the standard agent. */
 	public void setAgents(List<tau.model.AgentRef> agents, String selectedId, String defaultId) {
 		agentList.setAgents(agents, selectedId, defaultId);
+		lastAgents = List.copyOf(agents);
+		lastDefaultAgent = defaultId;
+		if (agentsScreen != null && destination == Destination.AGENTS) refreshAgentsScreen();
 		// The welcome greets by the current agent's name, and follows a rename.
 		String name = null;
 		for (tau.model.AgentRef a : agents) {
@@ -945,6 +1039,8 @@ public final class MainWindow extends JFrame {
 			}
 		}
 		navBar.setActive(tab);
+		syncRail(tab);
+		relayout();
 	}
 
 	/** Show or hide (collapse) the sessions bar within the chat view. */
@@ -955,7 +1051,9 @@ public final class MainWindow extends JFrame {
 			split.setDividerLocation(sidebarWidth);
 		} else {
 			int loc = split.getDividerLocation();
-			if (loc > 20) sidebarWidth = loc; // remember the width for next time
+			// Remember a width the person chose; in the sidebar layout the list keeps its own width,
+			// so a squeeze while the window was narrow is never remembered as a choice.
+			if (loc > 20 && (!railShell || loc >= ShellLayout.LIST)) sidebarWidth = loc;
 			sessionsPane.setVisible(false);
 			split.setDividerSize(0);
 			split.setDividerLocation(0);
@@ -977,6 +1075,8 @@ public final class MainWindow extends JFrame {
 		settingsScreen.general().refreshVoice(app.readRepliesAloud(), app.sendAfterPauseSeconds());
 		settingsScreen.general().refreshStore(app.storeReport());
 		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent(), app.higherContrast());
+		settingsScreen.theme().refreshLayout(railShell, tau.ui.components.Density.compact());
+		settingsScreen.theme().refreshSystem(LAF.SYSTEM.equalsIgnoreCase(app.modeChoice()));
 		settingsScreen.model().preselect(app.currentModelOp());
 		app.refreshServedModels(); // answers through showServedModels, off the event thread
 		settingsScreen.profile().refresh(name, userDid, venueDid, app.publicKeyHex(), app.canRevealPrivateSeed(),
@@ -995,8 +1095,9 @@ public final class MainWindow extends JFrame {
 	}
 
 	private void showSettings(SettingsScreen.Tab tab) {
-		settingsScreen.select(tab);
-		selectTab(NavBar.Tab.SETTINGS);
+		boolean elsewhere = settingsScreen.isElsewhere(tab);
+		settingsScreen.select(tab); // a page with a screen of its own opens there
+		if (!elsewhere) selectTab(NavBar.Tab.SETTINGS);
 	}
 
 	/** Programmatic entry points into the Settings screen's sections. */
@@ -1065,21 +1166,27 @@ public final class MainWindow extends JFrame {
 	/** Replace the Inbox's requests (open first) and badge the tab with the number waiting. */
 	public void setInbox(List<tau.Inbox.Request> requests) {
 		inboxScreen.setRequests(requests);
-		navBar.setBadge(NavBar.Tab.INBOX, tau.Inbox.pending(requests));
+		int waiting = tau.Inbox.pending(requests);
+		navBar.setBadge(NavBar.Tab.INBOX, waiting);
+		inboxPanel.setRequests(requests);
+		setWaiting(waiting);
 	}
 
 	/** {@code owner}'s jobs for Settings → Jobs, which watches them while on screen; null for none. */
 	public void setJobs(covia.venue.Jobs jobs, String owner) {
 		settingsScreen.jobs().setJobs(jobs, owner);
+		recordScreen.setJobs(jobs, owner);
 	}
 
 	public void clearJobs() {
 		settingsScreen.jobs().clear();
+		recordScreen.clear();
 	}
 
 	public void clearInbox() {
 		inboxScreen.clear();
 		navBar.setBadge(NavBar.Tab.INBOX, 0);
+		setWaiting(0);
 	}
 
 	/** A line under the open request: the result of the last answer or rejection. */
@@ -1144,12 +1251,13 @@ public final class MainWindow extends JFrame {
 			return;
 		}
 		if (CARD_WELCOME.equals(currentCard)) {
-			welcomePanel.setError("Sorry — " + APP_NAME + " couldn't start up.");
+			welcomePanel.setError("Sorry, " + APP_NAME + " couldn't start up.");
 		}
 		chatPanel.appendError(message);
 	}
 
 	private void updateWho() {
+		identityChanged();
 		if (identity == null) return;
 		setTitle(Tau.APP_NAME);
 	}
@@ -1176,7 +1284,11 @@ public final class MainWindow extends JFrame {
 		StringBuilder sb = new StringBuilder();
 		sb.append(Tau.APP_NAME).append('\n');
 		sb.append("Your personal assistant, running privately on your own computer.\n\n");
-		sb.append("Powered by the Covia Grid — an open platform for AI agents and data.\n");
+		sb.append("Powered by the Covia Grid, an open platform for AI agents and data.\n");
+		// Which build, so a bug report can name it.
+		sb.append("\nVersion ").append(tau.BuildInfo.version())
+			.append(" · Covia ").append(tau.BuildInfo.coviaVersion()).append('\n');
+		sb.append("\nType: Inter and Inconsolata, each under the SIL Open Font License 1.1.\n");
 		if (identity != null) sb.append("\nYou are: ").append(identity.name());
 		if (venue != null) {
 			// The technical identity, kept for the curious — this is the "settings" surface.
@@ -1184,7 +1296,566 @@ public final class MainWindow extends JFrame {
 			if (venue.did() != null) sb.append("\nIdentity: ").append(identity != null
 				? identity.userDID(venue.did()) : venue.did());
 		}
-		Dialogs.info(this, "About " + Tau.APP_NAME, new SelectableText(sb.toString()), new ImageIcon(Icons.icon(64)));
+		Dialogs.info(this, "About " + Tau.APP_NAME, new SelectableText(sb.toString()),
+			tau.ui.components.TauMark.brand(128));
 	}
 
+
+	// ------------------------------------------------------------------
+	// The Workbench shell
+	// ------------------------------------------------------------------
+
+	/** The composer's model chip follows the model the chat runs on. */
+	public void updateModelChip() {
+		String op = app.currentModelOp();
+		chatPanel.setModel(tau.model.Providers.label(op), tau.model.Providers.marker(op),
+			() -> showSettings(SettingsScreen.Tab.MODEL));
+	}
+
+	/** The New agent dialog: from the Agents list's + Agent, File → New agent, and the palette. */
+	private void newAgent() {
+		NewAgentPanel.Options options = NewAgentPanel.showDialog(this, app.currentModelOp(), servedModels);
+		if (options != null) {
+			app.createAgent(options.name(), options.modelOp(), options.systemPrompt(), options.template().skill());
+		}
+	}
+
+	/** Builds the sidebar, status strip, palette and menu bar, then lays the chat card out for the chosen shell. */
+	private void installShell() {
+		Shell host = new Shell();
+		commands = ShellCommands.build(host);
+		rail = new Rail(host);
+		strip = new StatusStrip(host);
+		palette = new CommandPalette(commands);
+		for (Commands.Command c : commands.all()) if (c.id().equals("palette")) strip.setSearchKey(keyText(c.key()));
+		setJMenuBar(menuBar());
+		railCollapsedByChoice = "true".equals(app.uiPref("rail.collapsed", "false"));
+		applyShell(!"classic".equals(app.uiPref("shell", "rail")));
+		applyDensity("compact".equals(app.uiPref("density", "comfortable")));
+	}
+
+	/** {@code true}: the sidebar and status strip; {@code false}: the classic bottom bar. Live, remembered by the caller. */
+	private void applyShell(boolean railShell) {
+		this.railShell = railShell;
+		// The agents and Chats list: one column in the sidebar shell (the picker atop the
+		// conversations), two side by side in the classic layout, as before.
+		sessionsPane.removeAll();
+		agentList.setStacked(railShell);
+		sessionsPane.add(agentList, railShell ? BorderLayout.NORTH : BorderLayout.WEST);
+		sessionsPane.add(conversations, BorderLayout.CENTER);
+		sidebarWidth = railShell ? ShellLayout.LIST : SIDEBAR_WIDTH;
+		if (sessionsPane.isVisible()) split.setDividerLocation(sidebarWidth);
+		sessionsPane.revalidate();
+		placeMovedPages(railShell);
+		chatCard.removeAll();
+		if (railShell) {
+			JPanel content = new JPanel(new BorderLayout());
+			content.add(strip, BorderLayout.NORTH);
+			content.add(mainDeck, BorderLayout.CENTER);
+			railContent = content;
+			chatCard.add(rail, BorderLayout.WEST);
+			chatCard.add(content, BorderLayout.CENTER);
+		} else {
+			chatCard.add(mainDeck, BorderLayout.CENTER);
+			chatCard.add(navBar, BorderLayout.SOUTH);
+		}
+		chatCard.revalidate();
+		chatCard.repaint();
+		relayout();
+	}
+
+	/** Whether the sidebar shell is in use (for tests and the harness). */
+	public boolean railShell() {
+		return railShell;
+	}
+
+	/**
+	 * Applies {@link ShellLayout} at the window's current width: the rail
+	 * collapses before content is squeezed, and on Agents the agents and Chats
+	 * list docks only where the main column keeps its floor; elsewhere it is
+	 * shown on request (the Chats list toggle), never removed.
+	 */
+	private void relayout() {
+		if (rail == null || split == null) return;
+		int width = getContentPane().getWidth();
+		if (width <= 0) width = getWidth();
+		// The Chats list lives beside the chat on Home and on Agents in the sidebar shell.
+		boolean agents = activeTab == NavBar.Tab.SESSIONS || (railShell && activeTab == NavBar.Tab.HOME);
+		// The layout's widths are window points, as the window's own size is.
+		// The side panel, from 1440: the inspector (the chat's Overview, Context and Agent) when
+		// inspecting, else the Inbox panel beside Home or Jobs while requests wait. One at a time.
+		boolean inspecting = activeTab == NavBar.Tab.SESSIONS;
+		boolean inboxBeside = !inspecting && waitingCount > 0
+			&& (destination == Destination.HOME || destination == Destination.JOBS);
+		ShellLayout.Plan plan = ShellLayout.plan(width, sidebarWidth, agents && chatsListOpen, inspecting || inboxBeside,
+			railCollapsedByChoice);
+		if (!railShell) {
+			views.setInspectorDocked(false); // the classic layout behaves exactly as before
+			return;
+		}
+		rail.setCollapsed(plan.railCollapsed());
+		views.setInspectorDocked(inspecting && plan.side() == ShellLayout.Mode.DOCKED);
+		boolean dockInbox = inboxBeside && plan.side() == ShellLayout.Mode.DOCKED;
+		if (railContent != null && dockInbox != (inboxPanel.getParent() == railContent)) {
+			if (dockInbox) railContent.add(inboxPanel, BorderLayout.EAST);
+			else railContent.remove(inboxPanel);
+			railContent.revalidate();
+			railContent.repaint();
+		}
+		if (agents) {
+			boolean show = chatsListOpen && (plan.list() == ShellLayout.Mode.DOCKED || listForced);
+			if (show != sessionsPane.isVisible()) setSidebar(show);
+		}
+	}
+
+	/** The person asked for the list at a width where it would not dock by itself. */
+	private boolean listForced;
+
+	private void syncRail(NavBar.Tab tab) {
+		if (rail == null) return;
+		switch (tab) {
+			case HOME -> markDestination(Destination.HOME);
+			case SESSIONS -> markDestination(Destination.HOME); // the chat with its inspect tabs
+			case FILES -> markDestination(Destination.FILES);
+			case SKILLS -> markDestination(Destination.SKILLS);
+			case PEERS -> markDestination(Destination.PEERS);
+			case INBOX -> markDestination(Destination.INBOX);
+			case SETTINGS -> {
+				// Jobs and the Vault's pages live in Settings until their own screens land.
+				SettingsScreen.Tab page = settingsScreen.selected();
+				if (page == SettingsScreen.Tab.JOBS && (destination == Destination.JOBS || destination == Destination.RECORD)) {
+					markDestination(destination);
+				} else if ((page == SettingsScreen.Tab.SECRETS || page == SettingsScreen.Tab.VAULT
+						|| page == SettingsScreen.Tab.ACCESS) && destination == Destination.VAULT) {
+					markDestination(Destination.VAULT);
+				} else {
+					rail.setSettingsActive();
+					rail.slot().setQuietScreenOpen(false);
+				}
+			}
+		}
+	}
+
+	private void markDestination(Destination d) {
+		boolean changed = destination != d;
+		destination = d;
+		if (changed) javax.swing.SwingUtilities.invokeLater(this::relayout);
+		rail.setActive(d);
+		// The Record, the Vault and the Constellation are quiet screens: the slot keeps to the glyph.
+		rail.slot().setQuietScreenOpen(d == Destination.RECORD || d == Destination.VAULT || d == Destination.PEERS);
+	}
+
+	/** Goes to a sidebar destination; Jobs, Record and the Vault open their Settings pages until their screens land. */
+	public void go(Destination d) {
+		destination = d;
+		switch (d) {
+			case HOME -> selectTab(NavBar.Tab.HOME);
+			case AGENTS -> {
+				selectTab(NavBar.Tab.HOME);
+				app.refreshAgents(); // agents can change out of band: re-read on entry
+				refreshAgentsScreen();
+				mainCards.show(mainDeck, MAIN_AGENTS);
+			}
+			case FEED -> {
+				selectTab(NavBar.Tab.HOME);
+				mainCards.show(mainDeck, MAIN_FEED);
+				markDestination(Destination.FEED);
+			}
+			case JOBS -> {
+				if (railShell) openOwnScreen(MAIN_JOBS);
+				else showSettings(SettingsScreen.Tab.JOBS);
+			}
+			case RECORD -> {
+				if (railShell) openOwnScreen(MAIN_RECORD);
+				else showSettings(SettingsScreen.Tab.JOBS);
+			}
+			case INBOX -> selectTab(NavBar.Tab.INBOX);
+			case PEERS -> selectTab(NavBar.Tab.PEERS);
+			case SKILLS -> selectTab(NavBar.Tab.SKILLS);
+			case FILES -> selectTab(NavBar.Tab.FILES);
+			case VAULT -> {
+				if (railShell) {
+					refreshVault();
+					openOwnScreen(MAIN_VAULT);
+				} else {
+					showSettings(SettingsScreen.Tab.SECRETS);
+				}
+			}
+		}
+		if (d != Destination.FEED) markDestination(d);
+	}
+
+	/**
+	 * The Agents roster: your own agents (the venue's own, with their roles,
+	 * when acting as the operator), then outside agents that reach the venue
+	 * with a named token.
+	 */
+	private void refreshAgentsScreen() {
+		List<tau.ui.agents.AgentsScreen.Row> rows = new java.util.ArrayList<>();
+		boolean operator = app.actingAsOperator();
+		for (tau.model.AgentRef a : lastAgents) {
+			String role = operator ? godRole(a.id()) : null;
+			rows.add(new tau.ui.agents.AgentsScreen.Row(a.id(), a.name(),
+				role != null ? tau.ui.agents.AgentsScreen.Kind.VENUE : tau.ui.agents.AgentsScreen.Kind.YOURS,
+				"This computer", "Ready", role != null ? "Looks after this computer" : "Acts for you", role,
+				app.actingPrincipal() != null ? app.actingPrincipal() + "/g/" + a.id() : null));
+		}
+		try {
+			for (AccessPanel.Row t : app.listTokens()) {
+				rows.add(new tau.ui.agents.AgentsScreen.Row(t.name(), t.name(),
+					tau.ui.agents.AgentsScreen.Kind.OUTSIDE_MCP, "A local client", "Token active",
+					t.unrestricted() ? "Unrestricted" : t.scope(), null));
+			}
+		} catch (RuntimeException e) {
+			// No token store yet (still starting): the roster shows the agents alone.
+		}
+		agentsScreen.setRows(rows, lastDefaultAgent);
+	}
+
+	private static String godRole(String id) {
+		return switch (id) {
+			case "Odin" -> "the administrator";
+			case "Thor" -> "the guardian";
+			case "Njord" -> "the treasurer";
+			case "Eir" -> "the healer";
+			default -> null;
+		};
+	}
+
+	/** What the Agents roster asks of the window. */
+	private final class AgentsHost implements tau.ui.agents.AgentsScreen.Host {
+		@Override
+		public void open(tau.ui.agents.AgentsScreen.Row agent) {
+			if (!agent.id().equals(currentAgentId)) app.switchAgent(agent.id());
+			MainWindow.this.go(Destination.HOME);
+		}
+
+		@Override public void info(tau.ui.agents.AgentsScreen.Row agent) { showAgentView(agent.id()); }
+		@Override public void delete(tau.ui.agents.AgentsScreen.Row agent) { app.deleteAgent(agent.id()); }
+		@Override public void createHere() { newAgent(); }
+
+		@Override
+		public void connectOutside() {
+			destination = Destination.VAULT;
+			showSettings(SettingsScreen.Tab.ACCESS);
+		}
+
+		@Override public void manageAccess(tau.ui.agents.AgentsScreen.Row agent) { connectOutside(); }
+
+		@Override
+		public void copy(String text) {
+			tau.ui.components.Clipboard.copy(text, getRootPane());
+		}
+	}
+
+	/** The open chat with its inspect tabs (Chat, Overview, Context, Agent) on view. */
+	private void inspectChat(boolean raw) {
+		selectTab(NavBar.Tab.SESSIONS);
+		if (raw) {
+			views.select(SessionViews.View.CONTEXT);
+			views.select(SessionViews.Part.RAW);
+		} else {
+			views.select(SessionViews.View.OVERVIEW);
+		}
+	}
+
+	/** Shows one of the sidebar's own screens in place of the chat. */
+	private void openOwnScreen(String card) {
+		selectTab(NavBar.Tab.HOME);
+		mainCards.show(mainDeck, card);
+	}
+
+	/**
+	 * Jobs, Secrets, Access, and the stored passphrase: screens of their own in
+	 * the sidebar layout (Jobs, and the Vault's pages), where Settings' entries
+	 * for them open them; in Settings, exactly as before, in the classic one.
+	 * The panels are the same either way, so nothing changes but where they sit.
+	 */
+	private void placeMovedPages(boolean railShell) {
+		if (railShell) {
+			tau.ui.components.Panels.adopt(jobsHolder, settingsScreen.jobs(), BorderLayout.CENTER);
+			settingsScreen.jobs().setOwnHeading(false); // the Jobs screen's header already says it
+			vaultScreen.adopt(settingsScreen.secrets(), settingsScreen.access(), settingsScreen.vault());
+			settingsScreen.livesElsewhere(SettingsScreen.Tab.JOBS, () -> go(Destination.JOBS));
+			settingsScreen.livesElsewhere(SettingsScreen.Tab.SECRETS, () -> openVault(tau.ui.vault.VaultScreen.Page.SECRETS));
+			settingsScreen.livesElsewhere(SettingsScreen.Tab.ACCESS, () -> openVault(tau.ui.vault.VaultScreen.Page.ACCESS));
+			settingsScreen.livesElsewhere(SettingsScreen.Tab.VAULT, () -> openVault(tau.ui.vault.VaultScreen.Page.PASSPHRASE));
+		} else {
+			settingsScreen.restore(SettingsScreen.Tab.JOBS, settingsScreen.jobs());
+			settingsScreen.jobs().setOwnHeading(true);
+			settingsScreen.restore(SettingsScreen.Tab.SECRETS, settingsScreen.secrets());
+			settingsScreen.restore(SettingsScreen.Tab.ACCESS, settingsScreen.access());
+			settingsScreen.restore(SettingsScreen.Tab.VAULT, settingsScreen.vault());
+			for (SettingsScreen.Tab t : List.of(SettingsScreen.Tab.JOBS, SettingsScreen.Tab.SECRETS,
+					SettingsScreen.Tab.ACCESS, SettingsScreen.Tab.VAULT)) {
+				settingsScreen.livesElsewhere(t, null);
+			}
+		}
+		jobsHolder.revalidate();
+	}
+
+	private void openVault(tau.ui.vault.VaultScreen.Page page) {
+		go(Destination.VAULT);
+		vaultScreen.select(page);
+	}
+
+	/** The Vault's pages read afresh, as Settings does on entry. */
+	private void refreshVault() {
+		settingsScreen.secrets().refresh(app.listSecretNames());
+		settingsScreen.vault().refresh(app.hasRememberedPassphrase());
+		settingsScreen.access().bind();
+	}
+
+	/** The destination the sidebar shows as active, or null while Settings is open. */
+	public Destination destination() {
+		return rail.active();
+	}
+
+	private void setWaiting(int waiting) {
+		waitingCount = waiting;
+		if (rail == null) return;
+		relayout();
+		rail.setInboxCount(waiting);
+		strip.setWaiting(waiting);
+		rail.slot().setState(waiting > 0 ? StatusSlot.State.WAITING : StatusSlot.State.RESTING,
+			waiting > 0 ? waiting + (waiting == 1 ? " decision" : " decisions") : null);
+	}
+
+	/** The acting identity or the venue changed: the strip, the sidebar's identity menu, and the venue chip follow. */
+	private void identityChanged() {
+		if (inboxScreen != null) inboxScreen.setActing(app.actingPrincipal());
+		if (rail == null) return;
+		String name = (identity != null) ? (app.actingAsOperator() ? app.operatorName() : identity.name()) : null;
+		rail.setIdentity(name);
+		strip.setActing(name, app.actingAsOperator());
+		strip.setVenue(venue != null ? StatusStrip.Venue.RUNNING : StatusStrip.Venue.STARTING,
+			venue != null ? venue.url() : null);
+	}
+
+	private void applyDensity(boolean compact) {
+		tau.ui.components.Density.set(compact);
+		SwingUtilitiesRepaint.all(this);
+	}
+
+	private String myIdentity() {
+		if (identity == null || venue == null || venue.did() == null) return null;
+		return app.actingAsOperator() ? venue.did() : identity.userDID(venue.did());
+	}
+
+	private static String keyText(KeyStroke k) {
+		return tau.ui.shell.Keys.text(k);
+	}
+
+	/** The menu bar, from the same registry as the palette: every shortcut shows here. */
+	private JMenuBar menuBar() {
+		JMenuBar bar = new JMenuBar();
+		for (String name : ShellCommands.MENUS) {
+			JMenu menu = new JMenu(name);
+			String group = null;
+			for (Commands.Command c : commands.menu(name)) {
+				JMenuItem item = new JMenuItem(c.name());
+				if (c.key() != null) item.setAccelerator(c.key());
+				item.setToolTipText(c.where());
+				item.addActionListener(e -> c.action().run());
+				// A rule between the destinations and the rest of View.
+				String g = c.id().startsWith("go:") ? "go" : "rest";
+				if (group != null && !group.equals(g)) menu.addSeparator();
+				group = g;
+				menu.add(item);
+			}
+			bar.add(menu);
+		}
+		return bar;
+	}
+
+	private void saveGeometry() {
+		boolean max = (getExtendedState() & Frame.MAXIMIZED_BOTH) == Frame.MAXIMIZED_BOTH;
+		app.setUiPref("window.maximised", Boolean.toString(max));
+		if (!max) {
+			app.setUiPref("window.bounds", getX() + "," + getY() + "," + getWidth() + "," + getHeight());
+		}
+	}
+
+	/** A remembered size and place, if it still fits a screen; else about 1200 × 800, centred. */
+	private void restoreGeometry() {
+		String b = app.uiPref("window.bounds", null);
+		java.awt.Rectangle r = null;
+		if (b != null) {
+			try {
+				String[] p = b.split(",");
+				r = new java.awt.Rectangle(Integer.parseInt(p[0].trim()), Integer.parseInt(p[1].trim()),
+					Integer.parseInt(p[2].trim()), Integer.parseInt(p[3].trim()));
+			} catch (RuntimeException e) {
+				r = null;
+			}
+		}
+		if (r != null && onAScreen(r)) {
+			setBounds(r);
+		} else {
+			java.awt.Rectangle screen = getGraphicsConfiguration() != null ? getGraphicsConfiguration().getBounds()
+				: new java.awt.Rectangle(0, 0, DEFAULT_WIDTH, DEFAULT_HEIGHT);
+			setSize(Math.min(DEFAULT_WIDTH, screen.width), Math.min(DEFAULT_HEIGHT, screen.height));
+			setLocationRelativeTo(null);
+		}
+		if ("true".equals(app.uiPref("window.maximised", "false"))) setExtendedState(Frame.MAXIMIZED_BOTH);
+	}
+
+	private static boolean onAScreen(java.awt.Rectangle r) {
+		if (r.width < 720 || r.height < 520) return false;
+		for (java.awt.GraphicsDevice d : java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()) {
+			if (d.getDefaultConfiguration().getBounds().intersects(r)) return true;
+		}
+		return false;
+	}
+
+	/** Lists every command that has a shortcut, with where it lives. */
+	private void showShortcuts() {
+		StringBuilder sb = new StringBuilder();
+		for (Commands.Command c : commands.all()) {
+			if (c.key() != null) sb.append(keyText(c.key())).append("   ").append(c.name()).append('\n');
+		}
+		sb.append("\nIn the chat: Enter sends; Shift+Enter or Ctrl+Enter adds a line; Esc stops.\n");
+		sb.append("Files keeps its own keys: Enter, F2, Delete, Shift+F10, Alt+Left.");
+		Dialogs.info(this, "Keyboard shortcuts", new SelectableText(sb.toString()), null);
+	}
+
+	/** Repaints a window's tree after a density change. */
+	private static final class SwingUtilitiesRepaint {
+		static void all(java.awt.Window w) {
+			javax.swing.SwingUtilities.updateComponentTreeUI(w);
+		}
+	}
+
+	/** The Feed until it lands: says it is coming, and fakes nothing. */
+	@SuppressWarnings("serial")
+	private static final class FeedScreen extends JPanel {
+		FeedScreen() {
+			super(new BorderLayout());
+			add(new tau.ui.components.ScreenHeader("Feed"), BorderLayout.NORTH);
+			tau.ui.components.EmptyState empty = new tau.ui.components.EmptyState("rss",
+				tau.ui.components.Tone.ACCENT, "Coming soon: activity from agents you follow",
+				"Nothing to show here yet.").withMark(104);
+			add(empty, BorderLayout.CENTER);
+		}
+	}
+
+	/** The shell's hosts: what the sidebar, the strip, the menu bar and the palette ask of the window. */
+	private final class Shell implements ShellCommands.Actions, Rail.Host, StatusStrip.Host {
+		@Override public void go(Destination d) { MainWindow.this.go(d); }
+		@Override public void openSettings() { selectTab(NavBar.Tab.SETTINGS); }
+
+		@Override
+		public void settings(ShellCommands.Page page) {
+			SettingsScreen.Tab t = SettingsScreen.Tab.valueOf(page.name());
+			// Pages that moved keep their new home active in the sidebar.
+			destination = switch (t) {
+				case JOBS -> Destination.JOBS;
+				case SECRETS, VAULT, ACCESS -> Destination.VAULT;
+				default -> destination;
+			};
+			showSettings(t);
+		}
+
+		@Override public void newChat() { showNewChat(); }
+		@Override public void newAgent() { MainWindow.this.newAgent(); }
+		@Override public void refresh() { app.refreshNow(); }
+		@Override public boolean hasTray() { return app.hasTray(); }
+		@Override public void hideToTray() { app.hideToTray(); }
+		@Override public void lock() { app.logout(); }
+		@Override public void quit() { app.exit(); }
+		@Override public void about() { showAbout(); }
+
+		@Override
+		public void openPalette() {
+			if (CARD_CHAT.equals(currentCard)) palette.open(getRootPane());
+		}
+
+		@Override
+		public void toggleRail() {
+			railCollapsedByChoice = !railCollapsedByChoice;
+			app.setUiPref("rail.collapsed", Boolean.toString(railCollapsedByChoice));
+			relayout();
+		}
+
+		@Override
+		public void toggleChatsList() {
+			boolean listHere = activeTab == NavBar.Tab.SESSIONS || (railShell && activeTab == NavBar.Tab.HOME);
+			if (!listHere) {
+				MainWindow.this.go(Destination.AGENTS);
+				chatsListOpen = true;
+				listForced = true;
+			} else if (sessionsPane.isVisible()) {
+				chatsListOpen = false;
+				listForced = false;
+				setSidebar(false);
+			} else {
+				chatsListOpen = true;
+				listForced = true;
+				setSidebar(true);
+			}
+			relayout();
+		}
+
+		@Override
+		public void setDensity(boolean compact) {
+			app.setUiPref("density", compact ? "compact" : "comfortable");
+			applyDensity(compact);
+		}
+
+		@Override public void setMode(boolean dark) { app.setMode(dark ? LAF.DARK : LAF.LIGHT); }
+		@Override public void matchSystem() { app.setMode(LAF.SYSTEM); }
+
+		@Override
+		public void setShell(boolean rail) {
+			app.setUiPref("shell", rail ? "rail" : "classic");
+			applyShell(rail);
+		}
+
+		@Override public void openDashboard() { app.openDashboard(); }
+		@Override public void openSettingsFile() { app.openConfigFile(); }
+		@Override public void openLogsFolder() { app.openLogsFolder(); }
+
+		@Override
+		public void copyLocalAddress() {
+			if (venue != null) tau.ui.components.Clipboard.copy(venue.url(), getRootPane());
+		}
+
+		@Override
+		public void copyMyIdentity() {
+			String did = myIdentity();
+			if (did != null) tau.ui.components.Clipboard.copy(did, getRootPane());
+		}
+
+		@Override public void showShortcuts() { MainWindow.this.showShortcuts(); }
+		@Override public void inspect() { inspectChat(false); }
+		@Override public void inspectRaw() { inspectChat(true); }
+
+		@Override
+		public void fillIdentityMenu(JPopupMenu menu) {
+			JMenuItem who = new JMenuItem(identity != null ? "Signed in as " + identity.name() : "Not signed in");
+			who.setEnabled(false);
+			menu.add(who);
+			menu.addSeparator();
+			JMenuItem sw = new JMenuItem(app.actingAsOperator() ? "Switch to yourself" : "Switch to the operator");
+			sw.addActionListener(e -> settings(ShellCommands.Page.PROFILE));
+			sw.setToolTipText("Settings → Identity → Acting as");
+			menu.add(sw);
+			JMenuItem copy = new JMenuItem("Copy my identity");
+			copy.setEnabled(myIdentity() != null);
+			copy.addActionListener(e -> copyMyIdentity());
+			menu.add(copy);
+			JMenuItem lock = new JMenuItem("Lock");
+			lock.addActionListener(e -> lock());
+			menu.add(lock);
+		}
+
+		@Override
+		public void showIdentityMenu(java.awt.Component from) {
+			JPopupMenu menu = new JPopupMenu();
+			fillIdentityMenu(menu);
+			menu.show(from, 0, from.getHeight());
+		}
+
+		@Override public void openInbox() { MainWindow.this.go(Destination.INBOX); }
+	}
 }
