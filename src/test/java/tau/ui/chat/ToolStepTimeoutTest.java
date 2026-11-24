@@ -3,6 +3,7 @@ package tau.ui.chat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import tau.SessionHistory;
 import tau.ui.LAF;
@@ -11,7 +12,10 @@ import tau.ui.LAF;
  * A tool step reads as Covia reports it: a call given up at its time limit is
  * Timed out, and one still running as a job past its limit is Running, since
  * its outcome is still to come. Headless.
+ * Isolated: it installs a look and feel, which classes running alongside
+ * must not see change under them.
  */
+@Isolated
 class ToolStepTimeoutTest {
 
 	private static String badge(String result, boolean error) {

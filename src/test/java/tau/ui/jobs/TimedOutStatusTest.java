@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import tau.JobList;
 import tau.ui.LAF;
@@ -23,7 +24,10 @@ import covia.grid.Status;
  * never shown in the error colour. Like Covia, it is not finished, so it can
  * be cancelled, but nothing resumes, retries, or messages it, and its clock
  * stops. Headless.
+ * Isolated: it installs a look and feel, which classes running alongside
+ * must not see change under them.
  */
+@Isolated
 class TimedOutStatusTest {
 
 	private static JobList.Job job(String status) {

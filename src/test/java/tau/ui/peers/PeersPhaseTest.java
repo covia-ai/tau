@@ -18,6 +18,7 @@ import javax.swing.JButton;
 import javax.swing.SwingUtilities;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import tau.peers.ExamplesSource;
 import tau.peers.MapSettingsStore;
@@ -29,7 +30,10 @@ import tau.ui.LAF;
  * The Peers map: the examples can be hidden, the gods are named, the header's
  * buttons carry words on a wide window, and the map's ink follows the theme.
  * Headless.
+ * Isolated: it installs a look and feel, which classes running alongside
+ * must not see change under them.
  */
+@Isolated
 class PeersPhaseTest {
 
 	@Test

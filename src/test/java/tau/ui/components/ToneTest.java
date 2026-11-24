@@ -146,7 +146,7 @@ class ToneTest {
 
 	private static void assertTints(float alpha) {
 		for (Tone tone : Tone.values()) {
-			if (tone.isStatus()) continue; // solid grounds of their own, see StatusBadgeTest
+			if (tone.isStatus()) continue; // grounds of their own, read in assertTauColoursRead
 			String key = "Tau." + tone.name().toLowerCase() + ".tint";
 			assertNotNull(UIManager.getColor(key), key);
 			assertEquals(Math.round(alpha * 255), tone.tint().getAlpha(), 1, tone.name());
