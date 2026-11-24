@@ -83,6 +83,10 @@ public final class JobsScreen extends JPanel {
 
 		/** Opens agent {@code agentId}'s conversation {@code sessionId} in the chat. */
 		void openConversation(String agentId, String sessionId);
+
+		/** Opens a room on the Rooms screen, for a job that waits on one. */
+		default void openRoom(String name) {
+		}
 	}
 
 	private static final String LIST = "list", DETAIL = "detail";
@@ -560,6 +564,11 @@ public final class JobsScreen extends JPanel {
 				public void openJob(String parent) {
 					trail.add(parent);
 					showDetail();
+				}
+
+				@Override
+				public void openRoom(String name) {
+					host.openRoom(name);
 				}
 
 				@Override

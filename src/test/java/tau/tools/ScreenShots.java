@@ -141,6 +141,21 @@ public final class ScreenShots {
 			screens.openJob(timedOut);
 			shoot(window, out, mode, "jobs-timedout", size);
 		}
+		// Rooms: none yet, then seeded rooms (an outside agent's posts, markup and hidden characters shown as
+		// text, a long post folded, two agents answering each other, and someone else's public room).
+		for (Dimension size : SIZES) {
+			screens.resize(size);
+			screens.room(null);
+			shoot(window, out, mode, "rooms-empty", size);
+		}
+		screens.seedRooms();
+		for (String room : List.of("release", "standup", "ci-watch")) {
+			for (Dimension size : SIZES) {
+				screens.resize(size);
+				screens.room(room);
+				shoot(window, out, mode, "rooms-" + room, size);
+			}
+		}
 		System.out.println("Screenshots written to " + out.toAbsolutePath());
 		System.exit(0);
 	}
@@ -366,6 +381,57 @@ public final class ScreenShots {
 		}
 
 		/** The sidebar's Jobs, with job {@code id} open beside the list. */
+		/** Opens the Rooms screen, and room {@code name} on it when given. */
+		void room(String name) throws Exception {
+			onEdt(() -> {
+				window.go(tau.ui.shell.Destination.ROOMS);
+				if (name != null) window.openRoom(name);
+				return null;
+			});
+			Thread.sleep(1200);
+		}
+
+		/** Sample rooms on the scratch venue, posted as you, an agent of yours, an access token, and another user. */
+		void seedRooms() throws Exception {
+			tau.EmbeddedVenue v = app().venue();
+			covia.venue.Engine engine = v.engine();
+			convex.core.data.AString me = convex.core.data.Strings.create(app().actingPrincipal());
+			tau.rooms.Rooms rooms = new tau.rooms.Rooms(engine, me.toString());
+			rooms.create("release", "Release notes for the next build, drafted together", false, false, null, null);
+			rooms.create("standup", "Daily standup between scout and relay", false, true, null, null);
+			String bearer = new tau.Tokens(engine, me).create("relay", tau.TokenPreset.COLLABORATE.scope("Tau")).bearer();
+			covia.venue.RequestContext relay = engine.tokenContext(
+				((covia.adapter.token.TokenAdapter) engine.getAdapter(covia.adapter.token.TokenAdapter.NAME)).tokens().lookup(bearer));
+			covia.venue.RequestContext self = covia.venue.RequestContext.of(me);
+			covia.venue.RequestContext scout = engine.context(me,
+				covia.grid.Principals.agentDID(me, convex.core.data.Strings.create("Tau")));
+			post(engine, self, "release", "Draft the notes for 0.12 from the merged pull requests, please.");
+			post(engine, relay, "release", "From: You\nApproved. Ship it tonight.");
+			post(engine, relay, "release", "<html><b>Bold claim</b><img src=http://127.0.0.1:9/x></html> shows as text");
+			post(engine, relay, "release", "Rename the file to report\u202Etxt.exe before sending");
+			StringBuilder longPost = new StringBuilder("The draft, section by section:\n");
+			for (int i = 1; i <= 30; i++) longPost.append(i).append(". A line of the draft release notes.\n");
+			post(engine, scout, "release", longPost.toString());
+			post(engine, self, "release", "Thanks. I'll read it after lunch.");
+			for (int i = 0; i < 6; i++) {
+				post(engine, i % 2 == 0 ? scout : relay, "standup", i % 2 == 0 ? "Any blockers on your side?"
+					: "None here. Any on yours?");
+			}
+			convex.core.data.AString other = convex.core.data.Strings.create(
+				tau.Identity.of("robin").userDID(v.did()));
+			engine.getVenueState().users().ensure(other.toString());
+			new tau.rooms.Rooms(engine, other.toString()).create("ci-watch", "Build results from the CI runner", true,
+				false, null, null);
+			post(engine, covia.venue.RequestContext.of(other), "ci-watch", "Build 412 passed on all three systems.");
+			Thread.sleep(1500);
+		}
+
+		private static void post(covia.venue.Engine engine, covia.venue.RequestContext ctx, String room, String text)
+				throws Exception {
+			engine.jobs().invokeInternal("v/ops/room/post", convex.core.data.Maps.of("room", room, "text", text), ctx)
+				.get(20, java.util.concurrent.TimeUnit.SECONDS);
+		}
+
 		void openJob(String id) throws Exception {
 			Class<?> destType = Class.forName("tau.ui.shell.Destination");
 			@SuppressWarnings({ "unchecked", "rawtypes" })

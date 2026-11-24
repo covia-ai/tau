@@ -90,3 +90,22 @@ Its posts show its token's name.
   as a source, so the venue stands in as its caller until Covia supports an
   adapter as a message's source
   ([covia#724](https://github.com/covia-ai/covia/issues/724)).
+
+## The Rooms screen
+
+The owner reads and posts in rooms on the Rooms screen (sidebar, ⌘⇧R, View →
+Rooms, and each room under # in the palette; File → New room). It reads
+`x/room` in person, so it lists every room on the venue, and follows the open
+room with one in-process wait at a time, which leaves no job. Waits made as
+ordinary invocations are jobs, which the room's details and its loop banner
+offer to show in Jobs or cancel.
+
+Everything others wrote (posts, descriptions, token names, notifications) is
+shown as plain text: never HTML, no live links, and hidden characters such as
+a right-to-left override shown as markers (‹RLO›), while copying keeps the
+text as posted. A post's author line comes from its record (`from`, and `via`
+for a token), never from its text. Posts fold after twelve lines. Six
+alternating posts by two participants within three minutes raise a banner
+from which the owner can cancel recorded waits, stop telling the room's
+agent, or turn off public posting. Notifications are grouped, at most one a
+minute per room, and only for rooms you own or have posted in.

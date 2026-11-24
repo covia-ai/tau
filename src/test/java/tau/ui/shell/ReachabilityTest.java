@@ -5,12 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import javax.swing.JPopupMenu;
+import javax.swing.KeyStroke;
 
 import org.junit.jupiter.api.Test;
 
@@ -145,11 +147,31 @@ class ReachabilityTest {
 		for (Destination d : Destination.values()) {
 			Commands.Command c = commands.get("go:" + d.name().toLowerCase());
 			assertNotNull(c, d.name());
-			assertEquals(KeyEvent.VK_0 + (d.key - '0'), c.key().getKeyCode(), d.name());
+			assertEquals(d.keyStroke(Keys.menu()), c.key(), d.name());
 			assertEquals(ShellCommands.VIEW, c.menu());
 		}
 		assertEquals(Destination.values().length,
-			Arrays.stream(Destination.values()).map(d -> d.key).distinct().count(), "shortcut digits are distinct");
+			Arrays.stream(Destination.values()).map(d -> d.key).distinct().count(), "shortcuts are distinct");
+	}
+
+	@Test
+	void roomsFromTheSidebarShortcutMenusAndPalette() {
+		assertRuns("go:rooms", "go ROOMS");
+		KeyStroke rooms = commands.get("go:rooms").key();
+		assertEquals(KeyEvent.VK_R, rooms.getKeyCode(), "⌘⇧R");
+		assertEquals(Keys.menu() | InputEvent.SHIFT_DOWN_MASK, rooms.getModifiers() & (Keys.menu() | InputEvent.SHIFT_DOWN_MASK));
+		assertInMenu("go:rooms", ShellCommands.VIEW);
+		assertPalette("Rooms", "go:rooms");
+		assertRuns("new-room", "newRoom");
+		assertInMenu("new-room", ShellCommands.FILE);
+		assertPalette("New room", "new-room");
+		assertRuns("room-settings", "roomSettings");
+		assertPalette("Room settings", "room-settings");
+		// Each room, under # in the palette.
+		commands.extras(() -> List.of(new Commands.Command("room:standup", "# standup", "Room", null, null,
+			List.of("standup"), () -> calls.add("open standup"))));
+		assertPalette("standup", "room:standup");
+		assertPalette("# standup", "room:standup");
 	}
 
 	@Test
@@ -241,6 +263,8 @@ class ReachabilityTest {
 		@Override public void openSettings() { calls.add("openSettings"); }
 		@Override public void newChat() { calls.add("newChat"); }
 		@Override public void newAgent() { calls.add("newAgent"); }
+		@Override public void newRoom() { calls.add("newRoom"); }
+		@Override public void roomSettings() { calls.add("roomSettings"); }
 		@Override public void refresh() { calls.add("refresh"); }
 		@Override public boolean hasTray() { return true; }
 		@Override public void hideToTray() { calls.add("hideToTray"); }

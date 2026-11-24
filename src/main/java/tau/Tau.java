@@ -1141,6 +1141,11 @@ public final class Tau {
 	}
 
 	// ------------------------------------------------------------------
+	/** A notification from a room, plain text, through the tray when there is one. Event thread. */
+	public void notifyRoom(String text) {
+		if (tray != null) tray.notify(APP_NAME, text);
+	}
+
 	// Integrations (Discord)
 	// ------------------------------------------------------------------
 

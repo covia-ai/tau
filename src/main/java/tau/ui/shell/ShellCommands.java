@@ -41,6 +41,12 @@ public final class ShellCommands {
 
 		void newAgent();
 
+		/** The New room sheet. */
+		void newRoom();
+
+		/** The open room's settings, or its details for a room you don't own. */
+		void roomSettings();
+
 		void refresh();
 
 		boolean hasTray();
@@ -121,6 +127,8 @@ public final class ShellCommands {
 			"Schedules", "New event");
 		c.add("add-folder", "Add a folder or drive", "Files", FILE, null, () -> a.go(Destination.FILES),
 			"Personal drive", "Folder");
+		c.add("new-room", "New room", "Rooms", FILE, null, a::newRoom, "Create a room");
+		c.add("room-settings", "Room settings", "Rooms → the open room", null, null, a::roomSettings, "About this room");
 		c.add("refresh", "Refresh", "Everywhere", FILE, KeyStroke.getKeyStroke(KeyEvent.VK_R, cmd), a::refresh);
 
 		// Edit.
@@ -130,7 +138,7 @@ public final class ShellCommands {
 		// View: every destination, then the panes and looks.
 		for (Destination d : Destination.values()) {
 			c.add("go:" + d.name().toLowerCase(), d.label, "Sidebar", VIEW,
-				KeyStroke.getKeyStroke(KeyEvent.VK_0 + (d.key - '0'), cmd), () -> a.go(d), aliases(d));
+				d.keyStroke(cmd), () -> a.go(d), aliases(d));
 		}
 		c.add("toggle-rail", "Sidebar: collapse or expand", "View", VIEW,
 			KeyStroke.getKeyStroke(KeyEvent.VK_S, mac ? cmd | InputEvent.CTRL_DOWN_MASK : InputEvent.CTRL_DOWN_MASK | InputEvent.ALT_DOWN_MASK),
@@ -184,6 +192,7 @@ public final class ShellCommands {
 			case VAULT -> new String[] { "Secrets", "Access", "Passphrase" };
 			case PEERS -> new String[] { "Constellation", "Map" };
 			case INBOX -> new String[] { "Requests", "Approvals" };
+			case ROOMS -> new String[] { "Collaboration rooms", "Shared conversations" };
 			default -> new String[0];
 		};
 	}

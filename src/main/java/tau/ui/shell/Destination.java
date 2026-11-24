@@ -5,8 +5,8 @@ import static tau.Tau.APP_NAME;
 /**
  * The places the sidebar leads to, in its order: Home first, then the
  * network and the private screens, with Settings at the foot (not here).
- * Each has its Lucide icon, the tooltip it carries, its shortcut digit
- * (⌘1 to ⌘9, then ⌘0), and whether it is a public (network) or a private
+ * Each has its Lucide icon, the tooltip it carries, its shortcut (⌘1 to ⌘9,
+ * then ⌘0; Rooms, which came after the digits ran out, ⌘⇧R), and whether it is a public (network) or a private
  * screen, which the sidebar marks with a globe or a lock as well as words.
  */
 public enum Destination {
@@ -15,6 +15,7 @@ public enum Destination {
 	FEED("Feed", "rss", "Posts from the agents you follow", '3', Register.PUBLIC),
 	JOBS("Jobs", "scroll-text", "Everything your agents are doing and have done", '4', Register.NONE),
 	INBOX("Inbox", "inbox", "Requests waiting for your decision", '5', Register.NONE),
+	ROOMS("Rooms", "messages-square", "Conversations you share with your agents and outside agents", 'R', Register.NONE),
 	RECORD("Record", "file-check", "The record of what was done, and by whom", '6', Register.PRIVATE),
 	PEERS("Peers", "orbit", "The people, devices, and services your " + APP_NAME + " knows", '7', Register.PUBLIC),
 	SKILLS("Skills", "book-open-check", "What your assistant can help with", '8', Register.NONE),
@@ -37,7 +38,7 @@ public enum Destination {
 	public final String label;
 	public final String icon;
 	public final String hint;
-	/** The digit after ⌘ (Ctrl on Windows and Linux). */
+	/** The digit after ⌘ (Ctrl on Windows and Linux), or a letter taken with Shift. */
 	public final char key;
 	public final Register register;
 
@@ -47,5 +48,12 @@ public enum Destination {
 		this.hint = hint;
 		this.key = key;
 		this.register = register;
+	}
+
+	/** The destination's shortcut with {@code menu} (⌘ or Ctrl): a digit alone, a letter with Shift. */
+	public javax.swing.KeyStroke keyStroke(int menu) {
+		if (Character.isDigit(key)) return javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_0 + (key - '0'), menu);
+		return javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.getExtendedKeyCodeForChar(key),
+			menu | java.awt.event.InputEvent.SHIFT_DOWN_MASK);
 	}
 }

@@ -64,6 +64,15 @@ public final class AccessPanel extends SettingsPage {
 		/** The owner's tokens; empty while the venue is not up. */
 		List<Row> tokens();
 
+		/** Whether token {@code name} reaches collaboration rooms, as the Collaborate preset does. */
+		default boolean reachesRooms(String name) {
+			return false;
+		}
+
+		/** Opens the Rooms screen. */
+		default void openRooms() {
+		}
+
 		/** The token store to follow, or null while the venue is not up. */
 		ALatticeComponent<?> tokenStore();
 
@@ -348,6 +357,10 @@ public final class AccessPanel extends SettingsPage {
 			+ " · " + (row.expires() == null ? "until revoked"
 				: (expired ? "expired " : "expires ") + Times.absolute(row.expires())));
 		if (row.unrestricted()) warn(details, "It can do everything you can: keep its key like your passphrase");
+		if (host.reachesRooms(row.name())) {
+			// A token on the Collaborate preset reads and posts in every room: say so, a step from Rooms.
+			details.setText(details.getText() + " · reaches every room");
+		}
 		SelectableText key = new SelectableText(MASK).mono().muted();
 		EyeButton eye = new EyeButton("Show the key (behind your passphrase)", "Hide the key", 16);
 		JButton copyKey = Buttons.icon(Lucide.icon("copy", 16, Theme::muted),
@@ -404,7 +417,12 @@ public final class AccessPanel extends SettingsPage {
 		tokenList.add(copyKey);
 		tokenList.add(renew);
 		tokenList.add(revoke);
-		tokenList.add(details, "span 6, gaptop 0, gapbottom 8, wmin 0");
+		if (host.reachesRooms(row.name())) {
+			tokenList.add(details, "span 6, split 2, gaptop 0, gapbottom 8, wmin 0");
+			tokenList.add(Buttons.link("Open Rooms", host::openRooms), "gapbottom 8, growx 0");
+		} else {
+			tokenList.add(details, "span 6, gaptop 0, gapbottom 8, wmin 0");
+		}
 	}
 
 	private void onCreate() {

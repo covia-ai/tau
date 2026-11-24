@@ -83,7 +83,7 @@ public final class Rail extends JPanel {
 		top.add(wordmark);
 		int shortcut = Keys.menu();
 		for (Destination d : Destination.values()) {
-			Item item = new Item(d, KeyStroke.getKeyStroke(KeyEvent.VK_0 + (d.key - '0'), shortcut));
+			Item item = new Item(d, d.keyStroke(shortcut));
 			items.put(d, item);
 			top.add(item);
 			top.add(Box.createVerticalStrut(UIScale.scale(2)));
