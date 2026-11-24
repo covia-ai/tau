@@ -170,9 +170,13 @@ class ClaudeCodeTest {
 		// A turn: the configured command, in the project directory, as one job.
 		long jobsBefore = RecordedJobs.of(venue, userDID);
 		AMap<AString, ACell> res = run(user, Maps.of("project", "scratch", "prompt", "cwd"));
-		// The process reports the directory it really ran in: on macOS the temp
-		// directory is under /var, a link to /private/var, so compare real paths.
-		assertEquals("cwd: " + project.toRealPath(), str(res, "result"));
+		// The process reports the directory it really ran in, which can name it
+		// differently: on macOS through /private/var rather than its /var link,
+		// on Windows by its 8.3 short name (RUNNER~1). Same directory is the test.
+		String reported = str(res, "result");
+		assertTrue(reported.startsWith("cwd: "), reported);
+		assertTrue(Files.isSameFile(project, Path.of(reported.substring("cwd: ".length()).strip())),
+			"ran in the project directory, not " + reported);
 		assertNotNull(res.get(Fields.SESSION), "the session id comes back so the conversation can continue");
 		assertEquals(jobsBefore + 1, RecordedJobs.of(venue, userDID), "a run is an action: one job record");
 

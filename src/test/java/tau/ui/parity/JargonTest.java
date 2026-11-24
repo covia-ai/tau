@@ -53,7 +53,7 @@ class JargonTest {
 				String code = Pattern.compile("(?s)/\\*.*?\\*/").matcher(Files.readString(f))
 					.replaceAll(r -> r.group().replaceAll("[^\n]", ""));
 				int n = 0;
-				for (String line : code.split("\n")) {
+				for (String line : code.split("\\R")) {
 					n++;
 					if (line.strip().startsWith("//") || LOG.matcher(line).find()) continue;
 					Matcher m = LITERAL.matcher(line);
@@ -109,7 +109,7 @@ class JargonTest {
 		Set<String> out = new HashSet<>();
 		try (InputStream in = JargonTest.class.getResourceAsStream(resource)) {
 			if (in == null) return out;
-			for (String line : new String(in.readAllBytes(), StandardCharsets.UTF_8).split("\n")) {
+			for (String line : new String(in.readAllBytes(), StandardCharsets.UTF_8).split("\\R")) {
 				if (!line.isEmpty() && !line.startsWith("#")) out.add(line);
 			}
 		}

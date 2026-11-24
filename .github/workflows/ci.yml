@@ -56,21 +56,33 @@ jobs:
           path: target/tau.jar
           retention-days: 14
 
+  # Builds its own jar rather than waiting for the build matrix, so a test
+  # failure or a runner shortage on one platform does not skip the scan.
   dependency-scan:
     name: Dependency vulnerability scan
-    needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Fetch the jar
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      - name: Set up JDK 25
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
-          name: tau-jar
-          path: scan/
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Install Covia
+        uses: ./.github/actions/install-covia
+
+      - name: Build the jar
+        shell: bash
+        run: |
+          mvn -B -ntp package -DskipTests
+          mkdir -p scan
+          cp target/tau.jar scan/
 
       # The shaded jar keeps every dependency's Maven coordinates, so this
       # sees exactly what ships, Covia's transitive dependencies included.
