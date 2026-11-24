@@ -49,7 +49,7 @@ Specialist agents have narrower capabilities, with the limits described in
 
 Federation, skill sharing and delegated payments are proposals, not finished
 features ([NETWORK.md](docs/NETWORK.md)). The Peers view has a live home node
-and sample remote nodes. Other planned work includes native installers,
+and sample remote nodes. Other planned work includes signed installer releases,
 Telegram setup in the app, richer messages and an offline model default.
 Ideas and disagreement are welcome in issues.
 
@@ -78,6 +78,27 @@ choose the offline echo bot; the app works end to end, with echoed replies.
 **Enter** sends and **Shift+Enter** starts a new line. Right-click a message, a
 conversation or an agent for what you can do with it; everything else is under
 **Settings**.
+
+### Installers
+
+CI builds native installers with their own Java runtime, so no separate Java
+is needed to run them: a `.dmg` for macOS (Apple silicon and Intel), an
+`.msi` for Windows and a `.deb` and AppImage for Linux. Each run of the
+*Installers* workflow attaches them as artefacts, with SHA-256 checksums.
+They are unsigned until signing credentials are configured, so macOS and
+Windows warn on first launch. Installing, upgrading or uninstalling never
+touches `~/.tau`.
+
+To build the installer for your own platform after `mvn package`:
+
+```bash
+packaging/package.sh all     # → target/installer/
+```
+
+This needs the JDK's `jlink` and `jpackage`, plus WiX on Windows and
+`fakeroot` (and `appimagetool` for the AppImage) on Linux. Where things are
+installed, and how to point other tools at an installed copy, is in
+[CONFIGURATION.md](docs/CONFIGURATION.md#installed-copies).
 
 ### Building against a local Covia checkout
 
@@ -132,6 +153,12 @@ Contributions are very welcome, especially now.
 mvn test      # boots real venues, headless; no API key needed
 mvn package   # → target/tau.jar
 ```
+
+CI builds and tests every push and pull request on Linux, macOS and Windows,
+and scans the shipped dependencies for known vulnerabilities and the whole
+history for committed secrets (`.github/workflows/ci.yml`). Images other than
+the app icon, the Lucide icons and the documentation screenshots fail CI
+until they are added to `packaging/allowed-images.txt`.
 
 Branch from `develop` and PR into it. [AGENTS.md](AGENTS.md) is the short
 guide for anyone — human or AI — working here; read it and

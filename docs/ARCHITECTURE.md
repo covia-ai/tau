@@ -125,3 +125,12 @@ transformer, because Jetty, Javalin and LangChain4j rely on
 serves its own document. Logging is configured programmatically from
 `tau/logback.xml` because the venue jar ships a root `logback.xml` of
 its own.
+
+Native installers wrap that same jar. `packaging/package.sh` links a reduced
+runtime with `jlink` from `packaging/runtime-modules.txt` (the modules `jdeps`
+finds plus those libraries load reflectively), keeping its `java` command for
+`Relaunch`, then builds an application image and installers from it with
+`jpackage`: dmg, msi and deb, and an AppImage through `appimagetool`. Signing
+happens between the image and the installer so the launcher inside is signed
+too. `.github/workflows/installers.yml` runs it on each platform; the
+installers own only their program folder and never touch the data directory.

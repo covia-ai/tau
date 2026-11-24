@@ -1,0 +1,8 @@
+# Image files that may be committed, as shell glob patterns relative to the
+# repository root. packaging/check-images.sh fails CI for any other image, so
+# new artwork is a deliberate, reviewed addition.
+
+docs/images/*.png
+src/main/resources/icons/tau/tau-*.png
+src/main/resources/icons/tau/tau.svg
+src/main/resources/icons/lucide/*.svg

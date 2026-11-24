@@ -1,0 +1,39 @@
+# Java modules linked into the runtime bundled with the installers.
+#
+# The first block is what `jdeps --print-module-deps --ignore-missing-deps
+# --multi-release 25 target/tau.jar` reports. The second holds modules that
+# libraries load reflectively or through service lookup, which jdeps cannot
+# see: zip file systems, locale data, extra charsets, DNS for JNDI, the
+# accessibility bridge, the JDK HTTP server and the management agent.
+#
+# One module per line; blank lines and lines starting with # are ignored.
+
+java.base
+java.compiler
+java.desktop
+java.instrument
+java.management
+java.naming
+java.net.http
+java.prefs
+java.rmi
+java.security.jgss
+java.sql
+jdk.jfr
+jdk.unsupported
+
+java.scripting
+java.security.sasl
+java.xml.crypto
+jdk.accessibility
+jdk.charsets
+jdk.crypto.cryptoki
+jdk.httpserver
+jdk.localedata
+jdk.management
+jdk.management.agent
+jdk.naming.dns
+jdk.net
+jdk.security.auth
+jdk.unsupported.desktop
+jdk.zipfs

@@ -58,6 +58,33 @@ For unattended startup, takeover and starting at Windows sign-in, see the
 [launch modes](LAUNCH.md#startup). `--unlock` requires a remembered passphrase;
 `--takeover` authorises replacing the running instance.
 
+## Installed copies
+
+The native installers (built by `packaging/package.sh`, see
+[README.md](../README.md#installers)) put the program in one folder and
+leave the data directory where it always is, `~/.tau/`. Installing,
+upgrading and uninstalling never create, change or remove anything there;
+remove `~/.tau` yourself, with Tau stopped, to reset it.
+
+| Platform | Installer | Program folder | Bundled Java | Jar |
+|---|---|---|---|---|
+| macOS | `tau-<version>-mac-<arch>.dmg` | `/Applications/Tau.app` | `Contents/runtime/Contents/Home/bin/java` | `Contents/app/tau.jar` |
+| Windows | `tau-<version>-windows-x64.msi` | `C:\Program Files\Tau` (chosen at install) | `runtime\bin\java.exe` | `app\tau.jar` |
+| Linux | `tau-<version>-linux-x64.deb` | `/opt/tau` | `lib/runtime/bin/java` | `lib/app/tau.jar` |
+| Linux | `tau-<version>-linux-x64.AppImage` | the AppImage itself | inside the image | inside the image |
+
+The bundled runtime is a reduced Java 25 holding the modules listed in
+`packaging/runtime-modules.txt`. It keeps its `java` command because a
+[relaunch](LAUNCH.md#relaunch) starts the successor with the same Java as
+the running app. Paths into an installed copy, such as an MCP client's
+`command` and jar below, use the bundled Java and jar from the table;
+an upgrade keeps them. The AppImage has no stable inner path, so point
+tools at a separately built `tau.jar` instead.
+
+The installer version is the `pom.xml` version without its `-SNAPSHOT`
+suffix. macOS refuses a version starting with 0, so there the 0.x preview is
+labelled 1.x (0.1.0 shows as 1.1.0); the version in *About* is the jar's own.
+
 ## Selecting an existing installation
 
 Tau defaults to `~/.tau`, `code/tau`, `target/tau.jar` and agent id `Tau`.
@@ -569,7 +596,8 @@ HTTP headers or handling a token themselves:
 
 Replace the jar path with the absolute path to your build or installation.
 Use Java 25 or later, giving its executable's absolute path if the client
-cannot find `java`.
+cannot find `java`. For an installed copy, use its bundled Java and jar from
+[installed copies](#installed-copies).
 
 1. Set up Tau and unlock it once with *Remember me* enabled if you want
    MCP clients to start it automatically.
