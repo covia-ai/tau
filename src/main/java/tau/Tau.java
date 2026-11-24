@@ -3246,6 +3246,8 @@ public final class Tau {
 				InboxBinding i = inboxBinding;
 				if (i != null) i.close();
 				if (window != null) window.clearJobs();
+				// Quitting from the menu, a shortcut or the tray never closes the window itself.
+				if (window != null && window.isShowing()) window.saveGeometry();
 				if (window != null) window.setVisible(false);
 				if (unlockDialog != null) unlockDialog.dispose();
 				if (tray != null) tray.remove();

@@ -1675,7 +1675,8 @@ public final class MainWindow extends JFrame {
 		return bar;
 	}
 
-	private void saveGeometry() {
+	/** Remembers the window's size, place and maximised state, as it stands. Event thread. */
+	public void saveGeometry() {
 		boolean max = (getExtendedState() & Frame.MAXIMIZED_BOTH) == Frame.MAXIMIZED_BOTH;
 		app.setUiPref("window.maximised", Boolean.toString(max));
 		if (!max) {
