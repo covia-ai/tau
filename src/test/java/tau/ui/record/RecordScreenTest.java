@@ -101,4 +101,13 @@ class RecordScreenTest {
 		}
 		return null;
 	}
+
+	@Test
+	void aJobRecordIsCopiedAndExportedAsJson() {
+		convex.core.data.ACell record = convex.core.data.Maps.of("status", "COMPLETE", "id",
+			convex.core.data.Blob.fromHex("0a0b"));
+		convex.core.data.ACell back = convex.core.util.JSON.parse(RecordScreen.json(record));
+		assertEquals("COMPLETE", convex.core.lang.RT.getIn(back, "status").toString());
+		assertEquals("{}", RecordScreen.json(null));
+	}
 }
