@@ -73,6 +73,8 @@ public final class RequestForm extends JPanel {
 	final JLabel selfNote = Labels.small(" ");
 	private ApprovalInput single;
 	private boolean selfRequest;
+	/** An answer is in flight: nothing more can be sent until it settles. */
+	private boolean busy;
 	private boolean primaryActive = true;
 
 	public RequestForm(Inbox.Request request, Listener listener) {
@@ -183,7 +185,7 @@ public final class RequestForm extends JPanel {
 		selfRequest = self;
 		selfNote.setText(self ? "This request came from the identity you are acting as. Switch to the owner to answer it." : " ");
 		selfNote.setVisible(self);
-		answerButton.setEnabled(!self);
+		answerButton.setEnabled(!self && !busy);
 		if (single != null) answerButton.setToolTipText(self ? selfNote.getText() : null);
 	}
 
@@ -238,6 +240,7 @@ public final class RequestForm extends JPanel {
 
 	/** Buttons off while the response is in flight; back on if it failed. */
 	void setBusy(boolean busy) {
+		this.busy = busy;
 		answerButton.setEnabled(!busy && !selfRequest);
 		rejectButton.setEnabled(!busy);
 		declineButton.setEnabled(!busy);

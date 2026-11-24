@@ -96,6 +96,19 @@ class DecisionCardsTest {
 	}
 
 	@Test
+	void aRenderWhileAnAnswerIsSendingLeavesItsButtonsOff() {
+		screen.setRequests(List.of(approval("r1", "did:a", 0)));
+		screen.renderNow();
+		RequestForm form = screen.cardsShown().get(0).form();
+		form.setBusy(true);
+		screen.setRequests(List.of(approval("r1", "did:a", 0), approval("r2", "did:a", 0)));
+		screen.renderNow();
+		assertFalse(form.answerButton.isEnabled(), "still sending");
+		form.setBusy(false);
+		assertTrue(form.answerButton.isEnabled());
+	}
+
+	@Test
 	void theSummarySaysTheSoonestExpiry() {
 		assertEquals("Next expires in 28 min", InboxScreen.summary(
 			List.of(approval("a", "x", NOW + 28 * 60_000L - 1000), approval("b", "x", NOW + 90 * 60_000L)), NOW));
