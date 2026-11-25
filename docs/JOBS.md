@@ -51,6 +51,17 @@ The bar under the list, the right-click menu and the detail act on a job
 through Covia's job operations as the acting principal (`JobList`), off the
 event thread, and then read the list and any open detail again at once.
 
+## Stopping a run
+
+Stop on a reply in flight ends the whole run, not only the wait for it
+(`StopRun`). It cancels the chat job; interrupts the agent's turn by
+suspending the agent, which cancels its transition and backend jobs, and
+resumes it at once so the next message goes through; and cancels every job of
+the run that is still going: those whose `parent` chain reaches the chat job,
+and the agent's own jobs since the run began, with theirs in turn. A Claude
+Code run among them is stopped with `claudecode:stop` as well. Steps already
+finished keep their results, and the chat says it stopped.
+
 ## Known limits
 
 - A time range on the page, or the operation's start, can rarely include a

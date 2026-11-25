@@ -405,6 +405,12 @@ public final class ChatSession {
 	 *
 	 * @return true if a chat job was in flight and has been cancelled
 	 */
+	/** The chat job in flight, or null when no reply is pending. */
+	public convex.core.data.Blob inFlightId() {
+		Job job = inFlight;
+		return (job == null || job.isFinished()) ? null : job.getID();
+	}
+
 	public boolean cancel() {
 		Job job = inFlight;
 		if (job == null || job.isFinished()) return false;

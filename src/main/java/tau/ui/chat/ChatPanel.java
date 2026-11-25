@@ -92,6 +92,15 @@ public final class ChatPanel extends JPanel {
 		/** Show the conversation on screen among the others, on the Sessions tab. */
 		void showInSessions(String sessionId);
 
+		/**
+		 * Stops the whole run behind chat job {@code chatJob} with agent
+		 * {@code agentId}: the turn, the jobs it started, tasks it handed on,
+		 * Claude Code sessions. Null when it couldn't (the chat job alone is then cancelled).
+		 */
+		default tau.chat.StopRun.Result stopRun(convex.core.data.Blob chatJob, String agentId) {
+			return null;
+		}
+
 		/** Stores {@code value} as secret {@code name} in your encrypted store; false when it couldn't. */
 		default boolean storeSecret(String name, String value) {
 			return false;
@@ -873,7 +882,9 @@ public final class ChatPanel extends JPanel {
 				} else if (failure instanceof CancellationException) {
 					// The user stopped waiting. The turn may still finish on the
 					// venue; reconciling by session id lets the watcher show it.
-					appendSystem("Stopped waiting for this reply.");
+					appendSystem(stopRequested ? "Stopped. Steps already finished keep their results."
+						: "Stopped waiting for this reply.");
+					stopRequested = false;
 					String sid = accepted.isCompletedExceptionally() ? null : accepted.getNow(null);
 					if (sid != null) conversationCommitted.accept(sid);
 				} else {
@@ -895,22 +906,39 @@ public final class ChatPanel extends JPanel {
 		ChatSession s = session;
 		long version = bindingVersion;
 		if (s == null || !busy) return;
-		boolean stop = Dialogs.choose(this, "Stop waiting?",
-			"Stop waiting for this reply?\n\n"
-			+ "You can carry on chatting straight away. Anything the assistant is\n"
-			+ "still doing will finish on its own, and if it answers, the reply\n"
-			+ "appears here.",
-			"Stop waiting", "Keep waiting");
+		boolean stop = askToStop.getAsBoolean();
 		if (!stop || session != s || bindingVersion != version || !busy) return;
+		stopRequested = true;
+		if (thinkingBubble != null) thinkingBubble.setSummary("Stopping…");
 		Thread t = new Thread(() -> {
 			try {
-				if (!s.cancel()) log.info("Nothing to cancel: the reply had already arrived");
+				convex.core.data.Blob job = s.inFlightId();
+				tau.chat.StopRun.Result r = (job == null || host == null) ? null : host.stopRun(job, s.config().agentId());
+				if (r == null && !s.cancel()) log.info("Nothing to cancel: the reply had already arrived");
+				stopped = r;
 			} catch (Exception e) {
-				log.warn("Could not cancel the chat in flight", e);
+				log.warn("Could not stop the run in flight", e);
 			}
-		}, "tau-chat-cancel");
+		}, "tau-chat-stop");
 		t.setDaemon(true);
 		t.start();
+	}
+
+	/** Whether the owner asked to stop the reply in flight, and what stopping it did. */
+	private volatile boolean stopRequested;
+	private volatile tau.chat.StopRun.Result stopped;
+
+	/** Asks the owner to confirm Stop; a test answers instead. */
+	java.util.function.BooleanSupplier askToStop = () -> Dialogs.choose(this, "Stop this reply?",
+		"Stop this reply?\n\n"
+		+ "The assistant stops what it's doing: its current step, the jobs it\n"
+		+ "started, tasks it handed to other agents, and any Claude Code session.\n"
+		+ "Steps already finished keep their results, and you can carry on chatting.",
+		"Stop", "Keep going");
+
+	/** Stops the reply in flight as the Stop control does, after the confirmation: for tests. */
+	void stopNow() {
+		confirmStop();
 	}
 
 	/** Deliver a follow-up to the venue queue without waiting for the active reply. */

@@ -229,6 +229,14 @@ public final class MainWindow extends JFrame {
 			}
 
 			@Override
+			public tau.chat.StopRun.Result stopRun(convex.core.data.Blob chatJob, String agentId) {
+				tau.EmbeddedVenue v = app.venue();
+				String me = app.actingPrincipal();
+				if (v == null || me == null) return null;
+				return tau.chat.StopRun.stop(v.engine(), convex.core.data.Strings.create(me), chatJob, agentId);
+			}
+
+			@Override
 			public void newConversation() {
 				views.newConversation();
 			}
