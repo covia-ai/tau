@@ -376,7 +376,7 @@ public class TauAdapter extends AAdapter {
 	@Override
 	protected void installAssets() {
 		for (String op : List.of("info", "context", "delete-skill", "report-skill-feedback",
-			"shutdown", "restart", "relaunch", "storage", "upgrade-agent", "jobs")) installAppOperation(op);
+			"shutdown", "restart", "relaunch", "storage", "upgrade-agent", "jobs", "confirm-change")) installAppOperation(op);
 		for (God god : Gods.ALL) {
 			installAppOperation(god.ask());
 			installAppOperation(god.run());
@@ -401,6 +401,20 @@ public class TauAdapter extends AAdapter {
 	private static String policyOperation(String operation) {
 		String prefix = "v/ops/brightside/";
 		return operation.startsWith(prefix) ? "v/ops/tau/" + operation.substring(prefix.length()) : operation;
+	}
+
+	/** The gate on agents' writes and deletes, made on first use. */
+	private volatile ChangeGate changeGate;
+
+	private ChangeGate changeGate() {
+		ChangeGate g = changeGate;
+		if (g == null) {
+			synchronized (this) {
+				if (changeGate == null) changeGate = new ChangeGate(engine);
+				g = changeGate;
+			}
+		}
+		return g;
 	}
 
 	@Override
@@ -432,6 +446,9 @@ public class TauAdapter extends AAdapter {
 		}
 		if ("upgrade-agent".equals(op)) {
 			return handleUpgradeAgent(ctx, input);
+		}
+		if ("confirm-change".equals(op)) {
+			return changeGate().check(input);
 		}
 		if ("jobs".equals(op)) {
 			try {

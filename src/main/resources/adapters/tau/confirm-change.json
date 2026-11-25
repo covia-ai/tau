@@ -1,0 +1,24 @@
+{
+	"name": "Confirm a change",
+	"description": "The gate on an agent's writes and deletes: Covia runs it for each call made through a gated grant. A write that makes something new goes ahead. An overwrite or a delete raises an approval in the owner's Inbox and goes ahead only once the owner approves; until then the call is refused, and nothing changes.",
+	"operation": {
+		"adapter": "brightside:confirm-change",
+		"readOnly": true,
+		"input": {
+			"type": "object",
+			"properties": {
+				"operation": { "type": "string", "description": "The operation being authorised" },
+				"input": { "description": "Its input" },
+				"caller": { "type": "string", "description": "Who is calling it: an agent, as <owner>:g:<id>" }
+			},
+			"required": ["operation", "caller"]
+		},
+		"output": {
+			"type": "object",
+			"properties": {
+				"allowed": { "type": "boolean" },
+				"approved": { "type": "boolean", "description": "Whether the owner approved it in the Inbox" }
+			}
+		}
+	}
+}

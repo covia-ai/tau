@@ -132,9 +132,9 @@ of its own. Descriptions should say when to load a skill in task language.
 - The assistant writes skills under `w/skills/<name>`. The authoring skill
   exposes writes and a deletion operation confined to that subtree. Other
   skills also expose workspace mutation, so authoring is not the sole path to
-  changing skills. Deletion recovery depends on retained data or a backup;
-  enforced confirmation remains open
-  ([tau#16](https://github.com/covia-ai/tau/issues/16)).
+  changing skills. Deletion recovery depends on retained data or a backup
+  ([SECURITY.md](SECURITY.md#backups)); deletes and overwrites by an agent with
+  template caps wait for the owner (below).
 
 - Folders of `SKILL.md` files under `~/.tau/skills/` are imported into
   `w/skills` at launch (`FilesystemSkills`), unchanged when nothing changed.
@@ -151,3 +151,23 @@ of its own. Descriptions should say when to load a skill in task language.
 every tool it declares exists, every child it reveals loads with its tools
 including the venue skills it points at, and no top-level skill reveals
 children without tools of its own. Nothing asserts prose.
+
+## Deletes and overwrites wait for you
+
+An agent with template caps ([IDENTITY.md](IDENTITY.md#what-an-agent-may-do))
+holds its write and delete grants under a gate, `v/ops/tau/confirm-change`
+(`ChangeGate`), which Covia runs on every such call: the harness enforces it,
+so no prompt or skill can talk past it. It covers the workspace and the file
+roots, and any other surface (dlfs, the vault, the lattice) whose operations
+check `crud/write` or `crud/delete` under those grants. A write that makes
+something new goes straight through. An overwrite or a delete raises an
+approval in the owner's Inbox, which shows beside the chat when the owner is
+there, and waits a short while: approved, the call goes ahead; declined, it is
+refused. Unanswered, the call is refused with "waiting for your approval", and
+the same call goes ahead once the owner approves, so scheduled runs wait in
+the Inbox. One approval or one no covers the call's own checks for a minute
+and no longer. The agent's own notes and the shared memory never ask.
+
+The owner's own assistant and any agent given Unrestricted hold no gated
+grants, so their deletes and overwrites do not ask.
+
