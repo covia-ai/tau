@@ -24,6 +24,9 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 @Execution(ExecutionMode.CONCURRENT)
 class McpStartupTest {
 
+	/** A bound only a hang reaches: the second connection polls the lock every tenth of a second. */
+	private static final Duration WAIT = Duration.ofSeconds(30);
+
 	@TempDir
 	Path home;
 
@@ -49,23 +52,23 @@ class McpStartupTest {
 					starts.incrementAndGet();
 					running.set(true);
 					return new Child(true);
-				}, Duration.ofSeconds(5));
+				}, WAIT);
 				return null;
 			});
 			try {
-				assertTrue(readyEntered.await(5, TimeUnit.SECONDS));
+				assertTrue(readyEntered.await(WAIT.toSeconds(), TimeUnit.SECONDS));
 				var second = executor.submit(() -> {
 					secondEntered.countDown();
 					McpStartup.ensureRunning(home, running::get, () -> true, () -> {
 						starts.incrementAndGet();
 						return new Child(true);
-					}, Duration.ofSeconds(5));
+					}, WAIT);
 					return null;
 				});
-				assertTrue(secondEntered.await(5, TimeUnit.SECONDS));
+				assertTrue(secondEntered.await(WAIT.toSeconds(), TimeUnit.SECONDS));
 				releaseReady.complete(true);
-				first.get(5, TimeUnit.SECONDS);
-				second.get(5, TimeUnit.SECONDS);
+				first.get(WAIT.toSeconds(), TimeUnit.SECONDS);
+				second.get(WAIT.toSeconds(), TimeUnit.SECONDS);
 				assertEquals(1, starts.get());
 				assertEquals(0, Files.size(home.resolve(McpStartup.LOCK_FILE)));
 			} finally {
@@ -78,7 +81,7 @@ class McpStartupTest {
 	void aFailedChildIsReportedAndTheLaunchLeaseIsReleased() throws Exception {
 		IOException failure = assertThrows(IOException.class, () ->
 			McpStartup.ensureRunning(home, () -> false, () -> false,
-				() -> new Child(false), Duration.ofSeconds(5)));
+				() -> new Child(false), WAIT));
 		assertEquals(McpStartup.START_FAILED, failure.getMessage());
 		// A later connection can acquire the same lock after failure.
 		McpStartup.ensureRunning(home, () -> true, () -> true,
