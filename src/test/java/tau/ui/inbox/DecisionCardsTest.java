@@ -80,22 +80,6 @@ class DecisionCardsTest {
 	}
 
 	@Test
-	void anAgentCannotApproveItsOwnRequestAndTheCardSaysWhy() {
-		screen.setActing("did:agent");
-		screen.setRequests(List.of(approval("r1", "did:agent", 0), approval("r2", "did:someone-else", 0)));
-		screen.renderNow();
-		RequestForm own = screen.cardsShown().get(0).form();
-		RequestForm other = screen.cardsShown().get(1).form();
-		assertTrue(own.selfRequest());
-		assertFalse(own.answerButton.isEnabled());
-		assertTrue(own.selfNote.isVisible());
-		assertTrue(own.selfNote.getText().contains("Switch to the owner"));
-		assertTrue(own.declineButton.isEnabled() || own.rejectButton.isEnabled(), "it can still be turned down");
-		assertFalse(other.selfRequest());
-		assertTrue(other.answerButton.isEnabled());
-	}
-
-	@Test
 	void aRenderWhileAnAnswerIsSendingLeavesItsButtonsOff() {
 		screen.setRequests(List.of(approval("r1", "did:a", 0)));
 		screen.renderNow();

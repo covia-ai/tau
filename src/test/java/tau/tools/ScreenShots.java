@@ -127,13 +127,6 @@ public final class ScreenShots {
 				shoot(window, out, mode, "home-inbox-" + n, size);
 			}
 		}
-		// A request from the identity the app is acting as: Approve is unavailable, and the card says why.
-		screens.seedSelfRequest();
-		for (Dimension size : SIZES) {
-			screens.resize(size);
-			screens.inbox();
-			shoot(window, out, mode, "inbox-self", size);
-		}
 		// A job that ran out of time: a status of its own, beside the job list.
 		String timedOut = screens.seedTimedOutJob();
 		for (Dimension size : SIZES) {
@@ -389,19 +382,6 @@ public final class ScreenShots {
 				}
 			}
 			return null;
-		}
-
-		void seedSelfRequest() throws Exception {
-			String me = app().actingPrincipal();
-			long now = System.currentTimeMillis();
-			Inbox.Ask ask = new Inbox.Ask("ok", "approval", "Run the nightly tidy-up now?", true, true, List.of(),
-				List.of(), List.of());
-			Inbox.Request r = new Inbox.Request("self", me, "Tau", "Run the nightly tidy-up", "Asked as you.",
-				List.of(ask), covia.grid.hitl.Hitl.OPEN.toString(), now, now + 15 * 60_000L, null, null);
-			onEdt(() -> {
-				window.setInbox(List.of(r));
-				return null;
-			});
 		}
 
 		/** Sample requests only: they never reach the venue. */

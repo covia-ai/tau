@@ -69,12 +69,7 @@ public final class RequestForm extends JPanel {
 	final JButton rejectButton = Buttons.plain("Reject…");
 	/** For a request that is one approval: Decline answers it with no, beside Approve. */
 	final JButton declineButton = Buttons.secondary("Decline");
-	/** Why Approve is unavailable, when the request came from the identity answering it. */
-	final JLabel selfNote = Labels.small(" ");
 	private ApprovalInput single;
-	private boolean selfRequest;
-	/** An answer is in flight: nothing more can be sent until it settles. */
-	private boolean busy;
 	private boolean primaryActive = true;
 
 	public RequestForm(Inbox.Request request, Listener listener) {
@@ -154,9 +149,6 @@ public final class RequestForm extends JPanel {
 				add(gap(4));
 				add(hint);
 			}
-			Styles.classes(selfNote, Styles.SMALL, Styles.MUTED);
-			selfNote.setVisible(false);
-			add(selfNote);
 			add(gap(4));
 			add(status);
 			for (AskInput in : inputs.values()) in.setEnabled(true);
@@ -175,28 +167,11 @@ public final class RequestForm extends JPanel {
 		listener.onAnswer(request, answer);
 	}
 
-	/**
-	 * The request came from the identity answering it (an agent acting as
-	 * you, or you switched to the agent that asked): the venue will not let
-	 * it approve its own request, so Approve is unavailable and the card says
-	 * why, so it never looks like a fault.
-	 */
-	public void setSelfRequest(boolean self) {
-		selfRequest = self;
-		selfNote.setText(self ? "This request came from the identity you are acting as. Switch to the owner to answer it." : " ");
-		selfNote.setVisible(self);
-		answerButton.setEnabled(!self && !busy);
-		if (single != null) answerButton.setToolTipText(self ? selfNote.getText() : null);
-	}
-
 	/** The request's one approval, when it is a single yes or no; else null. */
 	ApprovalInput single() {
 		return single;
 	}
 
-	public boolean selfRequest() {
-		return selfRequest;
-	}
 
 	/**
 	 * Only one card in the Inbox carries the filled primary at a time: the one
@@ -240,8 +215,7 @@ public final class RequestForm extends JPanel {
 
 	/** Buttons off while the response is in flight; back on if it failed. */
 	void setBusy(boolean busy) {
-		this.busy = busy;
-		answerButton.setEnabled(!busy && !selfRequest);
+		answerButton.setEnabled(!busy);
 		rejectButton.setEnabled(!busy);
 		declineButton.setEnabled(!busy);
 		Styles.classes(status, Styles.SMALL, busy ? Styles.MUTED : Styles.ERROR);
