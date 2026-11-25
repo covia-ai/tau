@@ -125,6 +125,36 @@ class AgentPermissionsTest {
 		assertEquals(0, open(owner), "and the declined call raised no new card");
 	}
 
+	@Test
+	void eachTemplatesGrantsReachWhatItsWorkNeeds() throws Exception {
+		AString owner = owner("perm-reach");
+		assertTrue(session(owner, "builder").withCaps(AgentPermissions.caps(AgentTemplate.SOFTWARE)).ensureAgent());
+		assertTrue(session(owner, "finder").withCaps(AgentPermissions.caps(AgentTemplate.RESEARCH)).ensureAgent());
+		assertTrue(session(owner, "helper").withCaps(AgentPermissions.caps(AgentTemplate.GENERAL)).ensureAgent());
+		assertTrue(session(owner, "other").ensureAgent());
+
+		// Software development: a new file in a file root goes ahead; overwriting it waits for one card.
+		RequestContext builder = agent(owner, "builder");
+		String name = "perm-reach-" + System.nanoTime() + ".txt";
+		run("v/ops/file/write", Maps.of("root", "files", "path", name, "content", "one"), builder);
+		assertEquals(0, open(owner), "a new file, no card");
+		Exception waiting = assertThrows(Exception.class,
+			() -> run("v/ops/file/write", Maps.of("root", "files", "path", name, "content", "two"), builder));
+		assertTrue(rootMessage(waiting).contains("Waiting for the owner's approval"), rootMessage(waiting));
+		assertEquals(1, open(owner), "one card for the overwrite");
+		answer(shared.venue().clientAs(owner.toString()), owner, false);
+
+		// Research: its internet grant passes; what stops a fetch to this computer is the address policy, not caps.
+		Exception fetch = assertThrows(Exception.class,
+			() -> run("v/ops/http/get", Maps.of("url", "http://127.0.0.1:9/"), agent(owner, "finder")));
+		assertFalse(rootMessage(fetch).contains("Capability denied"), rootMessage(fetch));
+
+		// Personal assistant: it may hand work to another agent.
+		ACell asked = run("v/ops/agent/request", Maps.of("agentId", "other", "input", "hello", "wait", 15_000L),
+			agent(owner, "helper"));
+		assertNotNull(asked);
+	}
+
 	// ------------------------------------------------------------------
 
 	private static ChatSession session(AString owner, String id) {

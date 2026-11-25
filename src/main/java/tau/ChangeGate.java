@@ -59,8 +59,28 @@ final class ChangeGate {
 	/** Changes the owner declined, until when the answer stands for the same call's other checks. */
 	private final Map<String, Long> declined = new ConcurrentHashMap<>();
 
-	private record Pending(Job job, long since) {
+	/** An approval asked, when, and until when a check last waited on it. */
+	private static final class Pending {
+		final Job job;
+		final long since;
+		volatile long waitedUntil;
+
+		Pending(Job job, long since) {
+			this.job = job;
+			this.since = since;
+		}
+
+		Job job() {
+			return job;
+		}
+
+		long since() {
+			return since;
+		}
 	}
+
+	/** A check within this long of the last wait on the same request refuses at once rather than waiting again. */
+	static final long REWAIT_MILLIS = 5_000;
 
 	ChangeGate(Engine engine) {
 		this.engine = engine;
@@ -92,7 +112,10 @@ final class ChangeGate {
 		declined.remove(key);
 		Pending pending = asked.compute(key, (k, p) -> (p == null || now - p.since() > ASK_EXPIRES)
 			? new Pending(ask(caller, owner, change, op == null ? "an operation" : op, target), now) : p);
-		Boolean answer = answer(pending.job(), waitMillis);
+		// A call checks more than once: only the first check waits; the next refuses at once if still unanswered.
+		boolean waitedJustNow = System.currentTimeMillis() - pending.waitedUntil < REWAIT_MILLIS;
+		Boolean answer = answer(pending.job(), waitedJustNow ? 0 : waitMillis);
+		pending.waitedUntil = System.currentTimeMillis();
 		if (answer == null) {
 			throw new AuthException("Waiting for the owner's approval in the Inbox to " + what
 				+ ". Nothing was changed; try the same call again once they approve.");
@@ -187,7 +210,8 @@ final class ChangeGate {
 	/** True approved, false declined (or withdrawn, expired, refused), null not answered within {@code millis}. */
 	static Boolean answer(Job job, long millis) {
 		try {
-			ACell out = job.awaitResult(millis);
+			if (millis <= 0 && !job.isFinished() && !job.future().isDone()) return null;
+			ACell out = job.awaitResult(Math.max(1, millis));
 			return CVMBool.TRUE.equals(RT.getIn(out, "answers", "ok"));
 		} catch (Exception e) {
 			// Declined, rejected, withdrawn or expired: the request's job has ended without a yes.

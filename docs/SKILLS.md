@@ -166,7 +166,8 @@ there, and waits a short while: approved, the call goes ahead; declined, it is
 refused. Unanswered, the call is refused with "waiting for your approval", and
 the same call goes ahead once the owner approves, so scheduled runs wait in
 the Inbox. One approval or one no covers the call's own checks for a minute
-and no longer. The agent's own notes and the shared memory never ask.
+and no longer, and only a call's first check waits: a second check of the same
+unanswered request refuses at once. The agent's own notes and the shared memory never ask.
 
 The owner's own assistant and any agent given Unrestricted hold no gated
 grants, so their deletes and overwrites do not ask.

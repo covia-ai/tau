@@ -155,7 +155,8 @@ legacy mode.
 
 `Backups` snapshots the data store into `backups/<date>-<reason>/` in the data
 folder: before a new build first opens the store (when any schema upgrade
-runs, with the store still closed), before relaunching into a new build, and
+runs, with the store still closed; a build is known by its version and, from
+a jar, the jar's size and time, recorded in `last-build`), before relaunching into a new build, and
 when the owner chooses *Back up now* (*Settings → General → Data store*). A
 snapshot holds `venue.etch`, `identity.enc`, `vault.salt` and the plain
 settings files. It never holds `unlock.passphrase`, `tool-token.json`,

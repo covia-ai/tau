@@ -524,7 +524,7 @@ public final class Tau {
 			StoreSpace.Compacted compacted = null;
 			// A build that has not opened this store before may upgrade its schema: snapshot it first, closed.
 			Path storeFile = storePath(venueConfig);
-			if (Backups.upgradeDue(config.home(), storeFile, BuildInfo.version())) {
+			if (Backups.upgradeDue(config.home(), storeFile, buildId())) {
 				progress("Backing up the data store before upgrading…");
 				try {
 					Backups.snapshot(config.home(), storeFile, "before-" + BuildInfo.version());
@@ -535,7 +535,7 @@ public final class Tau {
 			try {
 				if (compacting) compacted = space.compact(storeConfig);
 				v = launchOn(venueConfig, compacted);
-				Backups.opened(config.home(), BuildInfo.version());
+				Backups.opened(config.home(), buildId());
 			} catch (RuntimeException | IOException e) {
 				if (EmbeddedVenue.isNewerStore(e)) {
 					log.error("The store is newer than this build", e);
@@ -3139,6 +3139,23 @@ public final class Tau {
 	/** Where snapshots are kept, and how many there are now. */
 	public Path backupsDir() {
 		return Backups.dir(config.home());
+	}
+
+	/**
+	 * Which build this is, for knowing when a new one first opens the store:
+	 * the version and, when running from a jar, the jar's size and time, so two
+	 * builds with the same version string still count as different.
+	 */
+	static String buildId() {
+		Path jar = Relaunch.runningJar();
+		try {
+			if (jar != null && Files.isRegularFile(jar)) {
+				return BuildInfo.version() + "+" + Files.size(jar) + "-" + Files.getLastModifiedTime(jar).toMillis();
+			}
+		} catch (IOException e) {
+			// the version alone
+		}
+		return BuildInfo.version();
 	}
 
 	/** The configuration file this instance runs with. */

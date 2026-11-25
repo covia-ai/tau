@@ -158,6 +158,13 @@ public final class ScreenShots {
 				Thread.sleep(800);
 				shoot(window, out, mode, "trust-confirm-chat", size);
 			}
+			// Back to the standard agent, so what follows runs as it would without this block.
+			Tau standard = screens.app();
+			Screens.onEdt(() -> {
+				standard.switchAgent("Tau");
+				return null;
+			});
+			Thread.sleep(3000);
 		}
 
 		// The developer loop: Connect a tool (a real token on the scratch venue, its settings, the test), and two
