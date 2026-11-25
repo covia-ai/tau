@@ -37,7 +37,9 @@ import covia.venue.Config;
  * time — it is how a venue is used for real, and it costs one boot instead of
  * one per class. So what a class sets venue-wide (a god's configuration, an
  * adapter's) must be what every other class sets, or be set on a venue of its
- * own. With {@code -Dtau.tests.sharedVenue=false} each test class launches its
+ * own. A class also ends the work it starts: a job still running when the
+ * venue closes holds the close for the venue's whole shutdown grace. With
+ * {@code -Dtau.tests.sharedVenue=false} each test class launches its
  * own, closed with the class, to tell a fault of one class from a clash
  * between two.</p>
  *
