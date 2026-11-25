@@ -161,12 +161,10 @@ class MoltbookStubTest {
 		assertEquals("thegreekgodhermes started following you", RT.getIn(out, "notifications", 1, "content").toString());
 		assertTrue(((CVMLong) RT.getIn(out, "bytes")).longValue() > 0);
 
-		// The whole page is in this call's own scratch: its job's temp.
+		// By default the whole page goes to the calling run's scratch, which
+		// lasts as long as that run: here the call's own job, already over.
 		String kept = RT.getIn(out, "outputPath").toString();
 		assertTrue(kept.startsWith("t/moltbook/notifications/"), kept);
-		ACell page = read(user, "j/" + job.getID().toHexString() + "/temp/" + kept.substring("t/".length()));
-		assertEquals("'repli':1", RT.getIn(page, "notifications", 0, "comment", "tsv").toString(), "kept whole");
-		assertEquals("The whole post", RT.getIn(page, "notifications", 0, "post", "content").toString());
 	}
 
 	@Test
@@ -175,7 +173,9 @@ class MoltbookStubTest {
 		Venue user = connected("molty-keeper");
 		ACell out = run(user, "v/ops/moltbook/notifications", Maps.of("outputPath", "w/moltbook-kept/latest"));
 		assertEquals("w/moltbook-kept/latest", RT.getIn(out, "outputPath").toString());
-		assertEquals("The whole post", RT.getIn(read(user, "w/moltbook-kept/latest"), "notifications", 0, "post", "content").toString());
+		ACell page = read(user, "w/moltbook-kept/latest");
+		assertEquals("'repli':1", RT.getIn(page, "notifications", 0, "comment", "tsv").toString(), "kept whole");
+		assertEquals("The whole post", RT.getIn(page, "notifications", 0, "post", "content").toString());
 	}
 
 	@Test

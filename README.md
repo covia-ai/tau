@@ -66,6 +66,11 @@ mvn package
 java -jar target/tau.jar
 ```
 
+While `covia.version` in `pom.xml` ends in `-SNAPSHOT`, Tau builds on an
+unreleased Covia: install it first, as in
+[building against a local Covia checkout](#building-against-a-local-covia-checkout)
+below, or `mvn package` cannot resolve `ai.covia:venue`.
+
 For an existing installation, see [data directories and manual setup](docs/CONFIGURATION.md#selecting-an-existing-installation).
 
 On first launch, choose a passphrase, save the recovery phrase and choose what
