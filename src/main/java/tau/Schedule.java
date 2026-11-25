@@ -83,11 +83,6 @@ public final class Schedule {
 			return couldNotStart() || "FAILED".equals(lastStatus) || "REJECTED".equals(lastStatus);
 		}
 
-		/** Whether the last run ran out of time. */
-		public boolean timedOut() {
-			return "TIMEOUT".equals(lastStatus);
-		}
-
 		/** The event's name on screen: what it is for when it says, else its operation's. */
 		public String title() {
 			if (purpose == null) return label;
