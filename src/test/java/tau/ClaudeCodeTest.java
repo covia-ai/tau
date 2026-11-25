@@ -7,15 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -25,19 +22,17 @@ import convex.core.data.AString;
 import convex.core.data.AVector;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
-import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
-import covia.api.Fields;
 import covia.grid.Job;
 import covia.grid.Venue;
 import covia.venue.RequestContext;
 
 /**
  * Claude Code is part of the embedded venue: the adapter and its skill are
- * on it, a project declared in config.json becomes the owner's once the
- * identity is bound, and the owner's turn runs the configured command in
- * that directory and comes back as the result. The command is a stand-in
- * for the CLI; the real one runs only with {@code -Dtau.tests.claude=true}.
+ * on it, and a project declared in config.json becomes the owner's once the
+ * identity is bound, and no one else's. No test runs a turn: that starts a
+ * process, and the improvement loop runs real turns every day. The command
+ * is a stand-in all the same, so a refusal that failed would show as a run.
  */
 class ClaudeCodeTest {
 
@@ -63,53 +58,10 @@ class ClaudeCodeTest {
 		user = venue.clientAs(userDID);
 	}
 
-	/**
-	 * The owner stops what the tests started, through the adapter's own
-	 * operation: with {@code idleSeconds} 0 a session is kept alive until
-	 * stopped, and the shared venue outlives this class. Each process is seen
-	 * out, and the project directory deleted once Windows lets go of it.
-	 */
-	@AfterAll
-	static void stopSessions() throws Exception {
-		ACell listed = user.run("v/ops/claudecode/sessions", Maps.empty()).get(30, TimeUnit.SECONDS);
-		if (!(RT.getIn(listed, "sessions") instanceof AVector<?> sessions)) return;
-		for (long i = 0; i < sessions.count(); i++) {
-			ACell session = (ACell) sessions.get(i);
-			ACell id = RT.getIn(session, Fields.SESSION);
-			if (id == null) continue;
-			user.run("v/ops/claudecode/stop", Maps.of(Fields.SESSION, id)).get(30, TimeUnit.SECONDS);
-			if (RT.getIn(session, "pid") instanceof CVMLong pid) {
-				ProcessHandle.of(pid.longValue()).ifPresent(p -> p.onExit().orTimeout(30, TimeUnit.SECONDS).join());
-			}
-		}
-		deleteOnceReleased(project);
-	}
-
-	/**
-	 * Deletes the empty directory a process ran in. Windows reports a process
-	 * as exited a moment before it releases the process's working directory,
-	 * and gives no signal for the release, so the delete itself is the check:
-	 * tried until it succeeds. JUnit's own delete of {@link #home} comes
-	 * straight after this and would otherwise fail in that moment.
-	 */
-	private static void deleteOnceReleased(Path dir) throws Exception {
-		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-		while (true) {
-			try {
-				Files.deleteIfExists(dir);
-				return;
-			} catch (FileSystemException e) {
-				if (System.nanoTime() > deadline) throw e;
-				Thread.sleep(10);
-			}
-		}
-	}
-
 	/** The adapter block with the stand-in as the command and the given projects. */
 	private static AMap<AString, ACell> fakeConfig(AMap<AString, ACell> projects) throws Exception {
 		return Maps.of(
 			"command", RT.cvm(FakeClaudeCli.command()),
-			"idleSeconds", 0,
 			"projects", projects);
 	}
 
@@ -171,7 +123,7 @@ class ClaudeCodeTest {
 	}
 
 	@Test
-	void theOwnersProjectRunsAsTheOwner() throws Exception {
+	void theOwnersProjectIsTheirsAlone() throws Exception {
 		// As declared, the project is the venue's: the owner cannot use it.
 		assertNull(project(user, "scratch"), "not the owner's until the identity is bound");
 
@@ -189,91 +141,9 @@ class ClaudeCodeTest {
 		assertNull(project(other, "scratch"));
 		assertThrows(Exception.class, () -> run(other, Maps.of("project", "scratch", "prompt", "cwd")));
 
-		// A turn: the configured command, in the project directory, as one job.
-		long jobsBefore = RecordedJobs.of(venue, userDID);
-		AMap<AString, ACell> res = run(user, Maps.of("project", "scratch", "prompt", "cwd"));
-		// The process reports the directory it really ran in: on macOS the temp
-		// directory is under /var, a link to /private/var, so compare real paths.
-		assertEquals("cwd: " + project.toRealPath(), str(res, "result"));
-		assertNotNull(res.get(Fields.SESSION), "the session id comes back so the conversation can continue");
-		assertEquals(jobsBefore + 1, RecordedJobs.of(venue, userDID), "a run is an action: one job record");
-
-		// Continuing the conversation names the session; the same process answers.
-		AMap<AString, ACell> again = run(user, Maps.of("project", "scratch", "prompt", "hello again", "session", res.get(Fields.SESSION)));
-		assertEquals("echo: hello again", str(again, "result"));
-		assertEquals(res.get(Fields.SESSION), again.get(Fields.SESSION));
-
 		// Binding again changes nothing (already the owner's).
 		ClaudeCode.own(venue, userDID, home);
 		assertNotNull(project(user, "scratch"));
-	}
-
-	/**
-	 * The real CLI, as installed on this machine, in a scratch directory:
-	 * one bounded turn on a cheap model, so the answer proves the whole path
-	 * (process, protocol, project options, result) rather than any of
-	 * Claude's abilities. Headless, it can only edit because the project
-	 * allows it.
-	 */
-	@Test
-	@EnabledIfSystemProperty(named = "tau.tests.claude", matches = "true",
-		disabledReason = "runs the real claude CLI (needs it installed and signed in); -Dtau.tests.claude=true")
-	void theRealClaudeCodeAnswers() throws Exception {
-		Path real = Files.createDirectories(home.resolve("real"));
-		venue.engine().configureAdapter(ClaudeCode.ADAPTER, Maps.of("idleSeconds", 0,
-			"projects", Maps.of("real", Maps.of("path", real.toString(), "user", userDID,
-				"options", Maps.of("permissionMode", "acceptEdits")))));
-		try {
-			Job job = user.invoke("v/ops/claudecode/run", Maps.of(
-				"project", "real",
-				"prompt", "Create a file named pong.txt in the current directory containing the word pong, "
-					+ "then reply with exactly the single word: pong",
-				"model", "haiku",
-				"maxTurns", 3)).get(30, TimeUnit.SECONDS);
-			AMap<AString, ACell> res = RT.castMap(job.future().get(180, TimeUnit.SECONDS));
-			String result = str(res, "result");
-			assertNotNull(result, "a result");
-			assertTrue(result.toLowerCase().contains("pong"), "answered: " + result);
-			assertNotNull(res.get(Fields.SESSION));
-			assertTrue(Files.exists(real.resolve("pong.txt")), "the project's options let it edit: " + res);
-		} finally {
-			venue.engine().configureAdapter(ClaudeCode.ADAPTER,
-				fakeConfig(Maps.of("scratch", project.toString())));
-		}
-	}
-
-	/**
-	 * The self-improvement path, for real: the default {@code tau}
-	 * project starts as an empty directory under the Tau home, and
-	 * Claude Code, allowed git there, clones the repository into it and reads
-	 * its rulebook. Network and a signed-in CLI required, hence gated.
-	 */
-	@Test
-	@EnabledIfSystemProperty(named = "tau.tests.claude", matches = "true",
-		disabledReason = "clones Tau from GitHub with the real claude CLI; -Dtau.tests.claude=true")
-	void theRealClaudeCodeClonesTauIntoItsOwnProject() throws Exception {
-		Path checkout = ClaudeCode.checkoutDir(home);
-		venue.engine().configureAdapter(ClaudeCode.ADAPTER,
-			ClaudeCode.owned(ClaudeCode.withDefaultProject(Maps.of("idleSeconds", 0), home), userDID));
-		try {
-			assertTrue(Files.isDirectory(checkout) && Files.list(checkout).findAny().isEmpty(), "starts empty");
-			Job job = user.invoke("v/ops/claudecode/run", Maps.of(
-				"project", ClaudeCode.PROJECT,
-				"prompt", "This directory is empty. Run exactly: git clone " + ClaudeCode.REPOSITORY + " . "
-					+ "Then reply with exactly the first line of the file AGENTS.md and nothing else.",
-				"model", "haiku",
-				"maxTurns", 6)).get(30, TimeUnit.SECONDS);
-			AMap<AString, ACell> res = RT.castMap(job.future().get(300, TimeUnit.SECONDS));
-			String result = str(res, "result");
-			// The model sometimes drops the trailing dot and clones into a subfolder; either way it cloned here.
-			assertTrue(Files.isRegularFile(checkout.resolve("AGENTS.md"))
-				|| Files.isRegularFile(checkout.resolve(ClaudeCode.PROJECT).resolve("AGENTS.md")), "cloned into the project: " + res);
-			assertNotNull(result);
-			assertTrue(result.contains("Tau"), "read the rulebook: " + result);
-		} finally {
-			venue.engine().configureAdapter(ClaudeCode.ADAPTER,
-				fakeConfig(Maps.of("scratch", project.toString())));
-		}
 	}
 
 	private static AMap<AString, ACell> run(Venue client, AMap<AString, ACell> input) throws Exception {
@@ -292,8 +162,4 @@ class ClaudeCodeTest {
 		return null;
 	}
 
-	private static String str(AMap<AString, ACell> m, String key) {
-		ACell v = (m == null) ? null : m.get(Strings.create(key));
-		return (v == null) ? null : v.toString();
-	}
 }
