@@ -158,22 +158,19 @@ class V0Install {
 		return (s == null) ? "-" : s.replace("\\", "\\\\").replace("\r", "\\r").replace("\n", "\\n");
 	}
 
-	/** Compacts the whole conversation, keeping no exchange, once the session is idle: the venue refuses compaction mid-cycle. */
+	/**
+	 * Compacts the whole conversation, keeping no exchange. The venue refuses
+	 * compaction mid-cycle, but a reply is given only after its cycle's merge
+	 * has ended the cycle's claim on the session, so a session whose last
+	 * message has been answered is idle.
+	 */
 	static void compact(EmbeddedVenue venue, Venue client, String userDID, String sid, String summary)
 			throws Exception {
-		for (int attempt = 0; attempt < 100; attempt++) {
-			if (!SessionHistory.isSessionActive(venue.agentRecord(userDID, NOTES_AGENT), sid)) {
-				try {
-					invoke(client, "v/ops/agent/compact-session",
-						Maps.of("agentId", NOTES_AGENT, "sessionId", sid, "summary", summary, "keep", 0L));
-					return;
-				} catch (Exception e) {
-					if (!String.valueOf(e.getMessage()).contains("active")) throw e;
-				}
-			}
-			Thread.sleep(100);
+		if (SessionHistory.isSessionActive(venue.agentRecord(userDID, NOTES_AGENT), sid)) {
+			throw new AssertionError("session " + sid + " is still in a cycle after its last message was answered");
 		}
-		throw new AssertionError("the session never went idle");
+		invoke(client, "v/ops/agent/compact-session",
+			Maps.of("agentId", NOTES_AGENT, "sessionId", sid, "summary", summary, "keep", 0L));
 	}
 
 	static void invoke(Venue client, String op, ACell input) throws Exception {

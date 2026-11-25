@@ -353,26 +353,17 @@ class SessionHistoryTest {
 	}
 
 	/**
-	 * Compacts once the session is idle, keeping its last {@code keep}
-	 * exchanges word for word: the venue refuses compaction mid-cycle.
+	 * Compacts the session, keeping its last {@code keep} exchanges word for
+	 * word. The venue refuses compaction mid-cycle, but a reply is given only
+	 * after its cycle's merge has ended the cycle's claim on the session, so a
+	 * session whose last message has been answered is idle.
 	 */
 	private static void compact(Venue client, String userDID, String agentId, String sid, String summary, long keep)
 			throws Exception {
-		Exception refused = null;
-		for (int attempt = 0; attempt < 50; attempt++) {
-			if (!SessionHistory.isSessionActive(venue.agentRecord(userDID, agentId), sid)) {
-				try {
-					invoke(client, "v/ops/agent/compact-session",
-						Maps.of("agentId", agentId, "sessionId", sid, "summary", summary, "keep", keep));
-					return;
-				} catch (Exception e) {
-					if (!String.valueOf(e.getMessage()).contains("active")) throw e;
-					refused = e;
-				}
-			}
-			Thread.sleep(100);
-		}
-		throw new AssertionError("the session never went idle", refused);
+		assertFalse(SessionHistory.isSessionActive(venue.agentRecord(userDID, agentId), sid),
+			"the session is idle once its last message is answered");
+		invoke(client, "v/ops/agent/compact-session",
+			Maps.of("agentId", agentId, "sessionId", sid, "summary", summary, "keep", keep));
 	}
 
 	private static String titleOf(Venue client, String agentId, String sessionId) {
