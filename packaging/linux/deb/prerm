@@ -4,7 +4,8 @@
 # Tau's override of jpackage's template (packaging/package.sh passes this
 # folder as --resource-dir). The same placeholders are filled in. Removing the
 # menu entry never stops the package being removed: there may be no menu, or
-# no xdg-utils. Nothing outside the package is touched, ~/.tau included.
+# no xdg-utils. Nothing outside the package is touched, so each person's own
+# Tau data stays where it is.
 
 set -e
 
