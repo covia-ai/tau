@@ -14,7 +14,7 @@ public final class Keys {
 	}
 
 	public static boolean mac() {
-		return tau.Ascii.lower(System.getProperty("os.name", "")).contains("mac");
+		return System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("mac");
 	}
 
 	/** The menu shortcut modifier; works headless too, where the toolkit cannot be asked. */

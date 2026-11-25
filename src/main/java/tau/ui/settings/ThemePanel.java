@@ -317,7 +317,7 @@ public final class ThemePanel extends JPanel {
 	}
 
 	private static String key(String hex) {
-		return tau.Ascii.upper(hex.trim());
+		return hex.trim().toUpperCase(java.util.Locale.ROOT);
 	}
 
 	static String hex(Color c) {

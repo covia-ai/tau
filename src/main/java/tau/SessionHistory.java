@@ -483,7 +483,7 @@ public final class SessionHistory {
 		String chatName = str(RT.getIn(via, "chat", "name"));
 		String chatType = str(RT.getIn(via, "chat", "type"));
 		if (chatName != null) bits.add("#" + chatName);
-		else if (chatType != null) bits.add(Ascii.lower(chatType));
+		else if (chatType != null) bits.add(chatType.toLowerCase(java.util.Locale.ROOT));
 		String from = str(RT.getIn(via, "from", "global_name"));
 		if (from == null) from = str(RT.getIn(via, "from", "username"));
 		if (from != null) bits.add(from);

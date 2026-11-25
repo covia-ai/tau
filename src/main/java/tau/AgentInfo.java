@@ -58,7 +58,7 @@ public final class AgentInfo {
 			case "SLEEPING" -> "Asleep";
 			case "SUSPENDED" -> "Suspended";
 			case "TERMINATED" -> "Stopped";
-			default -> status.substring(0, 1) + Ascii.lower(status.substring(1));
+			default -> status.substring(0, 1) + status.substring(1).toLowerCase(java.util.Locale.ROOT);
 		};
 	}
 

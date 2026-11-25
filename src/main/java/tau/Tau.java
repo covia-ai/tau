@@ -2493,7 +2493,7 @@ public final class Tau {
 				};
 			} catch (Exception e) {
 				log.warn("Could not {} job {}: {}", control, job.id(), e.toString());
-				note = "Couldn't " + Ascii.lower(control.name()) + " it: " + rootMessage(e);
+				note = "Couldn't " + control.name().toLowerCase(java.util.Locale.ROOT) + " it: " + rootMessage(e);
 				error = true;
 			}
 			String shown = note;

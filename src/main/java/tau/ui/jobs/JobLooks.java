@@ -24,7 +24,7 @@ final class JobLooks {
 			case "TIMEOUT" -> "Timed out";
 			case "REJECTED" -> "Refused";
 			case "CANCELLED" -> "Cancelled";
-			default -> s.charAt(0) + tau.Ascii.lower(s.substring(1)).replace('_', ' ');
+			default -> s.charAt(0) + s.substring(1).toLowerCase(java.util.Locale.ROOT).replace('_', ' ');
 		};
 	}
 

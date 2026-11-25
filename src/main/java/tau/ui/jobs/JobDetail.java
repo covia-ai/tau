@@ -179,7 +179,7 @@ final class JobDetail extends JPanel implements AutoCloseable {
 		SelectableText text = new SelectableText(value);
 		if (mono) text.mono();
 		line.add(text, "growx, wmin 0");
-		line.add(Buttons.copy("the " + tau.Ascii.lower(label), () -> value));
+		line.add(Buttons.copy("the " + label.toLowerCase(java.util.Locale.ROOT), () -> value));
 		add(line, "growx, wmin 0");
 	}
 
@@ -191,7 +191,7 @@ final class JobDetail extends JPanel implements AutoCloseable {
 		line.setOpaque(false);
 		JComponent shown = new SelectableText(text).mono();
 		line.add(shown, "growx, wmin 0");
-		line.add(Buttons.copy("the " + tau.Ascii.lower(label), () -> text), "aligny top");
+		line.add(Buttons.copy("the " + label.toLowerCase(java.util.Locale.ROOT), () -> text), "aligny top");
 		add(line, "growx, wmin 0");
 	}
 }

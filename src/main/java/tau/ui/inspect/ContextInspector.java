@@ -278,7 +278,7 @@ public final class ContextInspector {
 		StringBuilder sb = new StringBuilder();
 		for (AgentContext.Band b : r.bands()) {
 			if (sb.length() > 0) sb.append(" · ");
-			sb.append(tau.Ascii.lower(b.name())).append(' ').append(b.size());
+			sb.append(b.name().toLowerCase(java.util.Locale.ROOT)).append(' ').append(b.size());
 		}
 		return sb.toString();
 	}

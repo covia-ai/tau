@@ -375,7 +375,7 @@ public final class SchedulePanel extends SettingsPage {
 
 		void onRun() {
 			String also = event.recurring()
-				? "It stays scheduled and runs again " + tau.Ascii.lower(Times.relative(event.nextAt(), System.currentTimeMillis())) + "."
+				? "It stays scheduled and runs again " + Times.relative(event.nextAt(), System.currentTimeMillis()).toLowerCase(java.util.Locale.ROOT) + "."
 				: "It runs once now and will not run again later.";
 			if (!Dialogs.confirm(SchedulePanel.this, "Run now", "Run \"" + event.title() + "\" now? " + also)) return;
 			busy(true, "Running " + event.title() + "…");
@@ -647,7 +647,7 @@ public final class SchedulePanel extends SettingsPage {
 		SelectableText v = new SelectableText(value);
 		if (copyable) v.mono();
 		line.add(v, "growx, wmin 0");
-		if (copyable) line.add(Buttons.copy("the " + tau.Ascii.lower(label), () -> value));
+		if (copyable) line.add(Buttons.copy("the " + label.toLowerCase(java.util.Locale.ROOT), () -> value));
 		d.add(line, "growx, wmin 0");
 	}
 
@@ -672,7 +672,7 @@ public final class SchedulePanel extends SettingsPage {
 				"It asked you something: answer it in your Inbox");
 			case "PAUSED" -> outcome("circle-pause", Tone.MUTED, "Paused", null);
 			case "PENDING", "STARTED" -> outcome("loader-circle", Tone.ACCENT, "Running", null);
-			default -> outcome("history", Tone.MUTED, s.charAt(0) + tau.Ascii.lower(s.substring(1)).replace('_', ' '), null);
+			default -> outcome("history", Tone.MUTED, s.charAt(0) + s.substring(1).toLowerCase(java.util.Locale.ROOT).replace('_', ' '), null);
 		};
 	}
 

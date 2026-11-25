@@ -129,7 +129,7 @@ public final class ShellCommands {
 
 		// View: every destination, then the panes and looks.
 		for (Destination d : Destination.values()) {
-			c.add("go:" + tau.Ascii.lower(d.name()), d.label, "Sidebar", VIEW,
+			c.add("go:" + d.name().toLowerCase(java.util.Locale.ROOT), d.label, "Sidebar", VIEW,
 				KeyStroke.getKeyStroke(KeyEvent.VK_0 + (d.key - '0'), cmd), () -> a.go(d), aliases(d));
 		}
 		// macOS's own Show Sidebar; elsewhere Ctrl+B, since Ctrl+Alt is AltGr on Windows and types letters.
@@ -163,7 +163,7 @@ public final class ShellCommands {
 
 		// Settings pages, by their names, including the moved ones' old names.
 		for (Page p : Page.values()) {
-			c.add("settings:" + tau.Ascii.lower(p.name()), "Settings: " + p.label, "Settings → " + p.label, null, null,
+			c.add("settings:" + p.name().toLowerCase(java.util.Locale.ROOT), "Settings: " + p.label, "Settings → " + p.label, null, null,
 				() -> a.settings(p), p.label);
 		}
 		c.add("new-access", "New access token", "Settings → Access", null, null, () -> a.settings(Page.ACCESS),
