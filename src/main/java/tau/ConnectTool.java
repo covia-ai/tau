@@ -28,7 +28,7 @@ public final class ConnectTool {
 	/** A tool to connect: its name, the name its token gets, and where its configuration goes. */
 	public enum Client {
 		CLAUDE_CODE("Claude Code", "claude-code", "Run this in a terminal, in the project you want it in"),
-		CODEX("Codex", "codex", "Add this to ~/.codex/config.toml, then reload Codex's MCP servers"),
+		CODEX("Codex", "codex", "Add this to ~/.codex/config.toml, then restart Codex; codex mcp list shows it"),
 		CURSOR("Cursor", "cursor", "Add this to ~/.cursor/mcp.json (or .cursor/mcp.json in one project)"),
 		CLAUDE_DESKTOP("Claude Desktop", "claude-desktop",
 			"Add this to claude_desktop_config.json (Settings → Developer → Edit config), then restart Claude Desktop"),
