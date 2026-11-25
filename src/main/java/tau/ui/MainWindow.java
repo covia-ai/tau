@@ -132,6 +132,8 @@ public final class MainWindow extends JFrame {
 	private tau.ui.agents.AgentsScreen agentsScreen;
 	/** The agents as last reported, for the Agents roster. */
 	private List<tau.model.AgentRef> lastAgents = List.of();
+	/** Bumped by each refresh of the Agents roster, so only the latest one's token read lands. */
+	private long agentsVersion;
 	private String lastDefaultAgent;
 	/** The window opens at about this size the first time; a remembered size always wins. */
 	static final int DEFAULT_WIDTH = 1200, DEFAULT_HEIGHT = 800;
@@ -1505,18 +1507,32 @@ public final class MainWindow extends JFrame {
 				"This computer", "Ready", role != null ? "Looks after this computer" : "Acts for you", role,
 				agentDID(a.id())));
 		}
-		try {
-			long now = System.currentTimeMillis();
-			for (AccessPanel.Row t : app.listTokens()) {
-				rows.add(new tau.ui.agents.AgentsScreen.Row(t.name(), t.name(),
-					tau.ui.agents.AgentsScreen.Kind.OUTSIDE_MCP, "A local client",
-					t.expired(now) ? "Token expired" : "Token active",
-					t.unrestricted() ? "Unrestricted" : t.scope(), null));
+		String defaultAgent = lastDefaultAgent;
+		long version = ++agentsVersion;
+		// The tokens are read off the event thread; a later refresh's answer replaces this one's.
+		new javax.swing.SwingWorker<List<AccessPanel.Row>, Void>() {
+			@Override
+			protected List<AccessPanel.Row> doInBackground() {
+				return app.listTokens();
 			}
-		} catch (RuntimeException e) {
-			// No token store yet (still starting): the roster shows the agents alone.
-		}
-		agentsScreen.setRows(rows, lastDefaultAgent);
+
+			@Override
+			protected void done() {
+				if (version != agentsVersion) return;
+				try {
+					long now = System.currentTimeMillis();
+					for (AccessPanel.Row t : get()) {
+						rows.add(new tau.ui.agents.AgentsScreen.Row(t.name(), t.name(),
+							tau.ui.agents.AgentsScreen.Kind.OUTSIDE_MCP, "A local client",
+							t.expired(now) ? "Token expired" : "Token active",
+							t.unrestricted() ? "Unrestricted" : t.scope(), null));
+					}
+				} catch (InterruptedException | java.util.concurrent.ExecutionException e) {
+					// No token store yet (still starting): the roster shows the agents alone.
+				}
+				agentsScreen.setRows(rows, defaultAgent);
+			}
+		}.execute();
 	}
 
 	/** The DID of the acting principal's agent {@code aid}, {@code <owner>:g:<id>}, or null before an identity is bound. */
