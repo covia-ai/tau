@@ -154,19 +154,19 @@ public final class LAF {
 	 * @param ownThemes      the folder of the owner's own {@code .theme.json} files, or null
 	 */
 	public static void init(String themeId, String mode, String accentHex, boolean higherContrast, Path ownThemes) {
-		// Bundled Inter: register the faces, then make it the preferred family
-		// before the theme installs so components pick it up.
-		registerFonts();
-		FlatLaf.setPreferredFontFamily(FONT_FAMILY);
-		// FlatLaf's semibold class (and the .lead and .section headings) use Inter's own SemiBold cut.
-		FlatLaf.setPreferredSemiboldFontFamily("Inter SemiBold");
-
-		// Tau's defaults load after the theme's, so they win. Registered
-		// once: the source list is additive.
+		// Registered once per process: the bundled faces stay registered with
+		// the graphics environment, and the defaults source list is additive.
+		// Tau's defaults load after the theme's, so they win.
 		if (!registered) {
+			registerFonts();
 			FlatLaf.registerCustomDefaultsSource(DEFAULTS_PACKAGE);
 			registered = true;
 		}
+		// Bundled Inter is the preferred family before the theme installs, so
+		// components pick it up.
+		FlatLaf.setPreferredFontFamily(FONT_FAMILY);
+		// FlatLaf's semibold class (and the .lead and .section headings) use Inter's own SemiBold cut.
+		FlatLaf.setPreferredSemiboldFontFamily("Inter SemiBold");
 
 		catalogue = catalogue(ownThemes);
 		Choice c = choice(themeId);
