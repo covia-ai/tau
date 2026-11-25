@@ -44,7 +44,7 @@ public final class AgentInfo {
 			String status, String error, long tasks, long timelineLength,
 			String model, String operation, String systemPrompt,
 			boolean defaultTools, List<String> tools, List<String> skillsets, List<Pin> pins, List<String> context,
-			List<String> unavailable, int conversations, long lastActive, String rawJson) {
+			List<String> unavailable, int conversations, long lastActive, String rawJson, List<String> permissions) {
 	}
 
 	private AgentInfo() {
@@ -94,7 +94,8 @@ public final class AgentInfo {
 			strings(RT.getIn(config, "tools")), strings(RT.getIn(config, "skillsets")),
 			pins(RT.getIn(config, Fields.LOADS)), context(RT.getIn(config, "context")),
 			rendered(RT.getIn(info, Fields.UNAVAILABLE_TOOLS)),
-			sessions.size(), lastActive, JSON.toStringPretty(info));
+			sessions.size(), lastActive, JSON.toStringPretty(info),
+			tau.model.AgentPermissions.words(RT.getIn(config, Fields.CAPS)));
 	}
 
 	/** {@code config.loads}: a map of load key to its entry. */

@@ -121,6 +121,15 @@ public final class AgentInspector {
 		d.pair("Timeline", a.timelineLength() + " event" + (a.timelineLength() == 1 ? "" : "s"))
 			.tip("Events the venue has recorded on the agent's timeline.");
 
+		d.section("What it may do").tip("Its permissions, as the venue checks them on every call. Overwrites and "
+			+ "deletes that ask you first wait for your approval in the Inbox.");
+		if (a.permissions() != null) {
+			for (String p : a.permissions()) {
+				if (tau.model.AgentPermissions.UNRESTRICTED_WORDS.equals(p)) d.pair("Permissions", p, Styles.WARNING);
+				else d.prose(p);
+			}
+		}
+
 		d.section("System prompt").tip("The instructions that open every turn: the agent's identity and role.");
 		d.prose(orDash(a.systemPrompt()));
 		if (saveInstructions != null) {

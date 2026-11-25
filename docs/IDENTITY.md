@@ -99,6 +99,24 @@ capabilities and its owner's authority, which may include using that owner's
 credentials. Tau's default owner agent has unrestricted caps within that
 authority; loading skills does not narrow it.
 
+### What an agent may do
+
+An agent made in the New agent dialog starts with its template's caps
+(`AgentPermissions`), not Unrestricted. Every one may call operations (each
+still checks what it touches), read the workspace, the file roots and its jobs,
+keep its own notes and the shared memory, load skills, and ask the owner
+through the Inbox. Personal assistant adds writes and deletes in the workspace
+and the file roots, fetching from and sending to the internet, and handing
+work to the owner's other agents; Research adds the internet and workspace
+writes; Software development adds file-root writes and deletes, workspace
+writes and fetching; Writing & editing adds workspace writes and deletes;
+Blank slate adds nothing. Every write and delete grant is gated by
+`v/ops/tau/confirm-change` ([SKILLS.md](SKILLS.md#deletes-and-overwrites-wait-for-you)).
+*Unrestricted* is an explicit, labelled choice in the dialog, and says that
+such an agent's deletes and overwrites will not ask. The agent's page (*Agent
+info*) lists what it may do in plain words. Caps are an owner's decision:
+setting up an existing agent never changes them.
+
 Covia can issue a UCAN to an agent DID after an Inbox approval, but the agent
 cannot yet present that grant on later calls (see below). Tau's `hitl` skill
 therefore offers no grants. An Inbox answer is not a general interception or

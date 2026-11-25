@@ -1354,7 +1354,8 @@ public final class MainWindow extends JFrame {
 	private void newAgent() {
 		NewAgentPanel.Options options = NewAgentPanel.showDialog(this, app.currentModelOp(), servedModels);
 		if (options != null) {
-			app.createAgent(options.name(), options.modelOp(), options.systemPrompt(), options.template().skill());
+			app.createAgent(options.name(), options.modelOp(), options.systemPrompt(), options.template().skill(),
+				options.caps());
 		}
 	}
 

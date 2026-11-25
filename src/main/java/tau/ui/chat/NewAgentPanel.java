@@ -34,7 +34,13 @@ import net.miginfocom.swing.MigLayout;
 public final class NewAgentPanel extends JPanel {
 
 	/** The choices needed to create and configure an agent. */
-	public record Options(String name, AgentTemplate template, String modelOp, String instructions) {
+	public record Options(String name, AgentTemplate template, String modelOp, String instructions, boolean unrestricted) {
+
+		/** What the agent may do: its template's caps, or Unrestricted when the owner chose it. */
+		public convex.core.data.ACell caps() {
+			return tau.model.AgentPermissions.caps(template, unrestricted);
+		}
+
 		/** The instructions as given, or the template's prompt when they were left blank. */
 		public String systemPrompt() {
 			return (instructions == null || instructions.isBlank()) ? template.systemPrompt(name) : instructions;
@@ -46,6 +52,9 @@ public final class NewAgentPanel extends JPanel {
 	private final SelectableText templateDescription = descriptionArea();
 	private final ModelSelector model = new ModelSelector();
 	private final TextArea instructions = new TextArea(6, 24);
+	private final javax.swing.JCheckBox unrestricted = new javax.swing.JCheckBox(
+		"Unrestricted: let it do everything you can, without asking before deletes (not recommended)");
+	private final SelectableText permissions = descriptionArea();
 	/** The text last filled from the template: while the area still holds it, the owner has not edited it. */
 	private String filled = "";
 
@@ -59,6 +68,7 @@ public final class NewAgentPanel extends JPanel {
 		template.addActionListener(e -> {
 			updateTemplateDescription();
 			refillInstructions();
+			updatePermissions();
 		});
 		instructions.setLineWrap(true);
 		instructions.setWrapStyleWord(true);
@@ -78,12 +88,19 @@ public final class NewAgentPanel extends JPanel {
 		add(templateDescription, "skip, growx, wmin 0, gapbottom 8");
 		add(Labels.text("Instructions"), "aligny top");
 		add(Scrolls.vertical(instructions), "growx, wmin 0, hmin 100, gapbottom 8");
+		add(Labels.text("What it may do"), "aligny top");
+		add(permissions, "growx, wmin 0");
+		unrestricted.setOpaque(false);
+		unrestricted.setToolTipText("Anyone or anything that can drive this agent then acts with your full authority");
+		unrestricted.addActionListener(e -> updatePermissions());
+		add(unrestricted, "skip, gapbottom 8");
 		add(model, "span 2, growx, wmin 0");
 		SelectableText note = descriptionArea();
 		note.setText("The model uses API credentials already stored in Settings. The instructions can be changed later on the Agent tab.");
 		add(note, "span 2, growx, wmin 0, gaptop 8");
 		updateTemplateDescription();
 		refillInstructions();
+		updatePermissions();
 		setPreferredSize(new Dimension(500, getPreferredSize().height));
 	}
 
@@ -104,7 +121,7 @@ public final class NewAgentPanel extends JPanel {
 		AgentTemplate chosenTemplate = (AgentTemplate) template.getSelectedItem();
 		String modelOp = model.selectedModelOp();
 		return (chosenName.isEmpty() || chosenTemplate == null || modelOp == null)
-			? null : new Options(chosenName, chosenTemplate, modelOp, instructions.getText().trim());
+			? null : new Options(chosenName, chosenTemplate, modelOp, instructions.getText().trim(), unrestricted.isSelected());
 	}
 
 	JTextField nameField() {
@@ -126,6 +143,23 @@ public final class NewAgentPanel extends JPanel {
 		filled = (selected != null) ? selected.systemPrompt(name.getText()) : "";
 		instructions.setText(filled);
 		instructions.setCaretPosition(0);
+	}
+
+	/** What the chosen template lets the agent do, in a line, or the Unrestricted warning. */
+	private void updatePermissions() {
+		AgentTemplate selected = (AgentTemplate) template.getSelectedItem();
+		if (selected == null) return;
+		java.util.List<String> words = tau.model.AgentPermissions.words(
+			tau.model.AgentPermissions.caps(selected, unrestricted.isSelected()));
+		permissions.setText(unrestricted.isSelected() ? tau.model.AgentPermissions.UNRESTRICTED_WORDS
+			: words.size() + " permissions: reads your workspace and files, keeps notes, asks you through the Inbox"
+				+ (words.stream().anyMatch(w -> w.contains("asks you first")) ? "; overwrites and deletes wait for you" : "")
+				+ ". The full list is on the agent's page.");
+	}
+
+	/** The Unrestricted choice, for tests. */
+	javax.swing.JCheckBox unrestrictedField() {
+		return unrestricted;
 	}
 
 	private void updateTemplateDescription() {

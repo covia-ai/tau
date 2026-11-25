@@ -2247,6 +2247,12 @@ public final class Tau {
 	 * (null: none).
 	 */
 	public void createAgent(String rawName, String modelOp, String systemPrompt, String skill) {
+		createAgent(rawName, modelOp, systemPrompt, skill,
+			tau.model.AgentPermissions.caps(tau.model.AgentTemplate.GENERAL));
+	}
+
+	/** As {@link #createAgent(String, String, String, String)}, with what the agent may do: {@code caps}. */
+	public void createAgent(String rawName, String modelOp, String systemPrompt, String skill, ACell caps) {
 		String name = (rawName != null) ? rawName.trim() : "";
 		String aid = slug(name);
 		EmbeddedVenue v = venue;
@@ -2266,7 +2272,8 @@ public final class Tau {
 		AppConfig.Chat chosen = new AppConfig.Chat(aid, base.operation(), chosenModel, chosenPrompt);
 		Thread t = new Thread(() -> {
 			try {
-				new ChatSession(v.clientAs(did), chosen, id.name(), true).named(name).pinning(skill).ensureAgent();
+				new ChatSession(v.clientAs(did), chosen, id.name(), true).named(name).pinning(skill).withCaps(caps)
+					.ensureAgent();
 			} catch (Exception e) {
 				log.warn("Could not create agent {}: {}", aid, e.toString());
 				SwingUtilities.invokeLater(() -> window.showSystemMessage(

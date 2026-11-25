@@ -29,7 +29,7 @@ class NewAgentPanelTest {
 	@Test
 	void blankInstructionsFallBackToTheTemplate() {
 		AgentTemplate t = AgentTemplate.values()[0];
-		assertEquals(t.systemPrompt("Editor"), new NewAgentPanel.Options("Editor", t, "op", " ").systemPrompt());
-		assertEquals("Edit.", new NewAgentPanel.Options("Editor", t, "op", "Edit.").systemPrompt());
+		assertEquals(t.systemPrompt("Editor"), new NewAgentPanel.Options("Editor", t, "op", " ", false).systemPrompt());
+		assertEquals("Edit.", new NewAgentPanel.Options("Editor", t, "op", "Edit.", false).systemPrompt());
 	}
 }
