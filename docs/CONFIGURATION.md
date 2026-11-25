@@ -128,8 +128,8 @@ as well as Tau's — placeholders to AA, and the borders of fields, buttons and
 check boxes to 3:1.
 
 The window's layout is remembered in `prefs.properties` too, all optional:
-`ui.shell` (`rail`, the default: the sidebar, a status strip and the menu
-bar; or `classic`: the bottom bar, *Settings → Theme → Layout* or *View →
+`ui.shell` (`rail`, the default: the sidebar and a status strip; or
+`classic`: the bottom bar, *Settings → Theme → Layout* or *View →
 Layout*), `ui.rail.collapsed` (the sidebar as icons only, *View →
 Sidebar*), `ui.density` (`comfortable` or `compact` rows in tables and lists,
 *Settings → Theme → Density* or *View → Density*), `ui.window.bounds` and
