@@ -3,6 +3,7 @@ package tau.ui.shell;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.event.KeyEvent;
@@ -193,16 +194,15 @@ class ReachabilityTest {
 	}
 
 	@Test
-	void theStatusSlotKeepsToTheGlyphOnQuietScreens() {
+	void theStatusSlotSpeaksOnlyWhileDecisionsWait() {
 		StatusSlot slot = new StatusSlot();
-		assertFalse(slot.showsMoreThanGlyph());
-		slot.setQuietScreenOpen(true);
-		assertTrue(slot.quietScreenOpen());
-		assertFalse(slot.showsMoreThanGlyph());
-		slot.setState(StatusSlot.State.WAITING, "1 decision");
-		assertEquals("Waiting on you · 1 decision", slot.text());
+		assertNull(slot.text(), "the glyph alone while nothing waits");
+		slot.setWaiting(2);
+		assertTrue(slot.text() != null && slot.text().contains("2"), "the count, in words");
 		slot.setCollapsed(true);
-		assertTrue(slot.getToolTipText().contains("Waiting on you · 1 decision"));
+		assertTrue(slot.getToolTipText().contains(slot.text()), "collapsed, the words are the tooltip");
+		slot.setWaiting(0);
+		assertNull(slot.text());
 	}
 
 	private void assertRuns(String id, String call) {

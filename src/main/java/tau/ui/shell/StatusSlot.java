@@ -23,33 +23,21 @@ import tau.ui.components.Styles;
 import tau.ui.components.Theme;
 
 /**
- * The status slot at the foot of the sidebar: what Tau is doing, in plain
- * words with a count where one helps ("Resting", "Waiting on you · 1
- * decision"), beside the τ glyph on a card. It shows the glyph alone whenever
- * a quiet screen is open ({@link #setQuietScreenOpen}): the Record, the
- * Vault, the Constellation, an agent's profile, a refusal, or an error.
- * Collapsed, the label moves to the tooltip and the accessible name.
+ * The status slot at the foot of the sidebar: the τ glyph on a card, saying
+ * "Waiting on you" beside it, with an amber dot, while decisions wait, and
+ * the glyph alone otherwise. The count rides in the tooltip and the
+ * accessible name ("Waiting on you · 1 decision"); collapsed, the words move
+ * there too.
  */
 @SuppressWarnings("serial")
 public final class StatusSlot extends JPanel {
 
-	/** What the slot can say. Stopped and failed are status badges, not slot states. */
-	public enum State {
-		RESTING("Resting"), THINKING("Thinking"), AT_WORK("At work"), WAITING("Waiting on you"), DONE("Done");
-
-		public final String word;
-
-		State(String word) {
-			this.word = word;
-		}
-	}
+	private static final String WAITING = "Waiting on you";
 
 	private final Glyph glyph = new Glyph();
 	private final JLabel label = Labels.small("");
-	private State state = State.RESTING;
-	private String detail;
+	private int waiting;
 	private boolean collapsed;
-	private boolean quietScreenOpen;
 
 	public StatusSlot() {
 		super(new BorderLayout(UIScale.scale(8), 0));
@@ -61,20 +49,15 @@ public final class StatusSlot extends JPanel {
 		update();
 	}
 
-	/** {@code detail}: the count, in words ("1 decision"), or null. */
-	public void setState(State state, String detail) {
-		this.state = state;
-		this.detail = detail;
+	/** How many decisions wait for the owner; none leaves the glyph alone. */
+	public void setWaiting(int count) {
+		waiting = Math.max(0, count);
 		update();
 	}
 
-	public State state() {
-		return state;
-	}
-
-	/** The words the slot shows, or carries as its tooltip when collapsed. */
+	/** The words the slot shows, or carries as its tooltip when collapsed; null while nothing waits. */
 	public String text() {
-		return (detail != null) ? state.word + " · " + detail : state.word;
+		return (waiting > 0) ? WAITING + " · " + waiting + (waiting == 1 ? " decision" : " decisions") : null;
 	}
 
 	public void setCollapsed(boolean collapsed) {
@@ -82,28 +65,14 @@ public final class StatusSlot extends JPanel {
 		update();
 	}
 
-	/** A quiet screen is open: the slot shows the glyph alone. */
-	public void setQuietScreenOpen(boolean open) {
-		quietScreenOpen = open;
-		repaint();
-	}
-
-	public boolean quietScreenOpen() {
-		return quietScreenOpen;
-	}
-
-	/** Whether the slot shows anything beyond the τ glyph and its words. Always false in this version. */
-	public boolean showsMoreThanGlyph() {
-		return false;
-	}
-
 	private void update() {
 		String t = text();
-		// The word on the card; the count rides in the tooltip and the accessible name.
-		label.setText(collapsed ? null : state.word);
-		label.setVisible(!collapsed);
-		setToolTipText(APP_NAME + ": " + t);
-		getAccessibleContext().setAccessibleName(APP_NAME + " is " + t.toLowerCase());
+		// The words on the card; the count rides in the tooltip and the accessible name.
+		boolean words = t != null && !collapsed;
+		label.setText(words ? WAITING : null);
+		label.setVisible(words);
+		setToolTipText(APP_NAME + ": " + (t != null ? t : "nothing is waiting for you"));
+		getAccessibleContext().setAccessibleName((t != null) ? APP_NAME + " is " + t.toLowerCase() : APP_NAME);
 		revalidate();
 		repaint();
 	}
@@ -152,7 +121,7 @@ public final class StatusSlot extends JPanel {
 				g2.setFont(getFont().deriveFont(Font.BOLD, s * 0.62f));
 				FontMetrics fm = g2.getFontMetrics();
 				g2.drawString("τ", (s - fm.stringWidth("τ")) / 2f, y0 + (s + fm.getAscent() - fm.getDescent()) / 2f);
-				if (state == State.WAITING) {
+				if (waiting > 0) {
 					int d = UIScale.scale(8);
 					g2.setColor(Theme.yours());
 					g2.fillOval(s - d, y0, d, d);

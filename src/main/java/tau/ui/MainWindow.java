@@ -61,7 +61,6 @@ import tau.ui.shell.Destination;
 import tau.ui.shell.Rail;
 import tau.ui.shell.ShellCommands;
 import tau.ui.shell.ShellLayout;
-import tau.ui.shell.StatusSlot;
 import tau.ui.shell.StatusStrip;
 
 /**
@@ -1437,7 +1436,6 @@ public final class MainWindow extends JFrame {
 					markDestination(Destination.VAULT);
 				} else {
 					rail.setSettingsActive();
-					rail.slot().setQuietScreenOpen(false);
 				}
 			}
 		}
@@ -1448,8 +1446,6 @@ public final class MainWindow extends JFrame {
 		destination = d;
 		if (changed) javax.swing.SwingUtilities.invokeLater(this::relayout);
 		rail.setActive(d);
-		// The Record, the Vault and the Constellation are quiet screens: the slot keeps to the glyph.
-		rail.slot().setQuietScreenOpen(d == Destination.RECORD || d == Destination.VAULT || d == Destination.PEERS);
 	}
 
 	/** Goes to a sidebar destination; Jobs, Record and the Vault open their Settings pages until their screens land. */
@@ -1647,8 +1643,7 @@ public final class MainWindow extends JFrame {
 		relayout();
 		rail.setInboxCount(waiting);
 		strip.setWaiting(waiting);
-		rail.slot().setState(waiting > 0 ? StatusSlot.State.WAITING : StatusSlot.State.RESTING,
-			waiting > 0 ? waiting + (waiting == 1 ? " decision" : " decisions") : null);
+		rail.slot().setWaiting(waiting);
 	}
 
 	/** The acting identity or the venue changed: the strip, the sidebar's identity menu, and the venue chip follow. */
