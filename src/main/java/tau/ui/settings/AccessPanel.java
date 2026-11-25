@@ -366,7 +366,7 @@ public final class AccessPanel extends SettingsPage {
 		String lasts = (row.lifetime() == null) ? "lasting until you revoke it"
 			: "working for " + Times.elapsed(row.lifetime()) + " from now";
 		JButton renew = Buttons.small("New key");
-		renew.setToolTipText("A new key for this token, " + lasts + ". The old key stops working, so the tool needs the new one.");
+		renew.setToolTipText("A new key for this token, " + lasts + ". The old key, and work it started, stop at once, so the tool needs the new one.");
 		JButton revoke = Buttons.small("Revoke");
 		revoke.setToolTipText("Stop this token working, on work it already started too");
 		final String[] shown = { null };
@@ -398,7 +398,7 @@ public final class AccessPanel extends SettingsPage {
 		});
 		renew.addActionListener(e -> {
 			if (!Dialogs.confirmDanger(this, "New key", "Give \"" + row.name() + "\" a new key, " + lasts + "? "
-				+ "The old key stops working at once: paste the new one into the tool using it.")) return;
+				+ "The old key stops working at once, and so does work it started: paste the new one into the tool using it.")) return;
 			act(() -> host.newTokenKey(row.name()), k -> showIssued(k,
 				"New key for " + row.name() + ", " + lasts + ". Paste it into the tool in place of the old one."));
 		});

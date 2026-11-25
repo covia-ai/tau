@@ -219,8 +219,8 @@ a reviewer inspects the effective configuration first.
   expires.
 - **A named token** is a Covia access token for the venue's MCP endpoint: its
   requests are the user's, but only with the tools and caps set on it, and the
-  agent sees the token named on each turn. Tau makes, rotates and
-  revokes it in-process as the user in person (`Tokens`), so its key never
+  agent sees the token named on each turn. Tau makes, remakes with a new key
+  and revokes it in-process as the user in person (`Tokens`), so its key never
   passes through an operation's result or the model. The venue keeps the key
   sealed under its secret store (`adapters.token.keepRawTokens`, on by
   default); Settings shows it again behind the passphrase, as a secret's

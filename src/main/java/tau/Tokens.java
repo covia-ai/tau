@@ -86,16 +86,23 @@ public final class Tokens {
 	/**
 	 * Gives token {@code name} a new key by making it again: the same name,
 	 * tools, caps and lifetime, starting now (one made to last until revoked
-	 * still does), expired or not. The old key stops working. The venue keeps
-	 * a token's making time however it is changed, so making it afresh is what
-	 * keeps its lifetime the same each time. Only a token accepted at the MCP
-	 * endpoint alone, as this class makes them, can be made again here.
+	 * still does), expired or not. The old key stops working, and so does work
+	 * it started, as for a revoked token. The venue keeps a token's making time
+	 * however it is changed, so making it afresh is what keeps its lifetime the
+	 * same each time. It is two steps, revoking then making: should the making
+	 * fail, the token is gone. Only a token the owner made, accepted at the MCP
+	 * endpoint alone, as this class makes them, can be made again here; one an
+	 * agent made would come back standing for the owner instead.
 	 *
-	 * @throws IllegalStateException if the token is accepted beyond the MCP endpoint
+	 * @throws IllegalStateException if another made the token, or it is accepted beyond the MCP endpoint
 	 */
 	public Issued newKey(String name) {
 		AccessToken token = adapter().tokens().token(owner, Strings.create(name));
 		Scope scope = (token.record() == null) ? null : scope(token);
+		if (token.record() != null && !owner.equals(token.issuer())) {
+			throw new IllegalStateException("\"" + name + "\" was made by one of your agents, so a new key here would "
+				+ "make it yours: revoke it, and have the agent make a new one");
+		}
 		if (token.record() != null && scope == null) {
 			throw new IllegalStateException("\"" + name + "\" is accepted beyond the MCP endpoint, so it can't be made again here");
 		}

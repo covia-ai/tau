@@ -85,8 +85,9 @@ class TokensTest {
 		Tokens tokens = new Tokens(engine(), owner);
 		long day = 24L * 3600 * 1000, week = 7 * day;
 		Tokens.Scope scope = TokenPreset.COLLABORATE.scope("Tau");
-		tokens.create("weekly", scope, week / 1000);
+		var started = store().lookup(tokens.create("weekly", scope, week / 1000).bearer());
 		assertAWeekFromNow(tokens, "weekly");
+		assertNull(store().resolve(started, now()), "work the old key started stops, as for a revoked token");
 
 		// Made eight days ago, as the store would hold it a day after it expired.
 		long then = System.currentTimeMillis() - 8 * day;
@@ -112,6 +113,20 @@ class TokensTest {
 		assertThrows(IllegalStateException.class, () -> tokens.newKey("wide"));
 		assertEquals(bearer, tokens.key("wide"), "left as it was");
 		assertThrows(NotFoundException.class, () -> tokens.newKey("never-made"));
+	}
+
+	@Test
+	void aTokenAnAgentMadeIsNotMadeAgainAsTheOwners() throws Exception {
+		AString owner = owner("tokens-agent-made");
+		new ChatSession(shared.venue().clientAs(owner.toString()), new AppConfig.Chat("maker", AppConfig.DEFAULT_OPERATION,
+			AppConfig.ECHO_LLM_OPERATION, "You are a test assistant."), "Maker").ensureAgent();
+		RequestContext agent = engine().context(owner, Principals.agentDID(owner, Strings.create("maker")));
+		TokenAdapter adapter = (TokenAdapter) engine().getAdapter(TokenAdapter.NAME);
+		String bearer = adapter.create(agent, Strings.create("agents"), Tokens.access(TokenPreset.READ_ONLY.scope("maker")),
+			null, null, adapter.administration()).bearer();
+		Tokens tokens = new Tokens(engine(), owner);
+		assertThrows(IllegalStateException.class, () -> tokens.newKey("agents"));
+		assertNotNull(store().lookup(bearer), "left as the agent made it");
 	}
 
 	/** Gives token {@code name} a new key, and checks it now lasts a week from then. */
