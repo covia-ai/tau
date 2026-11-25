@@ -184,11 +184,14 @@ public final class JobList {
 			return Group.of(status);
 		}
 
-		/** Its title on screen: what it is for when it says, else its operation's name. */
+		/**
+		 * Its title on screen: the first line of what it is for when it says,
+		 * else its operation's name. Key-like text is masked ({@link KeyMask}).
+		 */
 		public String title() {
 			if (purpose == null) return name;
 			int nl = purpose.indexOf('\n');
-			return (nl < 0) ? purpose : purpose.substring(0, nl);
+			return KeyMask.mask((nl < 0) ? purpose : purpose.substring(0, nl));
 		}
 
 		/** Whether it is still going: queued, running or paused. */

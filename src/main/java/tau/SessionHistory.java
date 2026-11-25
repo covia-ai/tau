@@ -491,7 +491,7 @@ public final class SessionHistory {
 	}
 
 	private static String firstLine(String s) {
-		String line = s.strip();
+		String line = KeyMask.mask(s).strip();
 		int nl = line.indexOf('\n');
 		if (nl >= 0) line = line.substring(0, nl).strip();
 		return (line.length() <= 48) ? line : line.substring(0, 47).strip() + "…";
