@@ -129,6 +129,8 @@ jobs:
         run: packaging/e2e-installed.sh dmg target/installer/*.dmg
 
       - name: Keep the end-to-end evidence
+        # Evidence only: a failed upload (often a GitHub network error) must not fail a build that passed.
+        continue-on-error: true
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -256,6 +258,8 @@ jobs:
           ./packaging/e2e-installed.ps1 -Msi $msi.FullName
 
       - name: Keep the end-to-end evidence
+        # Evidence only: a failed upload (often a GitHub network error) must not fail a build that passed.
+        continue-on-error: true
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -371,6 +375,8 @@ jobs:
         run: E2E_DIR=target/e2e/appimage packaging/e2e-installed.sh appimage target/installer/*.AppImage
 
       - name: Keep the end-to-end evidence
+        # Evidence only: a failed upload (often a GitHub network error) must not fail a build that passed.
+        continue-on-error: true
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
