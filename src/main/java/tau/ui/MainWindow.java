@@ -72,6 +72,7 @@ import tau.ui.shell.StatusStrip;
 @SuppressWarnings("serial")
 public final class MainWindow extends JFrame {
 
+	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MainWindow.class);
 	private static final String CARD_ONBOARD = "onboarding";
 	private static final String CARD_WELCOME = "welcome";
 	private static final String CARD_CHAT = "chat";
@@ -1494,41 +1495,55 @@ public final class MainWindow extends JFrame {
 	 * with a named token.
 	 */
 	private void refreshAgentsScreen() {
-		List<tau.ui.agents.AgentsScreen.Row> rows = new java.util.ArrayList<>();
+		List<tau.model.AgentRef> agents = lastAgents;
 		boolean operator = app.actingAsOperator();
-		for (tau.model.AgentRef a : lastAgents) {
-			String role = operator ? godRole(a.id()) : null;
-			rows.add(new tau.ui.agents.AgentsScreen.Row(a.id(), a.name(),
-				role != null ? tau.ui.agents.AgentsScreen.Kind.VENUE : tau.ui.agents.AgentsScreen.Kind.YOURS,
-				"This computer", "Ready", role != null ? "Looks after this computer" : "Acts for you", role,
-				agentDID(a.id())));
-		}
 		String defaultAgent = lastDefaultAgent;
 		long version = ++agentsVersion;
-		// The tokens are read off the event thread; a later refresh's answer replaces this one's.
-		new javax.swing.SwingWorker<List<AccessPanel.Row>, Void>() {
+		// The agents' states and the tokens are read off the event thread; a later refresh's answer replaces this one's.
+		new javax.swing.SwingWorker<RosterRead, Void>() {
 			@Override
-			protected List<AccessPanel.Row> doInBackground() {
-				return app.listTokens();
+			protected RosterRead doInBackground() {
+				List<AccessPanel.Row> tokens;
+				try {
+					tokens = app.listTokens();
+				} catch (RuntimeException e) {
+					tokens = List.of(); // no token store yet (still starting): the roster shows the agents alone
+				}
+				return new RosterRead(app.agentStatuses(), tokens);
 			}
 
 			@Override
 			protected void done() {
 				if (version != agentsVersion) return;
+				RosterRead read;
 				try {
-					long now = System.currentTimeMillis();
-					for (AccessPanel.Row t : get()) {
-						rows.add(new tau.ui.agents.AgentsScreen.Row(t.name(), t.name(),
-							tau.ui.agents.AgentsScreen.Kind.OUTSIDE_MCP, "A local client",
-							t.expired(now) ? "Token expired" : "Token active",
-							t.unrestricted() ? "Unrestricted" : t.scope(), null));
-					}
+					read = get();
 				} catch (InterruptedException | java.util.concurrent.ExecutionException e) {
-					// No token store yet (still starting): the roster shows the agents alone.
+					log.warn("Couldn't read the Agents roster's states: {}", e.toString());
+					read = new RosterRead(java.util.Map.of(), List.of());
+				}
+				List<tau.ui.agents.AgentsScreen.Row> rows = new java.util.ArrayList<>();
+				for (tau.model.AgentRef a : agents) {
+					String role = operator ? godRole(a.id()) : null;
+					rows.add(new tau.ui.agents.AgentsScreen.Row(a.id(), a.name(),
+						role != null ? tau.ui.agents.AgentsScreen.Kind.VENUE : tau.ui.agents.AgentsScreen.Kind.YOURS,
+						"This computer", tau.AgentInfo.state(read.statuses().get(a.id())),
+						role != null ? "Looks after this computer" : "Acts for you", role, agentDID(a.id())));
+				}
+				long now = System.currentTimeMillis();
+				for (AccessPanel.Row t : read.tokens()) {
+					rows.add(new tau.ui.agents.AgentsScreen.Row(t.name(), t.name(),
+						tau.ui.agents.AgentsScreen.Kind.OUTSIDE_MCP, "A local client",
+						t.expired(now) ? "Token expired" : "Token active",
+						t.unrestricted() ? "Unrestricted" : t.scope(), null));
 				}
 				agentsScreen.setRows(rows, defaultAgent);
 			}
 		}.execute();
+	}
+
+	/** What the Agents roster reads off the event thread: each agent's run state by id, and the named tokens. */
+	private record RosterRead(java.util.Map<String, String> statuses, List<AccessPanel.Row> tokens) {
 	}
 
 	/** The DID of the acting principal's agent {@code aid}, {@code <owner>:g:<id>}, or null before an identity is bound. */

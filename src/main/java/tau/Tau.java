@@ -2060,6 +2060,13 @@ public final class Tau {
 		return (v == null || id == null) ? null : actingDID(id, v);
 	}
 
+	/** The acting principal's agents' run states by id, as Covia observes them; empty before the venue is up. */
+	public Map<String, String> agentStatuses() {
+		EmbeddedVenue v = venue;
+		String did = actingPrincipal();
+		return (v == null || did == null) ? Map.of() : v.agentStatuses(did);
+	}
+
 	/** The named user's main assistant: the chat agent the configuration names. */
 	public String mainAgentId() {
 		return config.chat().agentId();
