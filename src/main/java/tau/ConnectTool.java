@@ -151,9 +151,43 @@ public final class ConnectTool {
 	/**
 	 * Lists the tools {@code key} offers at {@code mcpUrl}, as a client would:
 	 * the proof that the configuration will work. Never shows the key or the
-	 * server's reply.
+	 * server's reply. {@link Outcome#NOT_RUNNING} means nothing accepted a
+	 * connection; a connection that was accepted and then reset or closed
+	 * before an answer (as the venue may do to a request it refuses) is tried
+	 * once more on a fresh connection, and what that answers decides.
 	 */
 	public static Test test(String mcpUrl, String key) {
+		try {
+			try {
+				return once(mcpUrl, key);
+			} catch (java.io.IOException dropped) {
+				if (refused(dropped)) return new Test(Outcome.NOT_RUNNING, 0);
+				// Accepted, then dropped: once more, on a connection of its own.
+				return once(mcpUrl, key);
+			}
+		} catch (java.io.IOException e) {
+			return new Test(refused(e) ? Outcome.NOT_RUNNING : Outcome.FAILED, 0);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return new Test(Outcome.FAILED, 0);
+		} catch (RuntimeException e) {
+			return new Test(Outcome.FAILED, 0);
+		}
+	}
+
+	/** Whether {@code e} says nothing accepted the connection at all: refused, or no answer to connect. */
+	static boolean refused(Throwable e) {
+		for (Throwable c = e; c != null; c = (c.getCause() == c) ? null : c.getCause()) {
+			if (c instanceof ConnectException || c instanceof java.net.http.HttpConnectTimeoutException
+				|| c instanceof java.net.UnknownHostException || c instanceof java.net.NoRouteToHostException) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** One request on a client of its own, so no connection is reused from an earlier one. */
+	private static Test once(String mcpUrl, String key) throws java.io.IOException, InterruptedException {
 		try (HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()) {
 			HttpRequest request = HttpRequest.newBuilder(URI.create(mcpUrl)).timeout(Duration.ofSeconds(10))
 				.header("Content-Type", "application/json").header("Accept", "application/json, text/event-stream")
@@ -177,15 +211,6 @@ public final class ConnectTool {
 				return RT.getIn(reply, "error") != null ? new Test(Outcome.KEY_REFUSED, 0) : new Test(Outcome.FAILED, 0);
 			}
 			return new Test(Outcome.WORKS, (int) RT.count(tools).longValue());
-		} catch (ConnectException e) {
-			return new Test(Outcome.NOT_RUNNING, 0);
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			return new Test(Outcome.FAILED, 0);
-		} catch (java.io.IOException e) {
-			return new Test(Outcome.NOT_RUNNING, 0);
-		} catch (RuntimeException e) {
-			return new Test(Outcome.FAILED, 0);
 		}
 	}
 }

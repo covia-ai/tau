@@ -94,6 +94,65 @@ class ConnectToolTest {
 	}
 
 	@Test
+	void aDroppedConnectionIsTriedAgainBeforeAnythingIsDecided() throws Exception {
+		// Accepted, then reset before an answer (as a venue may drop a refused request), then a 401: the key is refused.
+		try (Dropping venue = new Dropping(1)) {
+			assertEquals(ConnectTool.Outcome.KEY_REFUSED, ConnectTool.test(venue.url(), "revoked").outcome());
+			assertEquals(2, venue.accepted.get(), "tried once more, on a fresh connection");
+		}
+		// Reset every time: something is there but not answering as it should; it is not "not running".
+		try (Dropping venue = new Dropping(Integer.MAX_VALUE)) {
+			assertEquals(ConnectTool.Outcome.FAILED, ConnectTool.test(venue.url(), "any").outcome());
+			assertEquals(2, venue.accepted.get(), "and only once more");
+		}
+	}
+
+	/** A local server that resets the first {@code drops} connections, then answers 401. */
+	private static final class Dropping implements AutoCloseable {
+		final java.net.ServerSocket server = new java.net.ServerSocket(0, 50, java.net.InetAddress.getLoopbackAddress());
+		final java.util.concurrent.atomic.AtomicInteger accepted = new java.util.concurrent.atomic.AtomicInteger();
+		private final Thread thread;
+
+		Dropping(int drops) throws java.io.IOException {
+			thread = Thread.ofVirtual().start(() -> {
+				while (!server.isClosed()) {
+					try (java.net.Socket s = server.accept()) {
+						int n = accepted.incrementAndGet();
+						// Read the request line and headers before answering or dropping, as a server would.
+						java.io.InputStream in = s.getInputStream();
+						byte[] buf = new byte[8192];
+						StringBuilder head = new StringBuilder();
+						while (!head.toString().contains("\r\n\r\n")) {
+							int r = in.read(buf);
+							if (r < 0) break;
+							head.append(new String(buf, 0, r, java.nio.charset.StandardCharsets.ISO_8859_1));
+						}
+						if (n <= drops) {
+							s.setSoLinger(true, 0); // closes with a reset
+						} else {
+							s.getOutputStream().write(("HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+								.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+							s.getOutputStream().flush();
+						}
+					} catch (java.io.IOException e) {
+						// closed: done
+					}
+				}
+			});
+		}
+
+		String url() {
+			return "http://127.0.0.1:" + server.getLocalPort() + "/mcp";
+		}
+
+		@Override
+		public void close() throws Exception {
+			server.close();
+			thread.join(5000);
+		}
+	}
+
+	@Test
 	void aConnectedToolsTokenLastsThirtyDaysByDefault() {
 		AString owner = Strings.create(Identity.of("connect-lifetime").userDID(shared.venue().did()));
 		shared.venue().engine().getVenueState().users().ensure(owner.toString());
