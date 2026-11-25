@@ -1,37 +1,31 @@
 package tau.ui.character;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.Test;
 
 /**
- * The owner's Motion choice overrides the system's setting and takes effect at
- * once; "Match the system" goes back to it; {@code tau.motion} still wins over
- * both; a saved choice reads back as its level.
+ * How the level is decided: {@code tau.motion} wins; then the owner's Motion
+ * choice, which overrides the system's setting; "Match the system" (no choice)
+ * reads the system's setting, and only then. A saved choice reads back as its
+ * level. Pure, so no test changes the running app's motion.
  */
 class MotionChoiceTest {
 
 	@Test
-	void theOwnersChoiceOverridesTheSystemAndThePropertyStillWins() {
-		Motion before = Motion.chosen();
-		String property = System.getProperty(Motion.PROPERTY);
-		try {
-			System.clearProperty(Motion.PROPERTY);
-			Motion.choose(Motion.OFF);
-			assertEquals(Motion.OFF, Motion.get(), "the choice, at once");
-			Motion.choose(null);
-			// Headless, the system's setting can't be read: Full.
-			assertEquals(Motion.FULL, Motion.get(), "matching the system again");
-			Motion.choose(Motion.REDUCED);
-			System.setProperty(Motion.PROPERTY, "full");
-			Motion.choose(Motion.REDUCED); // finds it again
-			assertEquals(Motion.FULL, Motion.get(), "tau.motion wins over the choice");
-		} finally {
-			if (property == null) System.clearProperty(Motion.PROPERTY);
-			else System.setProperty(Motion.PROPERTY, property);
-			Motion.choose(before);
-		}
+	void thePropertyWinsThenTheOwnersChoiceThenTheSystem() {
+		AtomicBoolean asked = new AtomicBoolean();
+		assertEquals(Motion.OFF, Motion.resolve(null, Motion.OFF, () -> { asked.set(true); return true; }),
+			"the choice overrides a system that reduces motion");
+		assertFalse(asked.get(), "and the system is not asked");
+		assertEquals(Motion.REDUCED, Motion.resolve(null, null, () -> true), "matching a system that reduces motion");
+		assertEquals(Motion.FULL, Motion.resolve(null, null, () -> false), "matching a system that does not");
+		assertEquals(Motion.FULL, Motion.resolve("full", Motion.REDUCED, () -> true), "tau.motion wins over the choice");
+		assertEquals(Motion.OFF, Motion.resolve("nonsense", Motion.OFF, () -> false), "an unknown property is ignored");
 	}
 
 	@Test

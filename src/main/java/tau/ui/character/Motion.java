@@ -86,11 +86,18 @@ public enum Motion {
 	}
 
 	static Motion find() {
-		Motion named = parse(System.getProperty(PROPERTY));
+		return resolve(System.getProperty(PROPERTY), chosen, Motion::systemReducesMotion);
+	}
+
+	/**
+	 * The level from {@code property} ({@value #PROPERTY}), else the owner's
+	 * {@code chosen} level, else the system's setting, asked only when needed.
+	 */
+	static Motion resolve(String property, Motion chosen, java.util.function.BooleanSupplier systemReduces) {
+		Motion named = parse(property);
 		if (named != null) return named;
-		Motion owner = chosen;
-		if (owner != null) return owner;
-		return systemReducesMotion() ? REDUCED : FULL;
+		if (chosen != null) return chosen;
+		return systemReduces.getAsBoolean() ? REDUCED : FULL;
 	}
 
 	/** The OS's own setting, where there is one to read; false when it can't be read. */

@@ -66,7 +66,8 @@ which narrows as the figure rises.
 `Motion` is Full, Reduced, or Off: the system property `tau.motion` wins,
 then the owner's choice in *Settings → Theme → Motion* (kept as `ui.motion`
 in `prefs.properties`) unless it is *Match the system*, then the operating
-system's own setting where it can be read, else Full. A change applies at once.
+system's own setting where it can be read, else Full. The player reads the
+level on every frame, so a change shows from the next one.
 Reduced keeps the crossfade and nothing else (no breathing, blinks, hops, or
 sparks); Off swaps stills. The player's timer runs only while its view is
 showing and something moves, and the loops stop a minute after the last beat.

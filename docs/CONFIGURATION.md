@@ -682,8 +682,8 @@ local tools* ticked, configure `http_headers_helper` to read
 expects. This keeps credentials out of the repository and lets the client
 read a fresh token when authentication expires. A configured
 `bearer_token_env_var` takes precedence over the helper, so omit it when
-using the rotating file. Reload the client's MCP connections after changing
-configuration.
+using the rotating file. Restart Codex after changing configuration;
+`codex mcp list` shows the servers it has.
 
 ### From Claude Code
 
@@ -856,7 +856,7 @@ schedule instead.
 
 ## Jobs
 
-*Jobs* (in the sidebar) lists everything that has run or is running for the acting
+*Jobs* (in the sidebar, and in Settings) lists everything that has run or is running for the acting
 principal: chats, agent tasks, scheduled runs, tool calls that were kept,
 anything run through the venue. The newest are first. Filter by how a job
 stands (all, or one of active, waiting for you, failed, completed and
