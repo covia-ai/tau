@@ -16,6 +16,7 @@ import javax.swing.text.JTextComponent;
 import org.junit.jupiter.api.Test;
 
 import tau.ui.LAF;
+import tau.ui.ReadsLook;
 import tau.ui.settings.SettingsScreen.Tab;
 
 /**
@@ -23,6 +24,7 @@ import tau.ui.settings.SettingsScreen.Tab;
  * page, the plan's free and paid states, and Match the system resolving to a
  * mode. Headless.
  */
+@ReadsLook
 class SettingsPhaseTest {
 
 	@Test

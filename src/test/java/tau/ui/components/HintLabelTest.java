@@ -8,7 +8,10 @@ import javax.swing.SwingUtilities;
 
 import org.junit.jupiter.api.Test;
 
+import tau.ui.ReadsLook;
+
 /** A hint shown in full beside a label follows the label's hint as the app's state changes it. */
+@ReadsLook
 class HintLabelTest {
 
 	@Test

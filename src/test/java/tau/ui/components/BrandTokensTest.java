@@ -15,18 +15,17 @@ import java.util.function.Supplier;
 import javax.swing.UIManager;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Isolated;
 
+import tau.ui.ChangesLook;
 import tau.ui.LAF;
 
 /**
  * Tau Dark and Tau Light install their own colour roles over FlatLaf's and
  * Tau's shared defaults, every text role reads at WCAG AA on every
  * ground it sits on, and the pair rules hold: only navy text on amber, never
- * white on Cerulean, Refused never red. Isolated: it swaps the JVM's look and
- * feel.
+ * white on Cerulean, Refused never red.
  */
-@Isolated
+@ChangesLook
 class BrandTokensTest {
 
 	private static final Color NAVY = Color.decode("#1E2642");

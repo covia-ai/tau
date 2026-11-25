@@ -9,10 +9,12 @@ import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 
 import tau.SessionHistory;
+import tau.ui.ReadsLook;
 import tau.ui.chat.ChatPanel;
 import tau.ui.inspect.SessionViews.View;
 
 /** The chat and its inspector views as the window's width docks and undocks the inspector. Headless. */
+@ReadsLook
 class SessionViewsTest {
 
 	@Test

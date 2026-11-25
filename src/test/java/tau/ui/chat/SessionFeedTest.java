@@ -25,6 +25,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import convex.core.data.ACell;
 import convex.core.data.Maps;
 import convex.core.data.Vectors;
+import tau.ui.ReadsLook;
 
 /**
  * Selection and asynchronous delivery, without constructing any UI or venue.
@@ -32,6 +33,7 @@ import convex.core.data.Vectors;
  * nothing here waits on a clock.
  */
 @Execution(ExecutionMode.CONCURRENT)
+@ReadsLook
 class SessionFeedTest {
 
 	private static ACell record(String text) {

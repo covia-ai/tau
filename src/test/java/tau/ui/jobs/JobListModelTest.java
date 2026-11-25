@@ -12,6 +12,7 @@ import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 
 import tau.JobList;
+import tau.ui.ReadsLook;
 import convex.core.data.ACell;
 import convex.core.data.Blob;
 import convex.core.data.Index;
@@ -22,6 +23,7 @@ import convex.core.data.Maps;
  * jobs, laid out and painted in a short viewport, projects a screenful of
  * rows from the lattice and no more. Headless: nothing is put on a desktop.
  */
+@ReadsLook
 class JobListModelTest {
 
 	private static final int JOBS = 5000;

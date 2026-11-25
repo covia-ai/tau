@@ -14,8 +14,10 @@ import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 
 import tau.ui.LAF;
+import tau.ui.ReadsLook;
 
 /** Settings → Theme's mode switch, as the window refreshes it. Headless. */
+@ReadsLook
 class ThemePanelTest {
 
 	@Test

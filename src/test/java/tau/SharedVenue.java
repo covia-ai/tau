@@ -5,6 +5,8 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -35,7 +37,9 @@ import covia.venue.Config;
  * time — it is how a venue is used for real, and it costs one boot instead of
  * one per class. So what a class sets venue-wide (a god's configuration, an
  * adapter's) must be what every other class sets, or be set on a venue of its
- * own. With {@code -Dtau.tests.sharedVenue=false} each test class launches its
+ * own. A class also ends the work it starts: a job still running when the
+ * venue closes holds the close for the venue's whole shutdown grace. With
+ * {@code -Dtau.tests.sharedVenue=false} each test class launches its
  * own, closed with the class, to tell a fault of one class from a clash
  * between two.</p>
  *
@@ -58,7 +62,9 @@ public final class SharedVenue implements BeforeAllCallback, AfterAllCallback {
 		// The store's scope decides the venue's life: JUnit closes what the store
 		// holds when its context ends — the run's, or this class's.
 		ExtensionContext scope = ACROSS_RUN ? context.getRoot() : context;
-		launched = scope.getStore(NAMESPACE).getOrComputeIfAbsent("venue", key -> new Launched(), Launched.class);
+		Launched l = scope.getStore(NAMESPACE).getOrComputeIfAbsent("venue", key -> new Launched(), Launched.class);
+		l.venue();
+		launched = l;
 	}
 
 	@Override
@@ -70,7 +76,7 @@ public final class SharedVenue implements BeforeAllCallback, AfterAllCallback {
 	public EmbeddedVenue venue() {
 		Launched l = launched;
 		if (l == null) throw new IllegalStateException("No venue: register SharedVenue as a static @RegisterExtension");
-		return l.venue;
+		return l.venue();
 	}
 
 	/**
@@ -85,11 +91,18 @@ public final class SharedVenue implements BeforeAllCallback, AfterAllCallback {
 			.assoc(Fields.PORT, CVMLong.create(0));
 	}
 
-	/** A venue on a temp home; JUnit closes it with the store it was put in. */
+	/**
+	 * A venue on a temp home; JUnit closes it with the store it was put in.
+	 *
+	 * <p>It launches on a thread of its own, and the classes that need it wait
+	 * on its future. That wait is one JUnit's fork-join pool knows is blocked,
+	 * so the pool starts other classes meanwhile instead of leaving every
+	 * worker parked behind the boot.</p>
+	 */
 	private static final class Launched implements AutoCloseable {
 
 		private final Path home;
-		private final EmbeddedVenue venue;
+		private final CompletableFuture<EmbeddedVenue> venue;
 
 		Launched() {
 			try {
@@ -97,13 +110,24 @@ public final class SharedVenue implements BeforeAllCallback, AfterAllCallback {
 			} catch (IOException e) {
 				throw new UncheckedIOException(e);
 			}
-			venue = EmbeddedVenue.launch(config(home));
+			venue = CompletableFuture.supplyAsync(() -> EmbeddedVenue.launch(config(home)),
+				launch -> Thread.ofPlatform().name("shared-venue-launch").start(launch));
+		}
+
+		/** The venue, once launched; waits for a launch under way. */
+		EmbeddedVenue venue() {
+			try {
+				return venue.join();
+			} catch (CompletionException e) {
+				throw new IllegalStateException("The shared test venue failed to launch", e.getCause());
+			}
 		}
 
 		@Override
 		public void close() throws IOException {
 			try {
-				venue.close();
+				EmbeddedVenue v = venue.exceptionally(failure -> null).join();
+				if (v != null) v.close();
 			} finally {
 				try (var paths = Files.walk(home)) {
 					for (Path p : paths.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(p);

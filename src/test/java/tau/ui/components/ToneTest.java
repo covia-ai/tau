@@ -12,19 +12,17 @@ import java.util.List;
 import javax.swing.UIManager;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Isolated;
 
+import tau.ui.ChangesLook;
 import tau.ui.LAF;
 
 /**
  * The tones' grounds come from Tau's UI defaults through a real theme
  * install, a step stronger on a dark theme than a light one — not from the
  * fallback {@link Tone#tint} works out when a key is missing — and the
- * tones' colours read on them whatever the theme. Isolated: it
- * swaps the JVM's look and feel, which the concurrent classes measuring text
- * must not see change under them.
+ * tones' colours read on them whatever the theme.
  */
-@Isolated
+@ChangesLook
 class ToneTest {
 
 	@Test

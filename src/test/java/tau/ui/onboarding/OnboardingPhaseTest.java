@@ -14,8 +14,8 @@ import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Isolated;
 
+import tau.ui.ChangesLook;
 import tau.ui.LAF;
 import tau.ui.components.Badge;
 import tau.ui.components.EmptyState;
@@ -27,10 +27,8 @@ import tau.ui.components.Tone;
  * Finish sets things up), at the size the brand sets; the name card shows the
  * identity just made; empty states can carry the τ in place of their icon.
  * Headless.
- * Isolated: it installs a look and feel, which classes running alongside
- * must not see change under them.
  */
-@Isolated
+@ChangesLook
 class OnboardingPhaseTest {
 
 	@Test

@@ -13,8 +13,10 @@ import javax.swing.JComboBox;
 import org.junit.jupiter.api.Test;
 
 import tau.model.Providers;
+import tau.ui.ReadsLook;
 
 /** What the model picker offers once the venue's catalogue arrives. Headless: no window is shown. */
+@ReadsLook
 class ModelSelectorTest {
 
 	private static List<String> ids(JComboBox<Providers.Model> field) {

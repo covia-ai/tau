@@ -84,20 +84,34 @@ class SuspensionTest {
 		run("v/ops/agent/create", Maps.of(Fields.AGENT_ID, agent, Fields.CONFIG,
 			Maps.of(Fields.OPERATION, "v/test/ops/never", "acceptTasks", true)));
 		CountDownLatch turnStarted = new CountDownLatch(1);
-		Job task;
-		try (AutoCloseable events = venue.subscribeAgent(userDID, agent, e -> {
-				if (AgentEvents.CYCLE_START.equals(e.type())) turnStarted.countDown();
-			})) {
-			task = request(agent);
-			assertTrue(turnStarted.await(TIMEOUT_SECONDS, TimeUnit.SECONDS), "its turn never started");
-		}
+		Job task = null;
+		try {
+			try (AutoCloseable events = venue.subscribeAgent(userDID, agent, e -> {
+					if (AgentEvents.CYCLE_START.equals(e.type())) turnStarted.countDown();
+				})) {
+				task = request(agent);
+				assertTrue(turnStarted.await(TIMEOUT_SECONDS, TimeUnit.SECONDS), "its turn never started");
+			}
 
-		run("v/ops/agent/suspend", Maps.of(Fields.AGENT_ID, agent, "reason", "checking something"));
-		// Suspension has committed; Covia keeps the task queued for an explicit resume.
-		assertFalse(task.isFinished(), "a deliberate stop preserves the queued task");
-		ACell record = venue.agentRecord(userDID, agent);
-		assertTrue(Suspension.deliberate(record), "stopped on purpose: " + record);
-		assertEquals("checking something", Suspension.reason(record), "and why, as whoever stopped it said");
+			run("v/ops/agent/suspend", Maps.of(Fields.AGENT_ID, agent, "reason", "checking something"));
+			// Suspension has committed; Covia keeps the task queued for an explicit resume.
+			assertFalse(task.isFinished(), "a deliberate stop preserves the queued task");
+			ACell record = venue.agentRecord(userDID, agent);
+			assertTrue(Suspension.deliberate(record), "stopped on purpose: " + record);
+			assertEquals("checking something", Suspension.reason(record), "and why, as whoever stopped it said");
+		} finally {
+			if (task != null) cancel(task);
+		}
+	}
+
+	/**
+	 * Cancels a task this class left waiting and waits for it to end, so the
+	 * shared venue has none of this class's work in flight when it closes —
+	 * a close gives in-flight work its whole grace period to finish.
+	 */
+	private static void cancel(Job task) throws Exception {
+		user.cancelJob(task.getID());
+		task.future().handle((result, failure) -> null).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 	}
 
 	@Test
