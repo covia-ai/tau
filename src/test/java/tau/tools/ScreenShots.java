@@ -166,7 +166,11 @@ public final class ScreenShots {
 			});
 			Thread.sleep(3000);
 			// The main assistant's page: the scoped set of a new install, then Unrestricted (an older install's)
-			// with its one-click offer, and both confirmations.
+			// with its one-click offer, and both confirmations. The scratch venue makes it on its first message.
+			screens.sendMessage("Hello");
+			String me = standard.actingPrincipal();
+			waitFor(() -> standard.venue().agentRecord(me, "Tau"), 60_000);
+			Thread.sleep(2000);
 			for (Dimension size : SIZES) {
 				screens.resize(size);
 				screens.inspect("AGENT");
@@ -721,6 +725,11 @@ public final class ScreenShots {
 					javax.swing.JViewport port = (javax.swing.JViewport) SwingUtilities.getAncestorOfClass(javax.swing.JViewport.class, hit);
 					if (port != null) {
 						java.awt.Point at = SwingUtilities.convertPoint(hit.getParent(), hit.getLocation(), port.getView());
+						if (hit instanceof JTextComponent tc) {
+							// One text holding the whole page: scroll to where the words are inside it.
+							java.awt.geom.Rectangle2D r = tc.modelToView2D(tc.getText().indexOf(text));
+							if (r != null) at = SwingUtilities.convertPoint(tc, new java.awt.Point(0, (int) r.getY()), port.getView());
+						}
 						port.setViewPosition(new java.awt.Point(0, Math.max(0, Math.min(at.y - 12,
 							port.getView().getHeight() - port.getExtentSize().height))));
 					}

@@ -76,7 +76,7 @@ public final class AgentPermissions {
 	 * agent may do"): broad, so every shipped skill and tool still works, but
 	 * scoped to the owner's namespace, and its writes and deletes are gated
 	 * the same way a template's are. Derived from what the standard agent's
-	 * skills, tools and loads call (AssistantScopeTest runs each):
+	 * skills, tools, and loads call (AssistantScopeTest runs each):
 	 * <ul>
 	 *   <li>the base: operations, reads, its jobs, its notes, the shared
 	 *       memory, the Inbox, and skill and tool loads;</li>
@@ -123,7 +123,7 @@ public final class AgentPermissions {
 		"Disconnect a connected account",
 		"Hand out access to others",
 		"Read the venue's settings",
-		"Run the venue: people, adapters, restarts and relaunches (Odin does these when asked)");
+		"Run the venue: people, adapters, restarts, and relaunches (Odin does these when asked)");
 
 	/** What the assistant's set lets happen without asking, in plain words for its page. */
 	public static final List<String> DOES_NOT_ASK = List.of(

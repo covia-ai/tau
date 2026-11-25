@@ -26,6 +26,7 @@ import covia.venue.Engine;
 import covia.venue.RequestContext;
 import tau.chat.ChatSession;
 import tau.model.AgentPermissions;
+import tau.model.AgentTemplate;
 
 /**
  * The main assistant's scoped set reaches everything its skills, tools and
@@ -158,8 +159,9 @@ class AssistantScopeTest {
 		allowed("v/ops/skills/read", Maps.of("skill", "v/skills/root/skills"), tau);
 		allowed("v/ops/claudecode/projects", Maps.empty(), tau);
 		allowed("v/ops/claudecode/sessions", Maps.empty(), tau);
-		// Running Claude Code needs the CLI, so the grant its adapter checks is asked of the venue directly.
-		assertTrue(covers(tau, "claudecode/tau", "claudecode/run"), "Claude Code in the owner's project");
+		// Running Claude Code needs the CLI, so the check its adapter makes (Tau makes the projects the owner's,
+		// ClaudeCode.own) is made here as it makes it.
+		engine().requireLocalAccess(tau, Strings.create(owner + "/claudecode/" + ClaudeCode.PROJECT), Strings.create("claudecode/run"));
 	}
 
 	@Test
@@ -197,27 +199,84 @@ class AssistantScopeTest {
 		assistant(owner);
 		RequestContext tau = agent(owner);
 		run("v/ops/covia/write", Maps.of("path", "w/keep", "value", "kept"), tau);
-		// Changing its own caps asks too; and Covia refuses caps it does not hold, so even a yes leaves it scoped.
+		// Unrestricted, or its own set with the gates taken off: refused outright, nothing for the owner to wave through.
 		assertThrows(Exception.class, () -> run("v/ops/agent/update", Maps.of("agentId", "Tau",
 			"config", Maps.of("caps", covia.venue.Config.UNRESTRICTED)), tau), "it may not make itself Unrestricted");
-		answer(shared.venue().clientAs(owner.toString()), owner, true);
-		assertThrows(Exception.class, () -> run("v/ops/agent/update", Maps.of("agentId", "Tau",
-			"config", Maps.of("caps", covia.venue.Config.UNRESTRICTED)), tau), "not even once the owner says yes");
+		Exception ungated = assertThrows(Exception.class, () -> run("v/ops/agent/update", Maps.of("agentId", "Tau",
+			"config", Maps.of("caps", withoutGates(AgentPermissions.ASSISTANT))), tau), "nor take its own gates off");
+		assertTrue(rootMessage(ungated).contains("Refused"), rootMessage(ungated));
+		assertThrows(Exception.class, () -> run("v/ops/agent/create", Maps.of("agentId", "deleter",
+			"config", Maps.of("operation", AppConfig.DEFAULT_OPERATION, "caps", convex.core.data.Vectors.of(
+				Maps.of("with", "w/", "can", "crud/delete"), Maps.of("with", "v/ops/", "can", "invoke")))), tau),
+			"nor give another agent a delete that does not ask");
+		assertEquals(0, open(owner), "none of these asks the owner");
 		assertEquals(AgentPermissions.ASSISTANT, RT.getIn(shared.venue().agentRecord(owner.toString(), "Tau"), "config", "caps"));
+		assertEquals(null, shared.venue().agentRecord(owner.toString(), "deleter"));
+
 		// An agent it makes without caps gets none, so it can do nothing of its own.
 		run("v/ops/agent/create", Maps.of("agentId", "bare", "config", Maps.of("operation", AppConfig.DEFAULT_OPERATION)), tau);
 		assertEquals(convex.core.data.Vectors.empty(),
 			RT.getIn(shared.venue().agentRecord(owner.toString(), "bare"), "config", "caps"));
 		assertThrows(Exception.class, () -> run("v/ops/covia/delete", Maps.of("path", "w/keep"), agent(owner, "bare")));
-		// Giving an agent permissions asks the owner, so no agent gets a delete that does not ask.
-		Exception waiting = assertThrows(Exception.class, () -> run("v/ops/agent/create", Maps.of("agentId", "deleter",
-			"config", Maps.of("operation", AppConfig.DEFAULT_OPERATION, "caps", convex.core.data.Vectors.of(
-				Maps.of("with", "w/", "can", "crud/delete"), Maps.of("with", "v/ops/", "can", "invoke")))), tau));
-		assertTrue(rootMessage(waiting).contains("Waiting for the owner's approval"), rootMessage(waiting));
-		assertEquals(1, open(owner), "one card for the permissions");
-		answer(shared.venue().clientAs(owner.toString()), owner, false);
-		assertEquals(null, shared.venue().agentRecord(owner.toString(), "deleter"), "declined: not made");
+
+		// Gated grants it may hand on, once the owner approves exactly those; the card says what they are.
+		ACell helperCaps = AgentPermissions.caps(AgentTemplate.WRITING);
+		AMapInput create = () -> Maps.of("agentId", "helper", "config", Maps.of("operation", AppConfig.DEFAULT_OPERATION,
+			"caps", helperCaps));
+		assertThrows(Exception.class, () -> run("v/ops/agent/create", create.get(), tau));
+		Inbox.Request card = requests(owner).stream().filter(Inbox.Request::open).findFirst().orElseThrow();
+		assertTrue(card.description().contains("Delete from your workspace"), card.description());
+		answer(shared.venue().clientAs(owner.toString()), owner, true);
+		run("v/ops/agent/create", create.get(), tau);
+		assertEquals(helperCaps, RT.getIn(shared.venue().agentRecord(owner.toString(), "helper"), "config", "caps"));
 		assertEquals("kept", String.valueOf(read(owner, "w/keep")));
+	}
+
+	@Test
+	void otherVerbsOverSomethingThereAsk() throws Exception {
+		AString owner = owner("scope-verbs");
+		assistant(owner);
+		RequestContext tau = agent(owner);
+		Venue client = shared.venue().clientAs(owner.toString());
+		String name = "verbs-" + System.nanoTime() + ".txt";
+		run("v/ops/file/create", Maps.of("root", "files", "path", name, "content", Maps.of("inline", "one")), tau);
+		// create never replaces: over a file that is there the adapter refuses it, and nobody is asked.
+		assertThrows(Exception.class, () -> run("v/ops/file/create", Maps.of("root", "files", "path", name,
+			"content", Maps.of("inline", "two")), tau));
+		assertEquals(0, open(owner));
+		// A verb the gate can't read the effect of asks rather than slipping through.
+		assertThrows(Exception.class, () -> run("v/ops/archive/extract", Maps.of("root", "files", "path", "none.zip",
+			"destRoot", "files", "destPath", "out"), tau));
+		assertEquals(1, open(owner), "extracting, whose effect the gate can't tell, asks");
+		answer(client, owner, false);
+	}
+
+	@Test
+	void theOwnerSwitchesItBetweenTheScopedSetAndUnrestricted() throws Exception {
+		AString owner = owner("scope-switch");
+		ChatSession s = new ChatSession(shared.venue().clientAs(owner.toString()),
+			new AppConfig.Chat("Tau", AppConfig.DEFAULT_OPERATION, AppConfig.ECHO_LLM_OPERATION, "Echo."), "Sam")
+			.withCaps(covia.venue.Config.UNRESTRICTED);
+		assertTrue(s.ensureAgent(), "an older install's assistant, Unrestricted");
+		RequestContext tau = agent(owner);
+		Venue client = shared.venue().clientAs(owner.toString());
+		run("v/ops/covia/write", Maps.of("path", "w/plan", "value", "one"), tau);
+		run("v/ops/covia/write", Maps.of("path", "w/plan", "value", "two"), tau);
+		assertEquals(0, open(owner), "Unrestricted: its overwrites don't ask");
+
+		Tau.setAgentCaps(client, "Tau", false);
+		assertEquals(AgentPermissions.ASSISTANT, RT.getIn(shared.venue().agentRecord(owner.toString(), "Tau"), "config", "caps"));
+		assertThrows(Exception.class, () -> run("v/ops/covia/write", Maps.of("path", "w/plan", "value", "three"), tau));
+		assertEquals(1, open(owner), "the scoped set: an overwrite asks");
+		answer(client, owner, false);
+		assertTrue(s.ensureAgent(), "setting it up again");
+		assertEquals(AgentPermissions.ASSISTANT, RT.getIn(shared.venue().agentRecord(owner.toString(), "Tau"), "config", "caps"),
+			"keeps what the owner chose");
+
+		Tau.setAgentCaps(client, "Tau", true);
+		run("v/ops/covia/write", Maps.of("path", "w/plan", "value", "four"), tau);
+		assertEquals(0, open(owner), "Unrestricted again: no card");
+		assertEquals("four", String.valueOf(read(owner, "w/plan")));
 	}
 
 	@Test
@@ -252,7 +311,14 @@ class AssistantScopeTest {
 		while (open(owner) == 0 && System.currentTimeMillis() < until) Thread.onSpinWait();
 		assertEquals(1, open(owner), "one card for the scheduled delete");
 		assertEquals("kept", String.valueOf(read(owner, "w/keep")), "the item is still there");
-		answer(shared.venue().clientAs(owner.toString()), owner, false);
+		// Approved, the next run of the same delete goes ahead.
+		answer(shared.venue().clientAs(owner.toString()), owner, true);
+		ACell again = run("v/ops/scheduler/schedule", Maps.of("operation", "v/ops/covia/delete",
+			"input", Maps.of("path", "w/keep"), "after", 3_600_000L), tau);
+		run("v/ops/scheduler/trigger", Maps.of("handle", RT.getIn(again, "handle")), tau);
+		until = System.currentTimeMillis() + 10_000;
+		while (read(owner, "w/keep") != null && System.currentTimeMillis() < until) Thread.onSpinWait();
+		assertEquals(null, read(owner, "w/keep"), "approved: deleted");
 	}
 
 	// ------------------------------------------------------------------
@@ -263,6 +329,17 @@ class AssistantScopeTest {
 			.withCaps(AgentPermissions.ASSISTANT);
 		assertTrue(s.ensureAgent());
 		return s;
+	}
+
+	private interface AMapInput {
+		ACell get();
+	}
+
+	/** {@code caps} with every gate taken off. */
+	private static ACell withoutGates(convex.core.data.AVector<ACell> caps) {
+		convex.core.data.AVector<ACell> out = convex.core.data.Vectors.empty();
+		for (ACell c : caps) out = out.conj(((convex.core.data.AMap<AString, ACell>) c).dissoc(Strings.create("nb")));
+		return out;
 	}
 
 	private static RequestContext agent(AString owner) {

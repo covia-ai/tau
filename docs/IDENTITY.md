@@ -122,7 +122,7 @@ internet would need `invoke` scoped to a list of adapters, since `mcp`, `a2a`,
 `grid` and model operations dial out under the same grant; that is not done.
 
 **The main assistant** of a new install gets the scoped assistant set
-(`AgentPermissions.ASSISTANT`), derived from what its skills, tools and loads
+(`AgentPermissions.ASSISTANT`), derived from what its skills, tools, and loads
 call, each run under the set by `AssistantScopeTest` and every shipped tool
 placed by `AssistantInventoryTest`: the base above; gated writes and deletes
 in the workspace, the file roots and the owner's drives (the vault among
@@ -131,7 +131,7 @@ them); the owner's stored keys and connected accounts, used without being seen
 asks); making agents (asks when it gives one permissions), asking and
 messaging them, and changing them and their conversations (asks before
 changing what one may do, or deleting); reading the Inbox; running and
-cancelling the owner's schedules; reading, posting in and creating rooms;
+cancelling the owner's schedules; reading, posting in, and creating rooms;
 storing assets; listing and revoking the owner's access tokens (revoking
 asks); and Claude Code in the owner's projects. The gods are asked through
 Tau's bridges, which carry their own grant, and a relaunch is Odin's to run,
@@ -142,7 +142,7 @@ What the set does not cover, listed on the agent's page as *Needs an extra
 grant*: copying an agent (`agent:fork`), deleting a stored key, seeing a
 stored key's value (no agent ever can), adding or removing tool servers,
 disconnecting a connected account, handing out access (`ucan:issue`), reading
-the venue's settings, and running the venue (people, adapters, restarts and
+the venue's settings, and running the venue (people, adapters, restarts, and
 relaunches), which Odin does when asked. What it does without asking: making
 something new, its own notes and the shared memory, running or cancelling one
 of the owner's schedules, and Claude Code's own edits inside its project.

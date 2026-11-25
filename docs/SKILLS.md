@@ -172,10 +172,20 @@ unanswered request refuses at once. The agent's own notes and the shared memory 
 
 The gate also asks before an agent replaces a stored key (a `secret:set` of
 a name already stored, or any call told to `overwrite`), and before it gives
-another agent permissions: making or updating an agent with caps confers
-them, Covia checks the author holds each one through this gate, and so no
-agent can hand another a write or delete that does not ask. Deleting an agent
-or one of its conversations asks as a delete.
+an agent permissions: making or updating an agent with caps confers them, and
+Covia checks the author holds each one through this gate. The card names
+what the agent would be able to do, and the approval holds for exactly those
+caps. Caps whose writes or deletes would not ask (Unrestricted, or a grant
+without this gate) are refused outright, with nothing for the owner to wave
+through, so no agent can take its own gates off or hand another a delete that
+does not ask. Deleting an agent or one of its conversations asks as a delete.
+
+What the gate reads from the operation's name: `create`, `append`, `mkdir`
+and a new drive only add (a `create` over something already there is refused
+by its adapter), so they go ahead; `write`, `copy`, `move` and the like are
+an overwrite when their target is there; operations on an agent that neither
+delete nor grant go ahead; any other verb whose effect it can't tell
+(`archive:extract`, `skills:import`) asks.
 
 The main assistant of a new install holds the scoped assistant set, so its
 deletes and overwrites ask, scheduled runs included. An assistant from an

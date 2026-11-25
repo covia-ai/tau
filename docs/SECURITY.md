@@ -301,7 +301,7 @@ source that influenced it.
 request can cause the assistant to use its own authority. Its caps are checked
 at actions, but they are not automatically reduced to the external sender's
 caps. A new install's assistant holds the scoped assistant set, whose
-overwrites, deletes and grants of permissions ask the owner first, scheduled
+overwrites, deletes, and grants of permissions ask the owner first, scheduled
 runs included ([IDENTITY.md](IDENTITY.md#what-an-agent-may-do)); an older
 install's keeps Unrestricted until the owner switches it on its page. Routine
 chat setup preserves the caps an agent has ([SKILLS.md](SKILLS.md)). A model persuaded
@@ -325,8 +325,10 @@ approval in the Inbox and wait for it, scheduled runs included
 owner's stored keys and connected accounts in requests without seeing them,
 and may reach the internet: Covia has no separate grant for that, so a
 prompt-injected assistant can still send what it can read to a host on the
-internet. It cannot widen its own caps or make an agent with more than it
-holds. An older install's assistant keeps Unrestricted until the owner chooses
+internet, a stored key among it, in a request. It cannot widen its own caps,
+take its own gates off, or make an agent with more than it holds; it can still
+ask an Unrestricted agent of the owner's, or a god, to do what it may not, and
+that agent acts under its own caps. An older install's assistant keeps Unrestricted until the owner chooses
 *Use the scoped set* on its page; *Make it Unrestricted* there is labelled
 with what it gives up. The gods keep their own caps.
 

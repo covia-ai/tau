@@ -37,16 +37,24 @@ class AssistantInventoryTest {
 
 	/** Run in AssistantScopeTest under the set, and succeeding (http: refused only by the address policy). */
 	static final Set<String> RUN = Set.of(
-		"v/ops/covia/write", "v/ops/covia/read", "v/ops/covia/list", "v/ops/covia/inspect", "v/ops/covia/delete",
-		"v/ops/memory", "v/ops/file/write", "v/ops/file/read", "v/ops/file/list",
+		"v/ops/covia/write", "v/ops/covia/read", "v/ops/covia/list", "v/ops/covia/inspect",
+		"v/ops/memory", "v/ops/file/write", "v/ops/file/read", "v/ops/file/list", "v/ops/file/create",
 		"v/ops/dlfs/list-drives", "v/ops/dlfs/create-drive", "v/ops/dlfs/write", "v/ops/dlfs/read",
 		"v/ops/vault/mkdir", "v/ops/vault/list", "v/ops/http/get", "v/ops/http/post",
 		"v/ops/secret/set", "v/ops/secret/list", "v/ops/oauth/status", "v/ops/connections/list", "v/ops/mcp/list-tokens",
-		"v/ops/mcp/delete-token", "v/ops/agent/create", "v/ops/agent/request", "v/ops/agent/message",
-		"v/ops/agent/sessions", "v/ops/agent/update", "v/ops/tau/ask-odin", "v/ops/scheduler/schedule",
+		"v/ops/agent/create", "v/ops/agent/request", "v/ops/agent/message",
+		"v/ops/agent/sessions", "v/ops/tau/ask-odin", "v/ops/scheduler/schedule",
 		"v/ops/scheduler/list", "v/ops/scheduler/trigger", "v/ops/hitl/list", "v/ops/skills/list", "v/ops/skills/read",
-		"v/ops/tau/info", "v/ops/speech/engines", "v/ops/claudecode/projects", "v/ops/claudecode/sessions",
-		"v/ops/claudecode/run");
+		"v/ops/tau/info", "v/ops/speech/engines", "v/ops/claudecode/projects", "v/ops/claudecode/sessions");
+
+	/** Run in AssistantScopeTest under the set: each raises one Inbox card, and goes ahead once approved. */
+	static final Set<String> ASKS = Set.of("v/ops/covia/delete", "v/ops/agent/update", "v/ops/mcp/delete-token",
+		"v/ops/secret/set", "v/ops/archive/extract");
+
+	/** The grant its adapter checks, checked in AssistantScopeTest as the adapter checks it (the call itself needs more). */
+	static final Map<String, String> CHECKED = Map.of(
+		"v/ops/claudecode/run", "the Claude Code CLI; checked as <owner>/claudecode/tau x claudecode/run",
+		"v/ops/oauth/connect", "a provider set up on the venue, and the owner in a browser; connected accounts are used under oauth/use");
 
 	/** Refused under the set in AssistantScopeTest: the page's "Needs an extra grant". */
 	static final Set<String> NEEDS_MORE = Set.of(
@@ -87,7 +95,7 @@ class AssistantInventoryTest {
 		Map.entry("v/ops/a2a/", "running operations; the other agent applies its own"),
 		Map.entry("v/ops/auth/", "its own identity"),
 		Map.entry("v/ops/connections/", "reads of the owner's connections"),
-		Map.entry("v/ops/oauth/", "connected-account reads; connect is started by the owner in the browser"),
+		Map.entry("v/ops/oauth/", "connected-account reads; complete follows a connect the owner started"),
 		Map.entry("v/ops/mcp/", "token list and revoke; tool listing runs operations"),
 		Map.entry("v/ops/ucan/", "verifying runs operations"),
 		Map.entry("v/ops/room/", "room create, post and read"));
@@ -105,7 +113,7 @@ class AssistantInventoryTest {
 		assertTrue(tools.size() > 100, "the skills were read: " + tools.size());
 		List<String> unplaced = new ArrayList<>();
 		for (String op : tools) {
-			if (RUN.contains(op) || NEEDS_MORE.contains(op)) continue;
+			if (RUN.contains(op) || ASKS.contains(op) || CHECKED.containsKey(op) || NEEDS_MORE.contains(op)) continue;
 			if (FAMILY.keySet().stream().anyMatch(op::startsWith) && !NEEDS_MORE.contains(op)) continue;
 			unplaced.add(op);
 		}

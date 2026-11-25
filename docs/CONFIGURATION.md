@@ -252,7 +252,9 @@ echoes. Covia's `test` adapter, which serves it, is off in a real install
 (`"adapters": {"test": {"enabled": false}}` in Tau's venue defaults): Tau
 switches it on at launch only while the chosen model is this echo bot, as
 after onboarding's "Skip for now". Its other operations (echo, delay, fail,
-never) are then on the venue too.
+never) are then on the venue too. Tau looks only at the main assistant's
+model: another agent made while on the echo bot keeps it as its model, so once
+the owner chooses a real model, that agent fails from the next launch.
 
 ## Voice typing
 

@@ -103,7 +103,14 @@ final class ChangeGate {
 		// No operation named (a call by its metadata): what it does can't be told, so ask.
 		Change change = (op == null) ? Change.OVERWRITE : change(op, input, owner);
 		if (change == Change.NEW) return Maps.of("allowed", CVMBool.TRUE);
-		String key = caller + "|" + op + "|" + target;
+		ACell caps = (change == Change.PERMISSIONS) ? RT.getIn(input, "config", "caps") : null;
+		if (change == Change.PERMISSIONS) {
+			String why = unaskable(caps);
+			if (why != null) throw new AuthException("Refused: " + why + ". Nothing was changed.");
+		}
+		// An approval of permissions is for exactly those caps, never others given under the same name.
+		String key = caller + "|" + op + "|" + target
+			+ (caps == null ? "" : "|" + caps.getHash().toHexString());
 		long now = System.currentTimeMillis();
 		Long until = approved.get(key);
 		if (until != null && until > now) return Maps.of("allowed", CVMBool.TRUE, "approved", CVMBool.TRUE);
@@ -117,7 +124,7 @@ final class ChangeGate {
 		if (no != null && no > now) throw new AuthException("The owner declined to " + what + ". Nothing was changed.");
 		declined.remove(key);
 		Pending pending = asked.compute(key, (k, p) -> (p == null || now - p.since() > ASK_EXPIRES)
-			? new Pending(ask(caller, owner, change, op == null ? "an operation" : op, target), now) : p);
+			? new Pending(ask(caller, owner, change, op == null ? "an operation" : op, target, caps), now) : p);
 		// A call checks more than once: only the first check waits; the next refuses at once if still unanswered.
 		boolean waitedJustNow = System.currentTimeMillis() - pending.waitedUntil < REWAIT_MILLIS;
 		Boolean answer = answer(pending.job(), waitedJustNow ? 0 : waitMillis);
@@ -137,9 +144,21 @@ final class ChangeGate {
 		return Maps.of("allowed", CVMBool.TRUE, "approved", CVMBool.TRUE);
 	}
 
+	/** Verbs that only add to what is there, never replace it: they go ahead. */
+	static final java.util.Set<String> ADDITIVE = java.util.Set.of("append", "mkdir", "create-drive",
+		// create fails when its target is there (file, dlfs and vault alike), so it never replaces anything
+		"create",
+		"report-skill-feedback", "generate-key", "generate-mnemonic", "derive-key", "register");
+	/** Verbs that replace their target when it is there: an overwrite if it is, else new. */
+	static final java.util.Set<String> REPLACING = java.util.Set.of("write", "copy", "move", "rename", "put",
+		"assoc");
+
 	/**
-	 * What {@code op} would do: a delete always counts; a write or copy over
-	 * something already there is an overwrite; anything else is new.
+	 * What {@code op} would do: giving an agent permissions always asks; a
+	 * delete always counts; a call told to overwrite, or a write over
+	 * something already there, is an overwrite; an operation on an agent
+	 * that neither deletes nor grants (a rename, a compaction) and a verb that
+	 * only adds go ahead; any other verb, whose effect can't be told, asks.
 	 */
 	Change change(String op, ACell input, String owner) {
 		String name = op.substring(op.lastIndexOf('/') + 1).toLowerCase(java.util.Locale.ROOT);
@@ -153,11 +172,46 @@ final class ChangeGate {
 		if (op.contains("/secret/") && name.equals("set")) {
 			return secretExists(op, input, owner) ? Change.OVERWRITE : Change.NEW;
 		}
-		if (name.equals("write") || name.equals("copy") || name.equals("move") || name.equals("rename")
-			|| name.equals("put") || name.equals("assoc")) {
-			return exists(op, input, owner) ? Change.OVERWRITE : Change.NEW;
+		if (op.contains("/agent/")) return Change.NEW;
+		// Its own notes and the shared memory never ask, whatever the verb (memory's remember and forget among them).
+		if (ownNotesOrMemory(str(RT.getIn(input, "path")))) return Change.NEW;
+		if (ADDITIVE.contains(name)) return Change.NEW;
+		if (REPLACING.contains(name)) return exists(op, input, owner) ? Change.OVERWRITE : Change.NEW;
+		return Change.OVERWRITE;
+	}
+
+	/** Whether {@code path} is the shared memory or an agent's own notes, which never ask. */
+	static boolean ownNotesOrMemory(String path) {
+		if (path == null) return false;
+		return path.equals("w/memory") || path.startsWith("w/memory/") || path.startsWith("n/");
+	}
+
+	/**
+	 * Abilities that change or remove things: an agent may give another agent
+	 * one only under the gate, so what it hands on asks as its own does.
+	 */
+	static final java.util.Set<String> CHANGING = java.util.Set.of("*", "crud", "crud/write", "crud/delete",
+		"secret", "secret/write", "agent", "agent/create", "agent/write", "mcp/token");
+
+	/**
+	 * Why the caps a call confers may not be given at all, or null when the
+	 * owner may be asked: every grant that changes or removes things must
+	 * carry this gate, apart from an agent's own notes and the shared memory.
+	 */
+	static String unaskable(ACell caps) {
+		convex.core.data.AVector<ACell> list = RT.ensureVector(caps);
+		if (list == null) return "caps that are not a list (Unrestricted, say) can only be given by the owner";
+		for (ACell c : list) {
+			String can = str(RT.getIn(c, "can"));
+			String with = str(RT.getIn(c, "with"));
+			if (can == null || !CHANGING.contains(can)) continue;
+			if ("crud/write".equals(can) && ("n/".equals(with) || "w/memory".equals(with))) continue;
+			if (!tau.model.AgentPermissions.GATE.equals(str(RT.getIn(c, "nb", "gate")))) {
+				return "an agent may not give another (or itself) " + can + " on " + (with == null || with.isEmpty() ? "anything" : with)
+					+ " without the owner's approval of each change; only the owner can";
+			}
 		}
-		return Change.NEW;
+		return null;
 	}
 
 	/**
@@ -226,7 +280,7 @@ final class ChangeGate {
 	}
 
 	/** Raises the approval in the owner's Inbox, as the agent, and returns its job. */
-	private Job ask(String caller, String owner, Change change, String op, String target) {
+	private Job ask(String caller, String owner, Change change, String op, String target, ACell caps) {
 		String agent = caller.contains(":g:") ? caller.substring(caller.indexOf(":g:") + 3) : caller;
 		String verb = switch (change) {
 			case DELETE -> "Delete";
@@ -235,9 +289,12 @@ final class ChangeGate {
 		};
 		RequestContext as = engine.context(Strings.create(owner), Strings.create(caller));
 		String title = (change == Change.PERMISSIONS) ? "Give " + target + " permissions?" : verb + " " + target + "?";
+		String what = agent + " wants to " + verb.toLowerCase(java.util.Locale.ROOT) + " " + target + " (" + op + ").";
+		if (caps != null) {
+			what += " It would be able to: " + String.join("; ", tau.model.AgentPermissions.words(caps)) + ".";
+		}
 		ACell request = Hitl.request(title)
-			.description(agent + " wants to " + verb.toLowerCase(java.util.Locale.ROOT) + " " + target + " (" + op
-				+ "). Nothing changes until you approve.")
+			.description(what + " Nothing changes until you approve.")
 			.ask(Hitl.approval("ok", "Allow it?"))
 			.build();
 		log.info("{} asks to {} {}: waiting for the owner", agent, verb.toLowerCase(java.util.Locale.ROOT), target);
