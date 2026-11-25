@@ -98,3 +98,5 @@ You can carry on chatting straight away. Anything the assistant is\n	Steps alrea
 still doing will finish on its own, and if it answers, the reply\n	The assistant stops what it's doing: its current step, the jobs it\n
 appears here.	started, tasks it handed to other agents, and any Claude Code session.\n
 Could not cancel the chat in flight	Could not stop the run in flight
+ remembers is encrypted on this computer with a passphrase only you know.	Your identity, conversations, memory, and saved keys are encrypted on this computer with a passphrase 
+Everything 	Your identity, conversations, memory, and saved keys are encrypted on this computer with a passphrase 

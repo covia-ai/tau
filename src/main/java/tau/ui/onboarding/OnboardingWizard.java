@@ -401,7 +401,8 @@ public final class OnboardingWizard extends JPanel {
 		switch (s) {
 			case WELCOME -> set("Welcome to " + APP_NAME, "Your assistant. Yours alone.", "Get started", true);
 			case PASSPHRASE -> set("Secure your " + APP_NAME,
-				"Everything " + APP_NAME + " remembers is encrypted on this computer with a passphrase only you know.",
+				"Your identity, conversations, memory, and saved keys are encrypted on this computer with a passphrase "
+					+ "only you know.",
 				"Continue", true);
 			case IDENTITY -> set("Your identity",
 				"A key that's yours alone: what makes this <i>your</i> agent, on your own computer.",
