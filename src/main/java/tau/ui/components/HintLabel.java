@@ -19,6 +19,8 @@ public final class HintLabel extends JPanel {
 
 	private final JLabel text;
 	private final JLabel icon;
+	/** The hint shown in full elsewhere on the form, kept to it; null when there is none. */
+	private SelectableText shown;
 
 	public HintLabel(String label, String hint) {
 		setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
@@ -42,9 +44,21 @@ public final class HintLabel extends JPanel {
 		return this;
 	}
 
-	/** The hover text; null hides the ⓘ. */
+	/** The hover text; null hides the ⓘ, and the hint shown in full with it. */
 	public void setHint(String hint) {
+		boolean any = hint != null && !hint.isBlank();
 		icon.setToolTipText(hint);
-		icon.setVisible(hint != null && !hint.isBlank());
+		icon.setVisible(any);
+		if (shown != null) {
+			shown.setText(any ? hint : "");
+			shown.setVisible(any);
+		}
+	}
+
+	/** {@code text} shows the hint in full, such as under the field, and follows it as it changes. */
+	public HintLabel showsHintIn(SelectableText text) {
+		shown = text;
+		setHint(icon.getToolTipText());
+		return this;
 	}
 }

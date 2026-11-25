@@ -323,6 +323,22 @@ public final class AppConfig {
 		return venue;
 	}
 
+	/**
+	 * Whether the venue listens on this computer alone: bound to a loopback
+	 * address. Unset, Covia binds every interface; a host name other than
+	 * {@code localhost} is not known to be this computer without looking it up.
+	 */
+	public boolean listensLocallyOnly() {
+		AString bind = RT.ensureString(venue.get(Config.BIND_ADDRESS));
+		if (bind == null) return false;
+		if (bind.toString().equalsIgnoreCase("localhost")) return true;
+		try {
+			return java.net.InetAddress.ofLiteral(bind.toString()).isLoopbackAddress();
+		} catch (IllegalArgumentException notALiteral) {
+			return false;
+		}
+	}
+
 	/** HTTP port the venue will listen on. */
 	public int port() {
 		ACell p = venue.get(Fields.PORT);

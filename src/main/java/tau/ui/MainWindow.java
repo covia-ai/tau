@@ -709,6 +709,11 @@ public final class MainWindow extends JFrame {
 					String did = myIdentity();
 					if (did != null) tau.ui.components.Clipboard.copy(did, getRootPane());
 				}
+
+				@Override
+				public boolean listensLocallyOnly() {
+					return app.config().listensLocallyOnly();
+				}
 			}));
 		settingsScreen.install(SettingsScreen.Tab.TREASURY, treasuryPanel);
 

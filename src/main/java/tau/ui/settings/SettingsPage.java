@@ -93,8 +93,10 @@ abstract class SettingsPage extends JPanel {
 		row(l, "", field, "growx, wmax 400");
 		// The hint shows under the field as well as on the ⓘ, so nobody has to hover to read it.
 		if (hint != null && !hint.isBlank()) {
+			tau.ui.components.SelectableText under = tau.ui.components.SelectableText.description(hint).small();
 			target.add(new javax.swing.JLabel(), "");
-			target.add(tau.ui.components.SelectableText.description(hint).small(), "growx, wmin 0, w 10::, wmax 400, gaptop 0");
+			target.add(under, "growx, wmin 0, w 10::, wmax 400, gaptop 0");
+			l.showsHintIn(under);
 		}
 		return l;
 	}

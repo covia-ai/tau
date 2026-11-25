@@ -26,6 +26,9 @@ public final class PeersSettingsPanel extends JPanel {
 		void openPeersMap();
 
 		void copyMyIdentity();
+
+		/** Whether the venue listens on this computer alone, as {@code config.json} binds it. */
+		boolean listensLocallyOnly();
 	}
 
 	public PeersSettingsPanel(Host host) {
@@ -53,8 +56,10 @@ public final class PeersSettingsPanel extends JPanel {
 			"wmin 0, w 10::");
 
 		form.add(Styles.classes(Labels.text("Who can reach you"), Styles.SECTION));
-		form.add(SelectableText.description(APP_NAME + " listens on this computer only. Agents you connect get "
-			+ "a named key with the access you choose, in Vault → Access.").small(), "wmin 0, w 10::");
+		String where = host.listensLocallyOnly() ? APP_NAME + " listens on this computer only."
+			: APP_NAME + " listens beyond this computer, as the bind address in config.json sets.";
+		form.add(SelectableText.description(where + " Agents you connect get a named key with the access you "
+			+ "choose, in Settings → Access.").small(), "wmin 0, w 10::");
 
 		JPanel wrap = new JPanel(new BorderLayout());
 		wrap.setOpaque(false);
