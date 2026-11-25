@@ -3042,8 +3042,23 @@ public final class Tau {
 	/** Switches to light or dark — each mode keeps its own chosen theme — and remembers it. */
 	public void setMode(String mode) {
 		prefs.setString(PREF_MODE, mode);
-		String shown = LAF.effective(mode);
-		applyLook(prefs.getString(themeKey(shown), LAF.defaultTheme(shown)), accent());
+		if (!LAF.SYSTEM.equalsIgnoreCase(mode)) {
+			showMode(mode);
+			return;
+		}
+		// Asking the system runs a short command, so it is asked off the event thread; a
+		// mode chosen meanwhile, on the event thread, wins.
+		Thread.ofVirtual().name("tau-system-appearance").start(() -> {
+			String shown = LAF.effective(mode);
+			SwingUtilities.invokeLater(() -> {
+				if (LAF.SYSTEM.equalsIgnoreCase(prefs.getString(PREF_MODE, null))) showMode(shown);
+			});
+		});
+	}
+
+	/** Switches every window to {@code mode}'s chosen theme ({@link LAF#LIGHT} or {@link LAF#DARK}). */
+	private void showMode(String mode) {
+		applyLook(prefs.getString(themeKey(mode), LAF.defaultTheme(mode)), accent());
 	}
 
 	/** Remembers the theme as its mode's choice, switches to that mode, and switches every window to it. */
