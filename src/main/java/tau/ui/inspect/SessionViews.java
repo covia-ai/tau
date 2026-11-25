@@ -464,10 +464,21 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 	 */
 	public void setInspectorDocked(boolean docked) {
 		if (docked == this.docked) return;
-		View keep = tabsVisible ? current() : chosen;
+		// Undocking puts the inspector's views behind tabs; the chat, in front beside them, stays in front.
+		View keep = this.docked ? View.CHAT : tabsVisible ? current() : chosen;
 		this.docked = docked;
 		rebuild();
 		if (tabsVisible) select(keep);
+		else chosen = keep;
+	}
+
+	/** The view in the main area, with the docked inspector beside it or not; for tests. */
+	View front() {
+		Component c = tabs.getSelectedComponent();
+		for (Map.Entry<View, JPanel> e : slots.entrySet()) {
+			if (e.getValue() == c) return e.getKey();
+		}
+		return View.CHAT;
 	}
 
 	public boolean inspectorDocked() {
