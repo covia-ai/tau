@@ -80,6 +80,12 @@ class StopRunTest {
 		jobs = put(jobs, "e1", Maps.of("caller", "did:key:z6Mk:u:sam", "created", 150L)); // someone else's
 		List<String> run = StopRun.started(jobs, chat, agent, 100L).stream().map(Blob::toHexString).sorted().toList();
 		assertEquals(List.of("b1", "b2", "c1", "c2"), run);
+		// Another conversation on the same agent keeps running.
+		jobs = put(jobs, "f1", Maps.of("caller", agent, "created", 160L, "sessionId", "0xbb"));
+		jobs = put(jobs, "f2", Maps.of("caller", agent, "created", 160L, "sessionId", "0xaa"));
+		List<String> inSession = StopRun.started(jobs, chat, agent, 100L, "0xaa").stream().map(Blob::toHexString).sorted()
+			.toList();
+		assertTrue(inSession.contains("f2") && !inSession.contains("f1"), String.valueOf(inSession));
 	}
 
 	@Test

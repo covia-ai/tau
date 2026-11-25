@@ -65,6 +65,7 @@ public final class StopRun {
 		Index<Blob, ACell> before = engine.jobs().getJobs(me);
 		AMap<AString, ACell> chat = record(before, chatJob);
 		long since = (chat == null) ? Long.MAX_VALUE : num(chat.get(Fields.CREATED));
+		String chatSession = (chat == null) ? null : Ids.text(chat.get(Fields.SESSION_ID));
 		try {
 			engine.jobs().cancelJob(chatJob, me);
 		} catch (Exception e) {
@@ -72,7 +73,7 @@ public final class StopRun {
 		}
 		boolean interrupted = interrupt(engine, me, agentId);
 		String agentDID = owner + ":g:" + agentId;
-		List<Blob> run = started(engine.jobs().getJobs(me), chatJob.toHexString(), agentDID, since);
+		List<Blob> run = started(engine.jobs().getJobs(me), chatJob.toHexString(), agentDID, since, chatSession);
 		int cancelled = 0, stopped = 0;
 		for (Blob id : run) {
 			AMap<AString, ACell> rec = record(engine.jobs().getJobs(me), id);
@@ -96,6 +97,15 @@ public final class StopRun {
 	 * job began, with theirs in turn.
 	 */
 	static List<Blob> started(Index<Blob, ACell> jobs, String chatJob, String agentDID, long since) {
+		return started(jobs, chatJob, agentDID, since, null);
+	}
+
+	/**
+	 * As {@link #started(Index, String, String, long)}, counting the agent's
+	 * own jobs only in the chat's {@code session} when it is known, so another
+	 * conversation's turn or a schedule on the same agent is left running.
+	 */
+	static List<Blob> started(Index<Blob, ACell> jobs, String chatJob, String agentDID, long since, String session) {
 		Map<String, String> parent = new HashMap<>();
 		Map<String, Blob> ids = new HashMap<>();
 		Set<String> roots = new HashSet<>(Set.of(chatJob));
@@ -107,7 +117,11 @@ public final class StopRun {
 			ids.put(id, e.getKey());
 			String p = Ids.text(rec.get(K_PARENT));
 			if (p != null) parent.put(id, p.startsWith("0x") ? p.substring(2) : p);
-			if (agentDID.equals(str(rec.get(Fields.CALLER))) && num(rec.get(Fields.CREATED)) >= since) roots.add(id);
+			String in = Ids.text(rec.get(Fields.SESSION_ID));
+			boolean sameSession = session == null || in == null || session.equals(in);
+			if (agentDID.equals(str(rec.get(Fields.CALLER))) && num(rec.get(Fields.CREATED)) >= since && sameSession) {
+				roots.add(id);
+			}
 		}
 		List<Blob> out = new ArrayList<>();
 		for (Map.Entry<String, Blob> e : ids.entrySet()) {
