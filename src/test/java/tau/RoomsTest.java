@@ -149,7 +149,11 @@ class RoomsTest {
 		post(RequestContext.of(stranger), "told", "someone else's post");
 		post(token(owner, "grok", TokenPreset.COLLABORATE.scope("Tau")), "told", "a post through the owner's token");
 
-		engine().jobs().invokeInternal("v/ops/agent/trigger", Maps.of("agentId", "watcher", "force", false, "wait", 15_000L),
+		// An unforced trigger can join a run already past its last cycle and
+		// return while the next run is still taking the last post. Covia follows
+		// a forced trigger's wake to the run that takes it (covia f3ef3242), so
+		// it returns only after a cycle that began after both posts were told.
+		engine().jobs().invokeInternal("v/ops/agent/trigger", Maps.of("agentId", "watcher", "force", true, "wait", 15_000L),
 			me).get(WAIT, TimeUnit.SECONDS);
 		ACell history = engine().jobs().invokeInternal("v/ops/agent/history", Maps.of("agentId", "watcher",
 			"sessionId", RT.getIn(made, "notify", "sessionId")), me).get(WAIT, TimeUnit.SECONDS);
