@@ -188,6 +188,7 @@ public final class SelfTest {
 			pass("venue", "up at " + venue.url() + " as " + venue.did());
 
 			loopbackOnly(venue.port());
+			webOriginsLocalOnly(venue.port());
 
 			Identity identity;
 			TauAdapter tau = venue.tau();
@@ -268,6 +269,40 @@ public final class SelfTest {
 			}
 		}
 		pass("loopback", "answers on 127.0.0.1 only; refused on " + others.size() + " other address(es)");
+	}
+
+	/**
+	 * A web page elsewhere can't read the venue from a browser: a request from
+	 * another origin gets no Access-Control-Allow-Origin, while a page served
+	 * from this computer still does. Checked on the open discovery route, which
+	 * answers without a key.
+	 */
+	private void webOriginsLocalOnly(int port) {
+		String url = "http://127.0.0.1:" + port + "/api/v1/status";
+		try {
+			String website = allowedOrigin(url, "https://evil.example");
+			String local = allowedOrigin(url, "http://localhost:" + port);
+			if (website != null) {
+				fail("web-origins", "a website's request was allowed (" + website + ")");
+			} else if (!("http://localhost:" + port).equals(local)) {
+				fail("web-origins", "a page on this computer was refused (" + local + ")");
+			} else {
+				pass("web-origins", "a website is refused; a page on this computer is allowed");
+			}
+		} catch (IOException | InterruptedException e) {
+			if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+			fail("web-origins", "could not ask the venue: " + e.getMessage());
+		}
+	}
+
+	/** The Access-Control-Allow-Origin the venue answers a request from {@code origin} with, or null. */
+	private static String allowedOrigin(String url, String origin) throws IOException, InterruptedException {
+		java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+			.connectTimeout(java.time.Duration.ofSeconds(5)).build();
+		java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder(java.net.URI.create(url))
+			.timeout(java.time.Duration.ofSeconds(10)).header("Origin", origin).GET().build();
+		java.net.http.HttpResponse<Void> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.discarding());
+		return response.headers().firstValue("Access-Control-Allow-Origin").orElse(null);
 	}
 
 	private static boolean connects(InetAddress address, int port) {

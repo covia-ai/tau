@@ -189,6 +189,8 @@ Tau's defaults:
 - the MCP endpoint enabled at `http://127.0.0.1:8085/mcp`
 - `maxToolIterations` 1000, so an agent's turn is not cut off after Covia's
   default of 30 tool calls
+- `corsOrigins` `"loopback"`: a browser page may call the venue only from
+  this computer (any localhost port); add an origin here to allow one more
 - `logging.audit` and `logging.access` on: Covia's audit trail (sign-ins,
   refusals, token issue, secret writes) goes to `logs/audit.log` and one line
   per HTTP request to `logs/access.log`, so a connection from another tool

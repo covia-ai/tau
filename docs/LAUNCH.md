@@ -242,7 +242,9 @@ on otherwise. `SelfTest` runs the code the app runs, in a throwaway folder on a
 free port, so a Tau already running is never touched:
 
 - **First run, in an empty folder:** the Java in use is named, the venue comes
-  up and answers on 127.0.0.1 and on no other address, onboarding with the
+  up and answers on 127.0.0.1 and on no other address, a website's browser
+  request gets no Access-Control-Allow-Origin while a page on this computer
+  does, onboarding with the
   offline echo bot saves an identity, one chat turn round-trips, a read-only
   named token lists tools over MCP and is refused once revoked, a room post is
   read back, Stop (`StopRun`) cancels a job that would never end, and the

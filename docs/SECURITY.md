@@ -226,7 +226,12 @@ By default the venue binds HTTP to `127.0.0.1`, disables the anonymous public
 principal, requires venue authentication for the API and MCP, and, while
 bound to loopback, permits browser Private Network Access preflights so local
 web tooling can reach the authenticated API. Bound to any other address, the
-venue refuses those preflights unless `allowPrivateNetwork` is set. These are defaults: `config.json` overrides the
+venue refuses those preflights unless `allowPrivateNetwork` is set. Browser
+pages may call the venue only from this computer (`corsOrigins` is
+`"loopback"`): Covia's own default answers any web origin, which would let
+any website a person visits read the venue's discovery route
+(`/api/v1/status`, which answers without a key and names the venue, its
+identity and its version). These are defaults: `config.json` overrides the
 venue map, including bind, CORS and authentication. The endpoint is plain
 HTTP; binding beyond loopback needs a TLS boundary and restrictive policy, and
 a reviewer inspects the effective configuration first.
