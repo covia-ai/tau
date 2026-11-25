@@ -63,6 +63,8 @@ commit.
 - Screens are composed from `ui/components`; a new look is a style class in
   `tau/ui/FlatLaf.properties` worn through `Styles`, and colours come
   from `Theme`.
+- Change case with `tau.Ascii`, never a bare `toLowerCase()` or
+  `toUpperCase()`, which follow the computer's language.
 
 ## Git
 

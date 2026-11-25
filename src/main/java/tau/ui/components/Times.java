@@ -28,7 +28,7 @@ public final class Times {
 		String span = (minutes < 60) ? plural(minutes, "minute")
 			: (hours < 24) ? plural(hours, "hour")
 			: plural(Math.round((double) a / DAY), "day");
-		return (d >= 0) ? "In " + span : span.substring(0, 1).toUpperCase() + span.substring(1) + " ago";
+		return (d >= 0) ? "In " + span : tau.Ascii.upper(span.substring(0, 1)) + span.substring(1) + " ago";
 	}
 
 	/** How long something has been going: "under a minute", "13 minutes", "2 hours 5 minutes", "3 days". */

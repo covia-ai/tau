@@ -119,7 +119,7 @@ public final class StatusStrip extends JPanel {
 		computer.setText("This computer · " + venue.word);
 		computer.setIcon(Lucide.icon("hard-drive", 14, () -> this.venue.tone.colour()));
 		computer.setToolTipText((address != null) ? "Running locally at " + address + ": click to copy the address"
-			: "This computer's " + tau.Tau.APP_NAME + ": " + venue.word.toLowerCase());
+			: "This computer's " + tau.Tau.APP_NAME + ": " + tau.Ascii.lower(venue.word));
 		computer.getAccessibleContext().setAccessibleName(computer.getText());
 	}
 

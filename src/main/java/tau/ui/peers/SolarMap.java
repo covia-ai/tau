@@ -701,7 +701,7 @@ final class SolarMap extends JComponent {
 		if (Node.IDLE.equals(s)) return "Idle";
 		if (Node.OFFLINE.equals(s)) return "Offline";
 		if (Node.NOT_CONNECTED.equals(s) || s == null) return "Not connected";
-		return s.substring(0, 1).toUpperCase() + s.substring(1).replace('-', ' ');
+		return tau.Ascii.upper(s.substring(0, 1)) + s.substring(1).replace('-', ' ');
 	}
 
 	private Placed hit(Point at) {
@@ -1011,7 +1011,7 @@ final class SolarMap extends JComponent {
 		if (names <= 0) return;
 		// The ring's name, centred below its near edge, where rings are furthest apart.
 		g.setFont(getFont().deriveFont(Font.BOLD, UIScale.scale(9.5f)));
-		String name = settings.rings().get(ring).name().toUpperCase();
+		String name = tau.Ascii.upper(settings.rings().get(ring).name());
 		float spacing = UIScale.scale(1.2f);
 		FontMetrics fm = g.getFontMetrics();
 		float width = fm.stringWidth(name) + spacing * (name.length() - 1);

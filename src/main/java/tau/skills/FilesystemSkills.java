@@ -153,7 +153,7 @@ public final class FilesystemSkills {
 				if (Files.isDirectory(entry)) {
 					Path skill = entry.resolve(SKILL_FILE);
 					if (Files.isRegularFile(skill)) out.add(new Source(fileName, skill));
-				} else if (fileName.toLowerCase().endsWith(".md") && !"README.md".equalsIgnoreCase(fileName)) {
+				} else if (tau.Ascii.lower(fileName).endsWith(".md") && !"README.md".equalsIgnoreCase(fileName)) {
 					out.add(new Source(fileName.substring(0, fileName.length() - 3), entry));
 				}
 			}
@@ -203,7 +203,7 @@ public final class FilesystemSkills {
 
 	/** Folds a folder name to a valid skill/path segment (agentskills.io name rules). */
 	static String sanitiseName(String raw) {
-		String name = raw.toLowerCase().strip()
+		String name = tau.Ascii.lower(raw).strip()
 			.replaceAll("[^a-z0-9-]+", "-")
 			.replaceAll("-{2,}", "-")
 			.replaceAll("^-+|-+$", "");

@@ -72,7 +72,7 @@ public final class StatusSlot extends JPanel {
 		label.setText(words ? WAITING : null);
 		label.setVisible(words);
 		setToolTipText(APP_NAME + ": " + (t != null ? t : "nothing is waiting for you"));
-		getAccessibleContext().setAccessibleName((t != null) ? APP_NAME + " is " + t.toLowerCase() : APP_NAME);
+		getAccessibleContext().setAccessibleName((t != null) ? APP_NAME + " is " + tau.Ascii.lower(t) : APP_NAME);
 		revalidate();
 		repaint();
 	}
