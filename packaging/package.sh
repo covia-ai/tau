@@ -198,11 +198,16 @@ installer() {
 }
 
 # This machine's architecture as installer names give it: x64 or arm64.
+# The architecture the installer is for: the JDK's, since its runtime is the one
+# bundled. uname would mislead where the shell is emulated (Git Bash is x64 on
+# Windows on Arm, and so is a shell under Rosetta on an Apple silicon Mac).
 arch_label() {
-	case "$(uname -m)" in
+	local arch
+	arch="$("${BIN}java" -XshowSettings:properties -version 2>&1 | sed -n 's/^ *os\.arch = //p' | tr -d '\r')"
+	case "${arch:-$(uname -m)}" in
 		x86_64|amd64) echo x64 ;;
 		arm64|aarch64) echo arm64 ;;
-		*) uname -m ;;
+		*) echo "${arch:-$(uname -m)}" ;;
 	esac
 }
 
