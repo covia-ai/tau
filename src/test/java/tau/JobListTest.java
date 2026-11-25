@@ -11,6 +11,7 @@ import java.util.EnumSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -50,6 +51,7 @@ class JobListTest {
 	private static Venue user;
 	private static long before;
 	private static String completed, failed, agentJob;
+	/** Still running for every test, the last job the user started. */
 	private static Job running;
 
 	@BeforeAll
@@ -70,6 +72,14 @@ class JobListTest {
 		byAgent.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		agentJob = byAgent.getID().toHexString();
 		running = user.invoke("v/test/ops/never", Maps.empty()).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+	}
+
+	/** Ends the job left running, so the shared venue closes with none of this class's work in flight. */
+	@AfterAll
+	static void endRunning() throws Exception {
+		if (running == null) return;
+		user.cancelJob(running.getID());
+		running.future().handle((result, failure) -> null).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 	}
 
 	@Test
@@ -143,21 +153,32 @@ class JobListTest {
 		assertTrue(covia.grid.Job.lowestIDAt(before).compareTo(Blob.fromHex(completed)) <= 0, "an id is at or after its time's bound");
 	}
 
+	/**
+	 * A principal of its own, so neither its job nor the cancel's changes what
+	 * the other tests see, whatever order they run in.
+	 */
 	@Test
 	void aRunningJobIsCancelled() throws Exception {
-		String id = running.getID().toHexString();
-		JobList.Job job = view(Filter.ALL).job(view(Filter.ALL).rowOf(id));
-		assertTrue(job.canCancel() && job.active() && !job.finished());
-		JobList.cancel(user, id);
-		assertThrows(Exception.class, () -> running.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS),
+		String did = Identity.of("jobs-cancelled").userDID(venue.did());
+		Venue client = venue.clientAs(did);
+		Job job = client.invoke("v/test/ops/never", Maps.empty()).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+		String id = job.getID().toHexString();
+		JobList.Job shown = view(did, Filter.ALL).job(view(did, Filter.ALL).rowOf(id));
+		assertTrue(shown.canCancel() && shown.active() && !shown.finished());
+		JobList.cancel(client, id);
+		assertThrows(Exception.class, () -> job.future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS),
 			"the cancelled job ends");
-		JobList.Job after = view(Filter.ALL).job(view(Filter.ALL).rowOf(id));
+		JobList.Job after = view(did, Filter.ALL).job(view(did, Filter.ALL).rowOf(id));
 		assertEquals(Group.CANCELLED, after.group(), String.valueOf(after.status()));
 		assertFalse(after.canCancel(), "and can't be cancelled again");
 	}
 
 	private static JobList.View view(Filter filter) {
-		return JobList.view(jobs(), userDID, filter, System.currentTimeMillis(), 0);
+		return view(userDID, filter);
+	}
+
+	private static JobList.View view(String did, Filter filter) {
+		return JobList.view(venue.jobs(did).getAll(), did, filter, System.currentTimeMillis(), 0);
 	}
 
 	private static String finish(java.util.concurrent.CompletableFuture<Job> submitted) throws Exception {
