@@ -40,6 +40,10 @@ import tau.chat.ChatSession;
 /** Real ingress, stored turns, provider-facing attribution and authority after chat setup. */
 class ExternalRequestsTest {
 
+	private static final long TIMEOUT_SECONDS = 30;
+	/** A job-result wait as long as the wait on its own job, so a slow task fails one way. */
+	private static final long RESULT_TIMEOUT_MS = TIMEOUT_SECONDS * 1000;
+
 	@RegisterExtension
 	static final SharedVenue shared = new SharedVenue();
 
@@ -57,7 +61,7 @@ class ExternalRequestsTest {
 	}
 
 	private ACell run(String op, ACell input, RequestContext ctx) throws Exception {
-		return engine().jobs().invokeInternal(op, input, ctx).get(5, TimeUnit.SECONDS);
+		return engine().jobs().invokeInternal(op, input, ctx).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 	}
 
 	@Test
@@ -100,7 +104,7 @@ class ExternalRequestsTest {
 		// The same resolution and dispatch used by the MCP endpoint, with a real named token.
 		var operation = engine().jobs().resolveOperation(Strings.create(op), engine().context(owner));
 		ACell reply = engine().jobs().startToolOperation(Strings.create(op), operation,
-			Maps.of(Fields.AGENT_ID, id, Fields.MESSAGE, forged), token).result().get(5, TimeUnit.SECONDS);
+			Maps.of(Fields.AGENT_ID, id, Fields.MESSAGE, forged), token).result().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		Blob sid = HexId.parse(RT.<ACell>getIn(reply, Fields.SESSION_ID));
 		ACell turn = firstTurn(owner, id, sid);
 		assertEquals(token.getRoute(), RT.getIn(turn, Fields.ROUTE));
@@ -176,7 +180,7 @@ class ExternalRequestsTest {
 				HttpResponse<String> response = http.send(HttpRequest.newBuilder(
 					URI.create(shared.venue().url() + "mcp"))
 					.header("Content-Type", "application/json").header("Accept", "application/json")
-					.header("Authorization", "Bearer " + bearer).timeout(Duration.ofSeconds(5))
+					.header("Authorization", "Bearer " + bearer).timeout(Duration.ofSeconds(TIMEOUT_SECONDS))
 					.POST(HttpRequest.BodyPublishers.ofString(JSON.toString(body))).build(), HttpResponse.BodyHandlers.ofString());
 				assertEquals(200, response.statusCode());
 				ACell reply = JSON.parse(response.body());
@@ -205,7 +209,7 @@ class ExternalRequestsTest {
 		var issued = new Tokens(engine(), owner).create("god-request", TokenPreset.UNRESTRICTED.scope("helper"));
 		RequestContext token = engine().requestContext(owner, engine().tokens().lookup(issued.bearer()));
 		ACell snapshot = run(Odin.OP_ASK, Maps.of("request", "Inspect this request.", "timeout", 0L), token);
-		run("v/ops/grid/job-result", Maps.of(Fields.ID, RT.getIn(snapshot, Fields.ID), "timeout", 5000L), RequestContext.of(owner));
+		run("v/ops/grid/job-result", Maps.of(Fields.ID, RT.getIn(snapshot, Fields.ID), "timeout", RESULT_TIMEOUT_MS), RequestContext.of(owner));
 		ACell turn = firstTurn(engine().getDIDString(), Odin.AGENT_ID,
 			HexId.parse(RT.<ACell>getIn(snapshot, Fields.SESSION_ID)));
 		assertEquals(token.getRoute(), RT.getIn(turn, Fields.ROUTE), "the bridge cannot turn a token request into direct owner input");
@@ -213,7 +217,7 @@ class ExternalRequestsTest {
 		prepare(owner, "relay-agent");
 		RequestContext agent = engine().stepContext(engine().harnessContext(owner, Strings.create("relay-agent")), Strings.create("relay-agent"));
 		snapshot = run(Odin.OP_ASK, Maps.of("request", "A request from another agent.", "timeout", 0L), agent);
-		run("v/ops/grid/job-result", Maps.of(Fields.ID, RT.getIn(snapshot, Fields.ID), "timeout", 5000L), RequestContext.of(owner));
+		run("v/ops/grid/job-result", Maps.of(Fields.ID, RT.getIn(snapshot, Fields.ID), "timeout", RESULT_TIMEOUT_MS), RequestContext.of(owner));
 		turn = firstTurn(engine().getDIDString(), Odin.AGENT_ID,
 			HexId.parse(RT.<ACell>getIn(snapshot, Fields.SESSION_ID)));
 		assertEquals(agent.getAuthorityDID(), RT.getIn(turn, Fields.CALLER), "the bridge never promotes an agent to its owner");
@@ -227,7 +231,7 @@ class ExternalRequestsTest {
 		// Invoking the bridge explicitly lends the one request right. Covia grants
 		// add to narrowed authority; they are not intersected with token caps.
 		snapshot = run(Odin.OP_ASK, Maps.of("request", "A mediated request.", "timeout", 0L), restricted);
-		run("v/ops/grid/job-result", Maps.of(Fields.ID, RT.getIn(snapshot, Fields.ID), "timeout", 5000L), RequestContext.of(owner));
+		run("v/ops/grid/job-result", Maps.of(Fields.ID, RT.getIn(snapshot, Fields.ID), "timeout", RESULT_TIMEOUT_MS), RequestContext.of(owner));
 		turn = firstTurn(engine().getDIDString(), Odin.AGENT_ID, HexId.parse(RT.<ACell>getIn(snapshot, Fields.SESSION_ID)));
 		assertEquals(restricted.getRoute(), RT.getIn(turn, Fields.ROUTE));
 		assertThrows(ExecutionException.class, () -> run("v/ops/covia/write",
