@@ -67,7 +67,9 @@ class TokensTest {
 		assertNotNull(expires, "a lifetime sets an expiry");
 		assertTrue(expires >= before + Tokens.DEFAULT_LIFETIME_SECONDS * 1000
 			&& expires <= after + Tokens.DEFAULT_LIFETIME_SECONDS * 1000, "thirty days from when it was made");
-		assertEquals(owner, resolves(issued.bearer()), "it works until then");
+		var reference = store().lookup(issued.bearer());
+		assertNotNull(store().resolve(reference, expires - 1), "it works until then");
+		assertNull(store().resolve(reference, expires), "and stops at its expiry");
 		assertThrows(IllegalArgumentException.class,
 			() -> tokens.create("never-lives", TokenPreset.READ_ONLY.scope("Tau"), 0L));
 		tokens.revoke("thirty-days");

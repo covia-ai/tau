@@ -70,7 +70,6 @@ public final class AccessPanel extends SettingsPage {
 		/** The owner's chat agent, which the presets name. */
 		String chatAgentId();
 
-		/** Makes a named token and returns its key. */
 		/** Makes a named token lasting {@code lifetimeSeconds}, or until revoked when null; returns its key. */
 		String createToken(String name, Tokens.Scope scope, Long lifetimeSeconds) throws Exception;
 

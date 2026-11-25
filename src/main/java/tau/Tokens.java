@@ -24,7 +24,8 @@ import covia.venue.RequestContext;
  * The owner's named access tokens, worked on in-process as the owner in
  * person: Covia's {@link TokenAdapter} called directly, so a key never passes
  * through an operation's result, a job record or the model. Each token here is
- * accepted at the venue's MCP endpoint alone and lasts until revoked.
+ * accepted at the venue's MCP endpoint alone, and lasts for the lifetime it
+ * was made with, or until revoked when it was made with none.
  *
  * <p>A named token is not a login: its requests are the owner's, but the agent
  * sees the token named on each turn's From line, and it can do only what its
@@ -81,7 +82,10 @@ public final class Tokens {
 		return adapter().bearer(inPerson(), Strings.create(name), adapter().administration()).toString();
 	}
 
-	/** Gives token {@code name} a new key, which stops the old one working, and returns it with the new key. */
+	/**
+	 * Gives token {@code name} a new key, which stops the old one working, and
+	 * returns it with the new key. The token keeps its expiry.
+	 */
 	public Issued newKey(String name) {
 		return adapter().update(inPerson(), Strings.create(name), null, null, null, true, adapter().administration());
 	}
