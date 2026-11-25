@@ -35,6 +35,7 @@ hand-edited file and its comments stay intact.
 | `~/.tau/code/` | Source checkouts the assistant works on, as the writable `code` root; `code/tau` is Tau's own source, a [Claude Code](#claude-code) project by default. The self-improvement loop keeps `last-good.jar` and `.covia-installed` beside it ([SELF_IMPROVEMENT.md](SELF_IMPROVEMENT.md)). |
 | `~/.tau/logs/` | Plaintext rolling logs; exposed to the assistant as the server-enforced read-only `logs` root. |
 | `~/.tau/run/` | The copy of the jar a relaunch started from another build ([LAUNCH.md](LAUNCH.md#relaunch)); earlier copies go at the next relaunch. |
+| `~/.tau/character/` | Optional: the τ character's art pack, put there by Settings → Theme → Add character pack… and used when nothing else names one ([CHARACTER.md](CHARACTER.md)). Deleting it brings the τ glyph back. |
 | `~/.tau/cache/speech/` | The speech models and engine libraries [voice typing](#voice-typing) and [reading aloud](#reading-replies-aloud) download once you agree; safe to delete. |
 
 To reset Tau completely, remove the whole data directory while
@@ -909,6 +910,6 @@ check that none survives.
 | `ANTHROPIC_API_KEY` | Key for the default model operation. |
 | `TAU_NO_TRAY=1` | Skip the system tray; closing the window quits. |
 | `TAU_MCP_TOKEN` | A named token's key for the `--mcp-stdio` bridge, which then sends it instead of the local login in `tool-token.json` (what *Connect a tool* writes for stdio clients); also an optional home for the token a `.mcp.json` can reference as `${TAU_MCP_TOKEN}` instead of embedding it. |
-| `TAU_CHARACTER_DIR` | The directory holding the character's art pack (or the system property `tau.character.dir`); without one the τ glyph stands in. See [CHARACTER.md](CHARACTER.md). |
+| `TAU_CHARACTER_DIR` | The directory holding the character's art pack (or the system property `tau.character.dir`); without one, the pack in `<data folder>/character/` (which Settings → Theme → Add character pack… fills), and without that the τ glyph stands in. See [CHARACTER.md](CHARACTER.md). |
 
 The system property `tau.motion` (`full`, `reduced`, or `off`) sets how much the character moves, over the operating system's own setting.

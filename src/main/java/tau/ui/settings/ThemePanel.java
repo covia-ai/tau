@@ -73,6 +73,10 @@ public final class ThemePanel extends JPanel {
 		/** Open the folder the owner's own {@code .theme.json} files go in. */
 		void openThemesFolder();
 
+		/** Choose a character pack (its folder or zip) and copy it into the data folder. */
+		default void addCharacterPack() {
+		}
+
 		/** The sidebar ({@code true}) or the classic bottom bar. */
 		default void setShell(boolean rail) {
 		}
@@ -173,7 +177,11 @@ public final class ThemePanel extends JPanel {
 		JButton open = Buttons.secondary("Open themes folder");
 		open.setToolTipText("Drop a FlatLaf or IntelliJ .theme.json here and restart; it appears under its mode");
 		open.addActionListener(e -> host.openThemesFolder());
-		own.add(open, "gaptop 12");
+		own.add(open, "gaptop 12, split 2");
+		JButton pack = Buttons.secondary("Add character pack…");
+		pack.setToolTipText("Choose a character pack, its folder or its zip; " + APP_NAME + " keeps a copy in its data folder");
+		pack.addActionListener(e -> host.addCharacterPack());
+		own.add(pack, "gaptop 12, gapleft 8");
 		form.add(own, "growx, wmin 0");
 
 		// How the window is laid out: the sidebar, or the bottom bar as before;

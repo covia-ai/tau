@@ -512,6 +512,11 @@ public final class MainWindow extends JFrame {
 			}
 
 			@Override
+			public void addCharacterPack() {
+				chooseCharacterPack();
+			}
+
+			@Override
 			public void setShell(boolean rail) {
 				app.setUiPref("shell", rail ? "rail" : "classic");
 				applyShell(rail);
@@ -1727,6 +1732,27 @@ public final class MainWindow extends JFrame {
 		strip.setActing(name, app.actingAsOperator());
 		strip.setVenue(venue != null ? StatusStrip.Venue.RUNNING : StatusStrip.Venue.STARTING,
 			venue != null ? venue.url() : null);
+	}
+
+	/** Settings → Theme → Add character pack…: a folder or a zip, copied into the data folder. */
+	private void chooseCharacterPack() {
+		javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
+		chooser.setDialogTitle("Add a character pack");
+		chooser.setFileSelectionMode(javax.swing.JFileChooser.FILES_AND_DIRECTORIES);
+		chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Character pack (folder or .zip)", "zip"));
+		if (chooser.showDialog(this, "Add") != javax.swing.JFileChooser.APPROVE_OPTION) return;
+		java.nio.file.Path source = chooser.getSelectedFile().toPath();
+		try {
+			app.addCharacterPack(source);
+		} catch (IOException e) {
+			Dialogs.warn(this, "Add a character pack", e.getMessage());
+			return;
+		}
+		String note = tau.ui.character.CharacterArt.namedElsewhere()
+			? "The pack is saved, but " + tau.ui.character.CharacterArt.ENV + " or " + tau.ui.character.CharacterArt.PROPERTY
+				+ " names another pack, and that one is used while it is set."
+			: "Restart " + APP_NAME + " to see the character in every place.";
+		Dialogs.info(this, "Character pack added", note);
 	}
 
 	private void applyDensity(boolean compact) {

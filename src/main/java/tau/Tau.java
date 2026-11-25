@@ -253,6 +253,8 @@ public final class Tau {
 			System.exit(66); // EX_NOINPUT, as the Covia venue does
 			return;
 		}
+		// A character pack in the data folder, when nothing names another (docs/CHARACTER.md).
+		tau.ui.character.CharacterArt.useDataFolder(config.home());
 		// The look chosen in Settings → Theme (remembered in prefs) wins over config.json's light/dark.
 		Prefs prefs = Prefs.load(config.home());
 		String mode = LAF.effective(prefs.getString(PREF_MODE, config.theme()));
@@ -3090,6 +3092,18 @@ public final class Tau {
 			}
 			d.open(dir.toFile());
 		});
+	}
+
+	/**
+	 * Copies the character pack at {@code source} (its folder or a zip) into the
+	 * data folder and uses it for every view made from now on; the ones already
+	 * showing keep the glyph until Tau restarts.
+	 */
+	public tau.ui.character.CharacterArt addCharacterPack(Path source) throws IOException {
+		tau.ui.character.CharacterArt art = tau.ui.character.CharacterPacks.install(source, config.home());
+		if (!tau.ui.character.CharacterArt.namedElsewhere()) tau.ui.character.CharacterArt.use(art);
+		log.info("Character pack added to the data folder");
+		return art;
 	}
 
 	/** Force an immediate lattice value compare and refresh the transcript if it changed. */

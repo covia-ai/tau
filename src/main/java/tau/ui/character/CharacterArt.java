@@ -24,8 +24,10 @@ import convex.core.util.JSON;
  * character is never in this repository or in a public build
  * (docs/CHARACTER.md). The pack's directory is named by the system property
  * {@value #PROPERTY} or, failing that, the environment variable {@value #ENV}.
- * With neither, or with a pack that is missing or unreadable, {@link #get()}
- * is {@link #NONE} and every slot shows the τ glyph instead.
+ * With neither, the pack in the data folder's {@value #FOLDER} directory is
+ * used when there is one. With none, or with a pack that is missing or
+ * unreadable, {@link #get()} is {@link #NONE} and every slot shows the τ glyph
+ * instead.
  *
  * <p>A pack is a directory holding {@code character.json} and its images:
  * per pose a transparent square base and, for poses whose eyes move, a
@@ -36,6 +38,10 @@ public final class CharacterArt {
 
 	public static final String PROPERTY = "tau.character.dir";
 	public static final String ENV = "TAU_CHARACTER_DIR";
+	/** The pack's directory inside the data folder, used when nothing names one. */
+	public static final String FOLDER = "character";
+	/** The pack's index file. */
+	public static final String INDEX = "character.json";
 
 	private static final Logger log = LoggerFactory.getLogger(CharacterArt.class);
 
@@ -55,6 +61,7 @@ public final class CharacterArt {
 	}
 
 	private static volatile CharacterArt current;
+	private static volatile Path dataFolder;
 
 	private final Path dir;
 	private final Map<String, PoseSpec> specs;
@@ -82,17 +89,54 @@ public final class CharacterArt {
 		current = (art == null) ? NONE : art;
 	}
 
-	/** Finds the pack named by the property or the environment, or {@link #NONE}. */
+	/**
+	 * The data folder whose {@value #FOLDER} pack is used when neither the
+	 * property nor the environment names one. Set before the first {@link #get()}.
+	 */
+	public static void useDataFolder(Path home) {
+		dataFolder = home;
+	}
+
+	/** Where the data folder's pack goes: {@code <home>/}{@value #FOLDER}. */
+	public static Path folderIn(Path home) {
+		return home.resolve(FOLDER);
+	}
+
+	/** Whether the property or the environment names a pack, so the data folder's is not used. */
+	public static boolean namedElsewhere() {
+		return named(System.getProperty(PROPERTY), System.getenv(ENV)) != null;
+	}
+
+	/** Finds the pack named by the property or the environment, else the data folder's, or {@link #NONE}. */
 	static CharacterArt find() {
-		String named = System.getProperty(PROPERTY);
-		if (named == null || named.isBlank()) named = System.getenv(ENV);
-		if (named == null || named.isBlank()) return NONE;
-		return load(Path.of(named));
+		return find(System.getProperty(PROPERTY), System.getenv(ENV), dataFolder);
+	}
+
+	/**
+	 * The pack named by {@code property}, else by {@code env}; with neither, the
+	 * one in {@code home}'s {@value #FOLDER} directory when it has an index. A
+	 * named pack wins even when it can't be read, so naming one is never
+	 * silently overridden.
+	 */
+	static CharacterArt find(String property, String env, Path home) {
+		String named = named(property, env);
+		if (named != null) return load(Path.of(named));
+		if (home == null) return NONE;
+		Path dir = folderIn(home);
+		// No pack in the data folder is the usual case: no log line for it.
+		if (!Files.isRegularFile(dir.resolve(INDEX))) return NONE;
+		return load(dir);
+	}
+
+	private static String named(String property, String env) {
+		if (property != null && !property.isBlank()) return property;
+		if (env != null && !env.isBlank()) return env;
+		return null;
 	}
 
 	/** The pack in {@code dir}, or {@link #NONE} (logged once) when it is missing or unreadable. */
 	public static CharacterArt load(Path dir) {
-		Path index = dir.resolve("character.json");
+		Path index = dir.resolve(INDEX);
 		if (!Files.isRegularFile(index)) {
 			log.info("No character pack at the named directory: the τ glyph stands in");
 			return NONE;

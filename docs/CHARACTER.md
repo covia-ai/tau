@@ -17,11 +17,25 @@ The pack is a directory holding `character.json` and its images: per pose a
 transparent square base and, where the eyes move, one screen-blend sprite per
 eye with its box as fractions of the frame. Tau reads the directory named by
 the system property `tau.character.dir`, or else the environment variable
-`TAU_CHARACTER_DIR`. With neither, or with a pack that is missing, unreadable,
-or has no rest pose, `CharacterArt` is empty and every slot shows the τ glyph
+`TAU_CHARACTER_DIR`. With neither, it reads the pack in the data folder's
+`character/` directory (`~/.tau/character/` by default) when that holds a
+`character.json`. A pack that is named wins even when it can't be read, so
+naming one is never silently overridden. With no pack, or with one that is
+missing, unreadable, or has no rest pose, `CharacterArt` is empty and every slot shows the τ glyph
 (today's plain τ in the greeting places, the brand τ in About and on first
 launch). A pose the pack lacks falls back the same way. Images are decoded the
 first time a pose shows, never on the start-up path.
+
+**Settings → Theme → Add character pack…** puts a pack into the data folder:
+choose the pack's folder, or a zip of it, either holding the pack itself or one
+directory that does. `CharacterPacks` takes only the pack's own files (plain
+names, no subdirectories, at most 64 files and 32 MB), decodes every pose, and
+only then replaces the pack there; a pack that fails leaves the old one in
+place and says why. Views made after that show the character; the ones already
+on screen keep the glyph until Tau restarts, and the dialog says so. While the
+property or the environment names a pack, that one stays in use and the
+dialog says that too. Uninstalling Tau leaves the data folder, and so the
+pack, where it is.
 
 Builds made from this repository carry no pack, and its tests run without one;
 they make stand-in shapes of their own where they need art.

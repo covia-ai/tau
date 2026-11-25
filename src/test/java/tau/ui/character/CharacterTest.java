@@ -196,7 +196,8 @@ class CharacterTest {
 				String rel = main.relativize(f).toString().replace('\\', '/');
 				if (rel.startsWith("ui/character/")) continue;
 				String src = Files.readString(f);
-				if (src.contains("CharacterView") || src.contains("CharacterArt")) {
+				// Saying where the pack is (Tau.java) shows nothing; making a view or reading the art does.
+				if (src.contains("CharacterView") || src.contains("CharacterArt.get()")) {
 					assertTrue(allowed.contains(rel), rel + " makes the character but is not one of its slots");
 				}
 				if (src.contains(".withMark(")) {
