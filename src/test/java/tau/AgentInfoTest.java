@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeAll;
@@ -33,6 +34,7 @@ import covia.api.Fields;
 import covia.grid.Job;
 import covia.grid.Venue;
 import covia.adapter.TestAdapter;
+import covia.venue.AgentEvents;
 import covia.venue.Config;
 
 /**
@@ -130,13 +132,16 @@ class AgentInfoTest {
 				.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 			assertTrue(gate.awaitEntered(TIMEOUT_SECONDS, TimeUnit.SECONDS), "the tool call is in flight");
 
-			Tau.stopAgent(client, agentId);
-
-			long deadline = System.currentTimeMillis() + TIMEOUT_SECONDS * 1000;
-			while (!"SLEEPING".equals(status(agentId))) {
-				assertTrue(System.currentTimeMillis() < deadline, "not freed: " + status(agentId));
-				Thread.onSpinWait();
+			// The run loop records the stopped cycle and settles the agent's
+			// status before it announces the run's end.
+			CountDownLatch runEnded = new CountDownLatch(1);
+			try (AutoCloseable events = venue.subscribeAgent(userDID, agentId, e -> {
+					if (AgentEvents.RUN_END.equals(e.type())) runEnded.countDown();
+				})) {
+				Tau.stopAgent(client, agentId);
+				assertTrue(runEnded.await(TIMEOUT_SECONDS, TimeUnit.SECONDS), "the run never ended");
 			}
+			assertEquals("SLEEPING", status(agentId), "freed");
 			ACell timeline = RT.getIn(venue.agentRecord(userDID, agentId), "timeline");
 			assertTrue(timeline instanceof AVector<?> v && v.count() == 1
 				&& CVMBool.TRUE.equals(RT.getIn((ACell) v.get(0), "cancelled")),
