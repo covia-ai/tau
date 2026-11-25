@@ -81,7 +81,7 @@ class StartupTest {
 	/** Launches the venue as Tau does: the store keyed from the seed. */
 	private static EmbeddedVenue launch(Path home) throws IOException {
 		Vault.open(home, "a passphrase".toCharArray());
-		AMap<AString, ACell> config = Vault.secure(AppConfig.defaultVenue(home), SEED)
+		AMap<AString, ACell> config = Vault.secure(SharedVenue.withTestAdapter(AppConfig.defaultVenue(home)), SEED)
 			.assoc(Fields.PORT, CVMLong.create(0));
 		return EmbeddedVenue.launch(config);
 	}

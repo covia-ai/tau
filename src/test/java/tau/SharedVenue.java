@@ -14,7 +14,9 @@ import org.junit.jupiter.api.extension.ExtensionContext.Namespace;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
 import convex.core.data.AString;
+import convex.core.data.Maps;
 import convex.core.data.Strings;
+import convex.core.lang.RT;
 import convex.core.data.prim.CVMLong;
 import covia.api.Fields;
 import covia.venue.Config;
@@ -80,9 +82,18 @@ public final class SharedVenue implements BeforeAllCallback, AfterAllCallback {
 	 * booting alongside.
 	 */
 	public static AMap<AString, ACell> config(Path home) {
-		return AppConfig.defaultVenue(home)
+		return withTestAdapter(AppConfig.defaultVenue(home))
 			.assoc(Config.STORE, Strings.create("temp"))
 			.assoc(Fields.PORT, CVMLong.create(0));
+	}
+
+	/**
+	 * {@code venue} with Covia's test adapter switched on: tests use its echo
+	 * model and its echo and never operations, which a real install keeps off.
+	 */
+	public static AMap<AString, ACell> withTestAdapter(AMap<AString, ACell> venue) {
+		AMap<AString, ACell> adapters = RT.ensureMap(venue.get(Config.ADAPTERS));
+		return venue.assoc(Config.ADAPTERS, adapters.assoc(Strings.create("test"), Maps.of("enabled", true)));
 	}
 
 	/** A venue on a temp home; JUnit closes it with the store it was put in. */

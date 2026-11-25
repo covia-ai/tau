@@ -248,7 +248,11 @@ For an offline smoke test with no key at all, set:
 ```
 
 — the venue's echo test LLM. The app works end to end; the replies are just
-echoes.
+echoes. Covia's `test` adapter, which serves it, is off in a real install
+(`"adapters": {"test": {"enabled": false}}` in Tau's venue defaults): Tau
+switches it on at launch only while the chosen model is this echo bot, as
+after onboarding's "Skip for now". Its other operations (echo, delay, fail,
+never) are then on the venue too.
 
 ## Voice typing
 

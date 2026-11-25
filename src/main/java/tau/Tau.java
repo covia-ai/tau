@@ -578,6 +578,7 @@ public final class Tau {
 			venue = v;
 			log.info("Venue '{}' ready at {} as {}", v.name(), v.url(), v.did());
 			adoptModel(v);
+			allowEchoModel(v);
 			adoptSettings(v);
 			// Bind the identity and move any keys the vault still holds while the
 			// dialog is still up, so a failure goes back to it. Only then reveal:
@@ -1754,6 +1755,28 @@ public final class Tau {
 		if (chosen == null) return;
 		if (!chosen.equals(app.model())) app.saveModel(chosen);
 		llmOverride = chosen;
+	}
+
+	/**
+	 * Covia's test adapter is off in a real install (AppConfig.defaultVenue);
+	 * it is switched on only while the owner's model is the offline echo bot,
+	 * which it serves.
+	 */
+	private void allowEchoModel(EmbeddedVenue v) {
+		allowEchoModel(v.engine(), currentModelOp());
+	}
+
+	/** Switches on the test adapter when {@code modelOp} is the offline echo bot; true when it is on. */
+	static boolean allowEchoModel(covia.venue.Engine engine, String modelOp) {
+		if (!AppConfig.ECHO_LLM_OPERATION.equals(modelOp)) return false;
+		try {
+			engine.enableAdapter("test");
+			log.info("Offline echo bot in use: the test adapter is on");
+			return true;
+		} catch (Exception e) {
+			log.warn("Could not switch on the offline echo bot: {}", e.toString());
+			return false;
+		}
 	}
 
 	/** The chat config with the chosen model applied, else config.json's. */

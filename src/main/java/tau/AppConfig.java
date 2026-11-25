@@ -246,7 +246,12 @@ public final class AppConfig {
 				// The venue keeps each access token's key sealed under its secret
 				// store, so the owner can see a named token's key again in
 				// Settings rather than Tau writing it to a file (tau.Tokens).
-				"token", Maps.of("keepRawTokens", true)));
+				"token", Maps.of("keepRawTokens", true),
+				// Covia's test adapter (echo, delay, fail, never and the echo
+				// model) is off in a real install. It is switched on at launch
+				// only while the owner's model is the offline echo bot that
+				// onboarding offers (Tau.allowEchoModel); test venues keep it.
+				"test", Maps.of("enabled", false)));
 	}
 
 	/** Creates an app-owned file root without making configuration failure fatal. */
