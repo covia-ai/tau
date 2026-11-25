@@ -26,9 +26,37 @@ class SessionViewsTest {
 			views.setInspectorDocked(false);
 			assertEquals(View.CHAT, views.front(), "undocked, the chat stays in front");
 
-			views.select(View.CONTEXT);
 			views.setInspectorDocked(true);
-			assertEquals(View.CHAT, views.front(), "docking moves the tab in front beside the chat");
+			assertEquals(View.CONTEXT, views.beside(), "docked again, the inspector keeps its page");
+
+			views.setInspectorDocked(false);
+			views.select(View.AGENT);
+			views.setInspectorDocked(true);
+			assertEquals(View.CHAT, views.front());
+			assertEquals(View.AGENT, views.beside(), "docking moves the tab in front beside the chat");
+		});
+	}
+
+	@Test
+	void leavingAndComingBackKeepsWhatWasChosen() throws Exception {
+		SwingUtilities.invokeAndWait(() -> {
+			SessionViews views = new SessionViews(new ChatPanel(), new Idle());
+			views.setTabsVisible(true);
+			views.setInspectorDocked(true);
+			views.select(View.CONTEXT);
+			// Home: the tabs go, and the inspector with them, as the window does.
+			views.setTabsVisible(false);
+			views.setInspectorDocked(false);
+			views.setInspectorDocked(true);
+			views.setTabsVisible(true);
+			assertEquals(View.CHAT, views.front());
+			assertEquals(View.CONTEXT, views.beside(), "back on a wide window, the inspector's page");
+
+			views.setInspectorDocked(false);
+			views.select(View.AGENT);
+			views.setTabsVisible(false);
+			views.setTabsVisible(true);
+			assertEquals(View.AGENT, views.front(), "on a narrow one, the tab that was in front");
 		});
 	}
 
