@@ -56,7 +56,8 @@ case "$type" in
 		launcher="/opt/tau/bin/Tau"
 		runtime="/opt/tau/lib/runtime"
 		uninstall() { sudo apt-get remove -y -q tau; }
-		installed() { dpkg -s tau >/dev/null 2>&1; }
+		# Removed but with configuration left reads "deinstall ok config-files": not installed.
+		installed() { dpkg-query -W -f='${Status}' tau 2>/dev/null | grep -q 'install ok installed'; }
 		;;
 	appimage)
 		step "Install: make the AppImage executable"

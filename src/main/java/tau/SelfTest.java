@@ -327,7 +327,10 @@ public final class SelfTest {
 		try (DirectoryStream<Path> files = Files.newDirectoryStream(home, "*.unclean-*")) {
 			unclean = files.iterator().hasNext();
 		}
-		check(!unclean, "clean-close", "no store repair was needed", "the store had to be repaired: it was not closed cleanly");
+		// The launch above already proved it: Etch refuses to open a store left
+		// open, and the self-test never repairs one. Nor may a repair copy exist.
+		check(!unclean, "clean-close", "the store opened without a repair, so the last run closed it cleanly",
+			"a repaired store's copy is here: an earlier run did not close it cleanly");
 		SessionHistory.Snapshot latest = SessionHistory.loadLatest(me, agentId);
 		boolean found = latest != null && latest.items().stream()
 			.anyMatch(i -> i instanceof SessionHistory.Message m && m.text() != null && m.text().contains(GREETING));

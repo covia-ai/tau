@@ -63,12 +63,13 @@ public final class ScreenShots {
 		int code;
 		try {
 			Path scratch = walk(args);
-			List<String> errors = unexpectedErrors(scratch.resolve("logs").resolve("tau.log"));
+			List<String> errors = new ArrayList<>(unexpectedErrors(scratch.resolve("logs").resolve("tau.log")));
+			WRONG_SIZE.forEach(w -> errors.add("Window size: " + w));
 			if (errors.isEmpty()) {
-				System.out.println("No unexpected errors in the log.");
+				System.out.println("No unexpected errors in the log, and every shot at the width asked for.");
 				code = 0;
 			} else {
-				System.out.println("Unexpected errors in the log (" + errors.size() + "):");
+				System.out.println("Unexpected errors, or shots not at the width asked for (" + errors.size() + "):");
 				errors.forEach(e -> System.out.println("  " + e));
 				code = 1;
 			}
@@ -85,6 +86,9 @@ public final class ScreenShots {
 	 * pattern is matched against an ERROR line of the scratch log.
 	 */
 	static final List<java.util.regex.Pattern> EXPECTED_ERRORS = List.of();
+
+	/** Shots whose window was not the width asked for. */
+	static final List<String> WRONG_SIZE = java.util.Collections.synchronizedList(new ArrayList<>());
 
 	/** The log's ERROR lines that no {@link #EXPECTED_ERRORS} pattern explains. */
 	static List<String> unexpectedErrors(Path log) throws java.io.IOException {
@@ -376,6 +380,14 @@ public final class ScreenShots {
 			g.dispose();
 			img.set(b);
 		});
+		// A screen smaller than the size asked for (a CI display, say) shrinks the window. The width
+		// decides the layout, so a shot at another width fails the walk rather than be named for a
+		// width it was not taken at; a height a few pixels short (a menu bar) is only noted.
+		if (window.getWidth() != size.width) {
+			WRONG_SIZE.add(name + " at " + size.width + "x" + size.height + " came out " + window.getWidth() + "x" + window.getHeight());
+		} else if (window.getHeight() != size.height) {
+			System.out.println("  NOTE: " + name + " at " + size.width + "x" + size.height + " is " + window.getHeight() + " high");
+		}
 		Path file = out.resolve(mode).resolve(name + "-" + size.width + "x" + size.height + ".png");
 		Files.createDirectories(file.getParent());
 		ImageIO.write(img.get(), "png", file.toFile());
