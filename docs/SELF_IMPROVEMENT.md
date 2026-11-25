@@ -40,8 +40,11 @@ commits it, then relaunches Tau into the new build and runs the smoke checks. Su
 work is integrated into local `develop`; failures are rolled back where the
 store remains compatible and reported to the owner.
 
-Store-format changes stop an automatic upgrade. Backups and a migration plan
-are needed before moving a store that the last good build cannot read.
+The run chooses which Covia to build on: develop, a release or an earlier
+commit. It may move the store to a new format; past that point the last good
+build cannot read the store, so a failure is fixed forward rather than rolled
+back. It relaunches Tau into its build even when the owner launched Tau from
+source.
 
 ## What needs the owner
 
@@ -90,7 +93,7 @@ loop redacts.
 
 - Run availability and missed-run handling depend on the scheduler the owner
   configures, not on Tau's venue scheduler.
-- There is no store backup: a store-format change waits for the owner, and
-  the last good build cannot read a store a newer Covia has migrated.
+- There is no store backup: once a newer Covia has migrated the store, the
+  last good build cannot read it, so there is nothing to roll back to.
 - Covia snapshot jars in `~/.m2` are shared with other work on the machine,
   so the loop reinstalls its commit when a build breaks in untouched code.

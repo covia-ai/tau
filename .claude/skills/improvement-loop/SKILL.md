@@ -66,8 +66,12 @@ of the configured main agent with `agent_fork` (`sourceId` as above, `agentId`
 
 `$S/covia.sh status`. Upgrade when develop's main code has changed in ways Tau
 uses, when Covia's version moved, or when the last upgrade is a week old.
-Skip when the change is only tests, docs or build plumbing. If the store
-formats changed, do not upgrade: report it for the owner and carry on.
+Skip when the change is only tests, docs or build plumbing. Which Covia to
+build on is the run's choice: develop, a release or hotfix tag, or an
+earlier commit, whichever makes sense for Tau. A store-format change is no
+bar, but the last good build cannot read a store the new one has migrated:
+once relaunched across one, a failure is fixed forward, never rolled back, so
+say in the report that the store moved.
 
 To upgrade: note the installed commit `status` printed, then
 `$S/covia.sh install`; set `covia.version` in `pom.xml` if
@@ -161,7 +165,9 @@ $S/relaunch.sh && $S/smoke.sh
 The script relaunches with the venue operator login, which Tau keeps in
 `~/.tau/operator-token.json` while the owner has it ticked in Settings →
 Access; without it, it stops and says so, and the relaunch is reported for the
-owner to do. The report says what changed since the build Tau ran and the
+owner to do. Tau running from source (`v/ops/tau/info` says version `dev`),
+such as the owner's IDE launch, is relaunched the same way: it stops itself
+and the jar runs on in its place. The report says what changed since the build Tau ran and the
 tests that passed, or for a rollback what failed.
 
 On success: `cp "$W/target/tau.jar" ~/.tau/code/last-good.jar`,
