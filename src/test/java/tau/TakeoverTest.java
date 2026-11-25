@@ -77,6 +77,10 @@ class TakeoverTest {
 		assertEquals(ProcessHandle.current().pid(), me.pid(), "the instance names its process");
 		assertEquals("temp", me.store(), "the instance names its store");
 		assertNull(me.storePath(), "a temp store is no path to wait on");
+		assertEquals(covia.venue.migration.VenueMigrations.VERSION, me.storeVersion(), "the instance names its store's format");
+		me.requireReadableBy(me.storeVersion());
+		assertThrows(Takeover.Refused.class, () -> me.requireReadableBy(me.storeVersion() - 1),
+			"a newcomer that cannot read the store leaves the instance running");
 
 		String strangerSeed = AKeyPair.generate().getSeed().toHexString();
 		assertThrows(Takeover.Refused.class, () -> Takeover.identify(port, strangerSeed),

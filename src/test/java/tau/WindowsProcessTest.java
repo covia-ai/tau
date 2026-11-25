@@ -17,7 +17,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * A process {@link WindowsProcess} starts gets exactly the arguments it was
- * given, and has left this process's job whenever it reports breaking away.
+ * given, and is outside this process's job: run from a Claude session, whose
+ * job forbids breaking away, that is through WMI.
  * Starts one short-lived Java process; Windows only.
  */
 class WindowsProcessTest {
@@ -38,7 +39,8 @@ class WindowsProcessTest {
 		command.addAll(args);
 
 		WindowsProcess child = WindowsProcess.start(command);
-		assertEquals(!child.brokeAway(), child.sharesJob(), "it left this process's job if it said so");
+		assertTrue(child.brokeAway(), "started outside this process's job: by breaking away, or else through WMI");
+		assertFalse(child.sharesJob(), "it is not in this process's job");
 		assertTrue(child.waitFor(60, TimeUnit.SECONDS), "it finished");
 		assertFalse(child.isAlive());
 		assertEquals(0, child.exitValue());

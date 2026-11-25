@@ -107,6 +107,7 @@ public class TauAdapter extends AAdapter {
 	private static final AString K_STORE = Strings.intern("store");
 	private static final AString K_PID = Strings.intern("pid");
 	private static final AString K_STARTED = Strings.intern("started");
+	private static final AString K_STORE_VERSION = Strings.intern("storeVersion");
 	private static final AString K_JAR = Strings.intern("jar");
 	private static final AString K_ACCEPTED = Strings.intern("accepted");
 	private static final AString K_NAME = Strings.intern("name");
@@ -1139,6 +1140,8 @@ public class TauAdapter extends AAdapter {
 			// it. A newcomer taking over waits on both (Takeover); when the process
 			// started shows a caller that a relaunch happened.
 			K_STORE, storeName(),
+			// The store's format, so a newcomer that cannot read it leaves this one running.
+			K_STORE_VERSION, CVMLong.create(engine.getVenueState().version()),
 			K_PID, CVMLong.create(ProcessHandle.current().pid()),
 			K_STARTED, ProcessHandle.current().info().startInstant().map(Object::toString).orElse(null));
 	}

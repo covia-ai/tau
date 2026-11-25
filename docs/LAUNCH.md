@@ -110,7 +110,9 @@ A returning owner can authorise takeover; a new installation cannot, because
 it does not hold the incumbent's seed. After unlock, the newcomer identifies
 the incumbent using a short-lived operator token signed by that seed. It
 requires a matching Tau identity and obtains the process and store details,
-then requests authenticated shutdown.
+including the store's format, then requests authenticated shutdown. If that
+format is newer than the newcomer reads, it refuses and leaves the incumbent
+running, since nothing else could open the store.
 
 These calls deliberately use `v/ops/brightside/info` and
 `v/ops/brightside/shutdown` so an older running instance can be replaced.
@@ -166,12 +168,14 @@ instance serving and are reported by the successor.
 
 The operation returns the successor's process ID when it starts, not when it
 is ready. A caller must verify readiness and the new process through
-`brightside:info`. There is no “newer jar” check; an incompatible store is
-refused at launch ([store versions](#opening-a-store-an-older-build-wrote)).
+`brightside:info`. There is no “newer jar” check; a successor that cannot
+read the store's format refuses the takeover, and this instance runs on.
 
-On Windows the successor attempts to leave the parent's process job, so ending
-a coding session does not end Tau. Restrictive enclosing jobs can prevent
-that; a failure is logged. `WindowsProcess` owns the platform mechanism.
+On Windows the successor leaves the parent's process job, so ending a coding
+session, or the Claude desktop app around it, does not end Tau: it breaks
+away where the job allows, and otherwise WMI starts it, outside every job of
+the parent's, with the user's own environment. Only if both fail does it stay
+in the job, which is logged. `WindowsProcess` owns the platform mechanism.
 
 Relaunch is refused while locked, while an earlier successor remains pending,
 without a desktop app, or from an embedded launcher such as `mvn exec:java`

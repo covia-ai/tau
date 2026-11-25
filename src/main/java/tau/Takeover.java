@@ -87,10 +87,24 @@ public final class Takeover {
 	/**
 	 * What is running on the port, as {@code brightside:info} reports it: the
 	 * app, its version, the venue DID, the store it holds ({@code temp} or a
-	 * path) and its process id — the last two null and zero from an instance
-	 * older than this field set.
+	 * path), its process id and the store's format version — null or zero from
+	 * an instance older than the field.
 	 */
-	public record Instance(String app, String version, String did, String store, long pid) {
+	public record Instance(String app, String version, String did, String store, long pid, long storeVersion) {
+
+		/**
+		 * Refused when this instance's store is in a format newer than
+		 * {@code supported}, the newest a newcomer reads: taking over would stop
+		 * this one and leave nothing able to open the store. An unreported
+		 * version (an older instance) is not refused.
+		 */
+		public void requireReadableBy(long supported) throws Refused {
+			if (storeVersion > supported) {
+				throw new Refused("The " + APP_NAME + " already running keeps its data in a newer format (version "
+					+ storeVersion + ") than this build reads (version " + supported + "), so it was left running."
+					+ " Start a build on a newer Covia instead.");
+			}
+		}
 
 		/** The store as a path, or null when it is not one (a temp store, or unreported). */
 		public Path storePath() {
@@ -189,7 +203,8 @@ public final class Takeover {
 				+ " (HTTP " + response.statusCode() + "). Stop it, or change the port in config.json, and try again.");
 		}
 		return new Instance(app.toString(), text(RT.getIn(body, "version")), text(RT.getIn(body, "did")),
-			text(RT.getIn(body, "store")), (RT.getIn(body, "pid") instanceof CVMLong l) ? l.longValue() : 0L);
+			text(RT.getIn(body, "store")), (RT.getIn(body, "pid") instanceof CVMLong l) ? l.longValue() : 0L,
+			(RT.getIn(body, "storeVersion") instanceof CVMLong v) ? v.longValue() : 0L);
 	}
 
 	/**

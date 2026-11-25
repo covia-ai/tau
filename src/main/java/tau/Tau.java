@@ -1781,6 +1781,7 @@ public final class Tau {
 		// Who is it? A Tau holding our identity answers brightside:info
 		// to our key and names its store and process; anything else is refused.
 		Takeover.Instance other = Takeover.identify(port, venueSeedHex);
+		other.requireReadableBy(covia.venue.migration.VenueMigrations.VERSION);
 		log.info("Taking over from {} on port {}", other.describe(), port);
 		Path theirs = other.storePath();
 		if (theirs != null && store != null && !theirs.equals(store)) {

@@ -29,6 +29,19 @@ alive() {
 	fi
 }
 
+# What Tau itself logged as failing since this relaunch began: a refused
+# takeover, a store it cannot open. Its log's lines start with the UTC time.
+log="$home/logs/tau.log"
+started=$(date -u +%Y-%m-%dT%H:%M:%S)
+failures() {
+	[ -f "$log" ] && awk -v t="$started" '$1 >= t && $2 == "ERROR" && $4 == "tau.Tau"' "$log"
+}
+failed() {
+	echo "$1: check its log." >&2
+	f=$(failures); [ -n "$f" ] && printf '%s\n' "$f" | cut -c1-400 >&2
+	exit 1
+}
+
 before=$(pid_now)
 out=$(java -jar "$jar" --relaunch "$config") || { printf '%s\n' "$out" >&2; exit 1; }
 printf '%s\n' "$out"
@@ -44,12 +57,10 @@ while [ $i -lt 100 ]; do
 		"$here/mcp.sh" grid_run '{"operation":"v/ops/tau/info"}'
 		exit 0
 	fi
-	alive "$new" || {
-		echo "The new Tau (process $new) has stopped${before:+; the old one was $before${pid:+ and is still answering}}: check its log." >&2
-		exit 1
-	}
+	alive "$new" || failed "The new Tau (process $new) has stopped${before:+; the old one was $before${pid:+ and is still answering}}"
+	# A start that fails after the takeover waits on a dialog: say so now.
+	[ -z "$pid" ] && [ -n "$(failures)" ] && failed "The new Tau (process $new) failed to start, and nothing is answering"
 	i=$((i + 1))
 	timeout 3 tail -f /dev/null 2>/dev/null
 done
-echo "The new Tau (process $new) did not answer within five minutes: check its log." >&2
-exit 1
+failed "The new Tau (process $new) did not answer within five minutes"
