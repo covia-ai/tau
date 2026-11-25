@@ -28,6 +28,7 @@ import convex.core.lang.RT;
 import convex.core.util.JSON;
 import covia.adapter.token.TokenAdapter;
 import covia.exception.AuthException;
+import covia.exception.InvalidInputException;
 import covia.exception.NotFoundException;
 import covia.grid.Principals;
 import covia.venue.Engine;
@@ -128,6 +129,12 @@ class RoomsTest {
 		assertEquals(List.of(first + 1), numbers(waiting.get(WAIT, TimeUnit.SECONDS)));
 		assertEquals(List.of(), numbers(run("wait", Maps.of("room", "wait", "after", first + 1, "timeout", 0L), me)),
 			"a zero timeout answers at once");
+
+		// A reader that read a room empty waits from -1: a post made since its read is given at once.
+		run("create", Maps.of("room", "fresh"), me);
+		long zero = longAt(post(me, "fresh", "made after the read"), "n");
+		assertEquals(List.of(zero), numbers(run("wait", Maps.of("room", "fresh", "after", -1L, "timeout", 0L), me)));
+		assertRefused(InvalidInputException.class, () -> run("wait", Maps.of("room", "fresh", "after", -2L), me));
 
 		CompletableFuture<ACell> orphaned = start("wait", Maps.of("room", "wait", "after", first + 1), me);
 		run("delete", Maps.of("room", "wait"), me);

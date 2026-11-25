@@ -778,7 +778,9 @@ public final class RoomsScreen extends JPanel {
 		/** One wait at a time on the room from the last post shown, issued again on each answer. */
 		void follow() {
 			if (!running || gone || pause.isSelected() || waiting != null) return;
-			CompletableFuture<Rooms.Page> w = rooms.await(room.name(), lastN < 0 ? null : lastN, 60_000);
+			// Always from the last post shown (-1 for a room read empty): a wait given no number would start
+			// from the room's next post as of the wait, skipping any made since the room was read.
+			CompletableFuture<Rooms.Page> w = rooms.await(room.name(), lastN, 60_000);
 			waiting = w;
 			w.whenComplete((page, error) -> SwingUtilities.invokeLater(() -> {
 				// A wait this view cancelled itself is no longer the one waiting: nothing to do.

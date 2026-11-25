@@ -260,7 +260,9 @@ public class RoomAdapter extends AAdapter {
 		AMap<AString, ACell> room = room(name);
 		requireReadable(ctx, name, room);
 		ACell given = RT.getIn(input, K_AFTER);
-		long next = (given == null) ? longIn(room, K_NEXT, 0) : number(given, "after") + 1;
+		// -1 is "nothing seen yet": a reader that read the room empty waits from its first post, so posts made
+		// between its read and this wait are given, not skipped.
+		long next = (given == null) ? longIn(room, K_NEXT, 0) : after(given) + 1;
 		int limit = limit(input);
 		ACell t = RT.getIn(input, K_TIMEOUT);
 		long timeout = Math.min(MAX_WAIT_MS, Math.max(0, (t == null) ? DEFAULT_WAIT_MS : number(t, "timeout")));
@@ -562,6 +564,12 @@ public class RoomAdapter extends AAdapter {
 		long limit = (v == null) ? DEFAULT_LIMIT : number(v, "limit");
 		if (limit < 1 || limit > MAX_LIMIT) throw new InvalidInputException("limit must be 1 to " + MAX_LIMIT);
 		return (int) limit;
+	}
+
+	/** A wait's {@code after}: a post's number, or -1 for none seen yet. */
+	private static long after(ACell v) {
+		if (v instanceof CVMLong l && l.longValue() >= -1) return l.longValue();
+		throw new InvalidInputException("after must be a post's number, or -1 when none has been seen");
 	}
 
 	private static long number(ACell v, String what) {

@@ -327,6 +327,37 @@ class RoomsScreenTest {
 	}
 
 	@Test
+	void aPostMadeBetweenOpeningAnEmptyRoomAndItsFirstWaitIsShown() throws Exception {
+		AString me = user("rooms-opening");
+		Rooms rooms = new Rooms(engine(), me.toString());
+		rooms.create("opening", null, false, false, null, null);
+		RequestContext bot = collaborator(me, "opening-bot");
+		RoomsScreen screen = screen(rooms);
+		Shown shown = new Shown();
+		shown.deadlineSeconds = 30;
+		java.util.concurrent.atomic.AtomicBoolean posted = new java.util.concurrent.atomic.AtomicBoolean();
+		edt(() -> {
+			screen.viewChanged(rooms.view());
+			screen.open("opening");
+			// The room has been read (empty) and has not yet waited: a post lands in exactly that gap.
+			screen.openRoom().onShown = posts -> {
+				if (posted.compareAndSet(false, true)) {
+					try {
+						post(bot, "opening", "made as the room opened");
+					} catch (Exception e) {
+						throw new IllegalStateException(e);
+					}
+				}
+				shown.counts.add(posts.size());
+			};
+			return null;
+		});
+		shown.await(1);
+		assertEquals(1, shown.total, "the post made in the gap is shown, not skipped");
+		assertEquals("made as the room opened", edt(() -> post(screen, 0).post.text()));
+	}
+
+	@Test
 	void noCharacterAppearsOnTheScreen() throws Exception {
 		AString me = user("rooms-no-character");
 		Rooms rooms = new Rooms(engine(), me.toString());
@@ -382,13 +413,16 @@ class RoomsScreenTest {
 		/** What the open room says of its following, for the message when a wait gives up. */
 		java.util.function.Supplier<String> state = () -> "";
 
+		/** This wait's deadline; a test that expects its posts at once may shorten it. */
+		long deadlineSeconds = DEADLINE_SECONDS;
+
 		void await(int atLeast) throws Exception {
-			long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(DEADLINE_SECONDS);
+			long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(deadlineSeconds);
 			while (!first || total < atLeast) {
 				long left = until - System.nanoTime();
 				Integer n = (left > 0) ? counts.poll(left, TimeUnit.NANOSECONDS) : null;
 				if (n == null) {
-					throw new AssertionError("posts shown: " + total + " of " + atLeast + " within " + DEADLINE_SECONDS
+					throw new AssertionError("posts shown: " + total + " of " + atLeast + " within " + deadlineSeconds
 						+ " s; the room: " + state.get());
 				}
 				first = true;
