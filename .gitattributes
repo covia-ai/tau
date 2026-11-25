@@ -5,3 +5,4 @@
 *.sh text eol=lf
 src/test/resources/**/*.txt text eol=lf
 packaging/*.txt text eol=lf
+packaging/linux/deb/* text eol=lf

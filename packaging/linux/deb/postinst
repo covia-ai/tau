@@ -1,0 +1,39 @@
+#!/bin/sh
+# postinst script for APPLICATION_PACKAGE
+#
+# Tau's override of jpackage's template (packaging/package.sh passes this
+# folder as --resource-dir). The same placeholders are filled in. The menu
+# entry is added only where xdg-utils and a desktop menu exist; on a minimal
+# or server system the install still succeeds and says how to start Tau.
+
+set -e
+
+package_type=deb
+LAUNCHER_AS_SERVICE_SCRIPTS
+
+add_menu_entry ()
+{
+  :
+DESKTOP_COMMANDS_INSTALL
+}
+
+case "$1" in
+    configure)
+        if ! command -v xdg-desktop-menu >/dev/null 2>&1; then
+            echo "Tau: xdg-utils is not installed, so no menu entry was added. Start Tau with /opt/APPLICATION_PACKAGE/bin/Tau." >&2
+        elif ! add_menu_entry; then
+            echo "Tau: no desktop menu to add an entry to, so none was added. Start Tau with /opt/APPLICATION_PACKAGE/bin/Tau." >&2
+        fi
+LAUNCHER_AS_SERVICE_COMMANDS_INSTALL
+    ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
+
+exit 0

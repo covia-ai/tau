@@ -44,6 +44,8 @@ class SelfTestTest {
 	void theFlagNeedsAFolderAndRefusesWithoutStarting() {
 		PrintStream quiet = new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8);
 		assertEquals(SelfTest.USAGE, SelfTest.run(new String[] { "--self-test" }, quiet, quiet));
+		assertEquals(SelfTest.USAGE, SelfTest.run(new String[] { "--self-test", "--home", "x" }, quiet, quiet),
+			"an option after the flag is not taken for the folder");
 		assertEquals(SelfTest.REFUSED, SelfTest.run(new String[] { "--self-test", AppConfig.HOME.toString() }, quiet, quiet));
 	}
 

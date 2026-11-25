@@ -66,10 +66,10 @@ public final class ScreenShots {
 			List<String> errors = new ArrayList<>(unexpectedErrors(scratch.resolve("logs").resolve("tau.log")));
 			WRONG_SIZE.forEach(w -> errors.add("Window size: " + w));
 			if (errors.isEmpty()) {
-				System.out.println("No unexpected errors in the log, and every shot at the width asked for.");
+				System.out.println("No unexpected errors in the log, and every shot at the size asked for.");
 				code = 0;
 			} else {
-				System.out.println("Unexpected errors, or shots not at the width asked for (" + errors.size() + "):");
+				System.out.println("Unexpected errors, or shots not at the size asked for (" + errors.size() + "):");
 				errors.forEach(e -> System.out.println("  " + e));
 				code = 1;
 			}
@@ -87,7 +87,18 @@ public final class ScreenShots {
 	 */
 	static final List<java.util.regex.Pattern> EXPECTED_ERRORS = List.of();
 
-	/** Shots whose window was not the width asked for. */
+	/**
+	 * {@code -Dtau.shots.largestWindow=1044x788} keeps the window itself no larger than that, as
+	 * a small screen does (a Windows runner's), to check locally that shots do not depend on it.
+	 */
+	static Dimension largestWindow() {
+		String v = System.getProperty("tau.shots.largestWindow");
+		if (v == null || !v.matches("\\d+x\\d+")) return null;
+		String[] wh = v.split("x");
+		return new Dimension(Integer.parseInt(wh[0]), Integer.parseInt(wh[1]));
+	}
+
+	/** Shots not painted at the size asked for. */
 	static final List<String> WRONG_SIZE = java.util.Collections.synchronizedList(new ArrayList<>());
 
 	/** The log's ERROR lines that no {@link #EXPECTED_ERRORS} pattern explains. */
@@ -341,6 +352,41 @@ public final class ScreenShots {
 		return scratch;
 	}
 
+	/** The content size of a window of {@code size}: the root pane inside its frame. */
+	static Dimension content(JFrame window, Dimension size) {
+		java.awt.Insets in = window.getInsets();
+		return new Dimension(size.width - in.left - in.right, size.height - in.top - in.bottom);
+	}
+
+	/**
+	 * Lays the window's content out at {@code size}, as a window of that size would show it,
+	 * even when the screen kept the window itself smaller (a CI runner's 1024 by 768 display):
+	 * the root pane takes the size, and the window's own layout pass follows it. Painting is
+	 * offscreen, so the shot does not depend on the screen.
+	 */
+	static void fit(JFrame window, Dimension size) throws Exception {
+		Dimension want = content(window, size);
+		SwingUtilities.invokeAndWait(() -> {
+			javax.swing.JRootPane root = window.getRootPane();
+			if (root.getWidth() == want.width && root.getHeight() == want.height) return;
+			root.setSize(want);
+			root.validate();
+			if (window instanceof MainWindow) {
+				try {
+					Method relayout = MainWindow.class.getDeclaredMethod("relayout");
+					relayout.setAccessible(true);
+					relayout.invoke(window);
+				} catch (ReflectiveOperationException e) {
+					throw new IllegalStateException("MainWindow.relayout is needed to fit a shot", e);
+				}
+			}
+		});
+		// Let the resize events the new size raised run, then lay out what they changed.
+		SwingUtilities.invokeAndWait(() -> {
+		});
+		SwingUtilities.invokeAndWait(() -> window.getRootPane().validate());
+	}
+
 	static void onEdtGo(MainWindow window, String destination) throws Exception {
 		Screens.onEdt(() -> {
 			window.go(tau.ui.shell.Destination.valueOf(destination));
@@ -364,6 +410,7 @@ public final class ScreenShots {
 	static void shoot(JFrame window, Path out, String mode, String name, Dimension size) throws Exception {
 		if (!name.contains(filter)) return;
 		Thread.sleep(400);
+		fit(window, size);
 		SwingUtilities.invokeAndWait(() -> probe(window));
 		AtomicReference<BufferedImage> img = new AtomicReference<>();
 		SwingUtilities.invokeAndWait(() -> {
@@ -380,13 +427,15 @@ public final class ScreenShots {
 			g.dispose();
 			img.set(b);
 		});
-		// A screen smaller than the size asked for (a CI display, say) shrinks the window. The width
-		// decides the layout, so a shot at another width fails the walk rather than be named for a
-		// width it was not taken at; a height a few pixels short (a menu bar) is only noted.
-		if (window.getWidth() != size.width) {
-			WRONG_SIZE.add(name + " at " + size.width + "x" + size.height + " came out " + window.getWidth() + "x" + window.getHeight());
-		} else if (window.getHeight() != size.height) {
-			System.out.println("  NOTE: " + name + " at " + size.width + "x" + size.height + " is " + window.getHeight() + " high");
+		// The shot is the window's content laid out at the size asked for (fit), whatever the
+		// screen allowed the window itself: a shot at another size fails the walk rather than
+		// be named for a size it was not taken at.
+		java.awt.Dimension painted = content(window, size);
+		double shotScale = window.getGraphicsConfiguration().getDefaultTransform().getScaleX();
+		int shotW = (int) Math.round(img.get().getWidth() / shotScale), shotH = (int) Math.round(img.get().getHeight() / shotScale);
+		if (Math.abs(shotW - painted.width) > 1 || Math.abs(shotH - painted.height) > 1) {
+			WRONG_SIZE.add(name + " at " + size.width + "x" + size.height + " came out " + shotW + "x" + shotH
+				+ " of content, not " + painted.width + "x" + painted.height);
 		}
 		Path file = out.resolve(mode).resolve(name + "-" + size.width + "x" + size.height + ".png");
 		Files.createDirectories(file.getParent());
@@ -449,9 +498,12 @@ public final class ScreenShots {
 		}
 
 		void resize(Dimension size) throws Exception {
+			Dimension most = largestWindow();
+			Dimension allowed = (most == null) ? size
+				: new Dimension(Math.min(size.width, most.width), Math.min(size.height, most.height));
 			SwingUtilities.invokeAndWait(() -> {
 				window.setExtendedState(Frame.NORMAL);
-				window.setSize(size);
+				window.setSize(allowed);
 				window.validate();
 			});
 			Thread.sleep(300);

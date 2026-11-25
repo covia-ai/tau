@@ -189,7 +189,7 @@ installer() {
 			;;
 		deb)
 			args+=(--license-file LICENSE --linux-package-name "$PACKAGE_NAME" --linux-app-category utils --linux-menu-group "Utility;Network;"
-				--linux-shortcut)
+				--linux-shortcut --resource-dir packaging/linux/deb)
 			;;
 		*) echo "Unknown installer type: $type" >&2; exit 1 ;;
 	esac

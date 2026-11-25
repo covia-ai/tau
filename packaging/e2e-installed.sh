@@ -63,8 +63,9 @@ case "$type" in
 		step "Install: make the AppImage executable"
 		chmod +x "$installer"
 		launcher="$installer"
-		# An AppImage unpacks itself to a temporary folder to run; its runtime is in there.
-		runtime="appimage_extracted"
+		# An AppImage unpacks itself to a temporary folder to run. Wherever that is, the bundled
+		# runtime sits at usr/lib/runtime inside it (packaging/package.sh lays the image out there).
+		runtime="/usr/lib/runtime"
 		export APPIMAGE_EXTRACT_AND_RUN=1
 		uninstall() { :; }
 		installed() { false; }

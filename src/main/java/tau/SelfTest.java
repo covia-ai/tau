@@ -78,7 +78,10 @@ public final class SelfTest {
 	public static int run(String[] args, PrintStream out, PrintStream err) {
 		Path folder = null;
 		for (int i = 0; i < args.length; i++) {
-			if (args[i].equals("--self-test") && i + 1 < args.length) folder = Path.of(args[i + 1]);
+			// The folder follows the flag; another option there is a mistake, not a folder's name.
+			if (args[i].equals("--self-test") && i + 1 < args.length && !args[i + 1].startsWith("--")) {
+				folder = Path.of(args[i + 1]);
+			}
 		}
 		if (folder == null) {
 			err.println("Usage: tau --self-test <empty or self-test folder>");
