@@ -213,7 +213,7 @@ The default model operation needs a provider key. Two supported ways to supply i
 
 1. **Environment** — put `ANTHROPIC_API_KEY` in the environment before
    launching.
-2. **Tau settings** — enter it under *Settings → Model*, which opens after
+2. **Tau settings** — enter it under *Settings → Models*, which opens after
    first-run setup. It is written to the encrypted secret stores on the venue — yours
    and the operator's, so your agents and the gods each resolve their own copy —
    and takes effect immediately.
@@ -274,7 +274,7 @@ Another engine is a choice in `config.json`, under the venue's adapter block:
 			// a smaller, English-only model on this computer
 			"local": { "transcribeModel": "moonshine-base" }
 
-			// or OpenAI's Whisper, with the OpenAI key from Settings → Model;
+			// or OpenAI's Whisper, with the OpenAI key from Settings → Models;
 			// your recordings then go to OpenAI
 			// "engine": "openai"
 
@@ -288,7 +288,7 @@ Another engine is a choice in `config.json`, under the venue's adapter block:
 The local models are `parakeet-tdt-v3` (the default), `parakeet-tdt-v2`
 (English), `moonshine-base` and `moonshine-tiny` (English, smaller and
 faster). The OpenAI engine uses your own key (`s/OPENAI_API_KEY`, entered
-under *Settings → Model*), and the microphone says so if there is none.
+under *Settings → Models*), and the microphone says so if there is none.
 Words appear as you speak only with the engine on this computer, where
 hearing them again as they grow costs nothing; with any other, the whole
 message is written in when you stop, a pause does not send it, and the

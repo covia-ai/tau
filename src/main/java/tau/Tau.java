@@ -162,7 +162,7 @@ public final class Tau {
 	/** A recovery withdrew the tool token before the store was open; recorded there once it is. */
 	private volatile boolean toolTokenWithdrawn;
 	private volatile String llmOverride; // the chosen model op, kept in Tau's adapter state
-	private volatile boolean chooseModel; // first run: open Settings → Model once the chat is up
+	private volatile boolean chooseModel; // first run: open Settings → Models once the chat is up
 
 	private enum Mode {
 		ONBOARD, UNLOCK
@@ -587,12 +587,12 @@ public final class Tau {
 			List<String> notices = new ArrayList<>();
 			if (bound != null && !firstRun) {
 				// A model whose provider has no key fails every message until one is
-				// added; on first run Settings → Model is about to open instead.
+				// added; on first run Settings → Models is about to open instead.
 				String op = currentModelOp();
 				Providers.Provider keyless = keylessProvider(op, this::keyResolves);
 				if (keyless != null) {
 					notices.add("No " + keyless.label() + " API key is set, so " + op
-						+ " can't answer yet. Add the key in Settings → Model and it takes effect straight away.");
+						+ " can't answer yet. Add the key in Settings → Models and it takes effect straight away.");
 				}
 			}
 			notices.addAll(v.startup().problems());
@@ -768,7 +768,7 @@ public final class Tau {
 
 	/**
 	 * First-run onboarding is done: derive the vault, store the encrypted seed,
-	 * remember the name, and bring up the encrypted venue, then Settings → Model
+	 * remember the name, and bring up the encrypted venue, then Settings → Models
 	 * for the model and its key. Called on the event thread; the work runs off it.
 	 */
 	public void onOnboardingComplete(OnboardingWizard.Setup setup) {
@@ -785,7 +785,7 @@ public final class Tau {
 				persistIdentity(identity);
 
 				// The model and its key are chosen with the venue up, where Test can
-				// try them: Settings → Model opens once the chat is.
+				// try them: Settings → Models opens once the chat is.
 				chooseModel = true;
 				AMap<AString, ACell> venueConfig = Vault.secure(config.venueConfig(), setup.seedHex());
 
@@ -1060,10 +1060,10 @@ public final class Tau {
 		if (keyless != null) {
 			// Saved, but no key resolves for this provider yet — switching the
 			// running agent to it now would fail at the model call. A key added
-			// in Settings → Model takes effect immediately, so no restart needed.
+			// in Settings → Models takes effect immediately, so no restart needed.
 			String label = keyless.label();
 			SwingUtilities.invokeLater(() -> window.showSystemMessage(
-				"Saved. Add the " + label + " API key (Settings → Model) and it takes effect straight away."));
+				"Saved. Add the " + label + " API key (Settings → Models) and it takes effect straight away."));
 			return;
 		}
 		ensureGods(venue);
@@ -1134,7 +1134,7 @@ public final class Tau {
 	}
 
 	/**
-	 * Settings → Model's Test: one short request to the chosen model as the
+	 * Settings → Models's Test: one short request to the chosen model as the
 	 * owner, with {@code apiKey} if typed, else the owner's stored key. No key
 	 * or setting is saved. A provider that takes no key is never sent one: a
 	 * key left in the field from another provider stays here. Blocks: call off

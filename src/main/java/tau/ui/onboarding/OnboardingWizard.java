@@ -48,7 +48,7 @@ import tau.vault.Mnemonic;
  * needed before the venue can start. It only <em>collects</em> the choices; the
  * vault, identity write and venue launch happen in {@code Tau} once
  * {@link Listener#onComplete} fires. The model is chosen afterwards, in
- * Settings → Model with the venue up. See {@code docs/ONBOARDING.md}.
+ * Settings → Models with the venue up. See {@code docs/ONBOARDING.md}.
  */
 @SuppressWarnings("serial")
 public final class OnboardingWizard extends JPanel {

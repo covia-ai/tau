@@ -253,7 +253,7 @@ public final class ChatPanel extends JPanel {
 		modelChip.putClientProperty("JButton.buttonType", "toolBarButton");
 		tau.ui.components.Styles.classes(modelChip, tau.ui.components.Styles.SMALL);
 		modelChip.setIcon(tau.ui.components.Lucide.icon("cpu", 14, tau.ui.components.Theme::muted));
-		modelChip.setToolTipText("The model this chat runs on: click to choose another (Settings → Model)");
+		modelChip.setToolTipText("The model this chat runs on: click to choose another (Settings → Models)");
 		modelChip.setVisible(false);
 		modelChip.addActionListener(e -> {
 			if (onModelChip != null) onModelChip.run();

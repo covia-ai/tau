@@ -36,7 +36,7 @@ orchestrating.
    raw seed.
 4. **Name:** choose what the assistant should call the owner. *Finish*
    starts the venue.
-5. **Model:** once the venue is up, the chat opens with *Settings → Model* in
+5. **Model:** once the venue is up, the chat opens with *Settings → Models* in
    front of it, where Test can try a model and key before they are saved.
    Leaving the page saves nothing: the owner is in either way, and until a
    model can answer, the dialog after each start says so. The echo bot, in the provider list,
@@ -45,7 +45,7 @@ orchestrating.
 ## Unlock
 
 A small window of its own, shown before the main window exists: passphrase,
-*Unlock*, and *Forgot it? Restore from your recovery phrase*. A wrong
+*Open Tau*, and *Forgot it? Restore from your recovery phrase*. A wrong
 passphrase fails the authenticated decryption and is reported there, not in
 the log. While the venue starts, the dialog shows progress and the main window
 appears only once it is ready. *Lock* (Settings → General) hides the window and

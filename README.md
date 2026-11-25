@@ -74,7 +74,7 @@ below, or `mvn package` cannot resolve `ai.covia:venue`.
 For an existing installation, see [data directories and manual setup](docs/CONFIGURATION.md#selecting-an-existing-installation).
 
 On first launch, choose a passphrase, save the recovery phrase and choose what
-it should call you. *Settings → Model* then opens: choose a model, enter its
+it should call you. *Settings → Models* then opens: choose a model, enter its
 key and press *Test*. Without a key, choose the echo bot; the app works end to
 end, with echoed replies.
 
@@ -123,7 +123,7 @@ configuration, logs, imported skills and checked-out code are separate files
 and are not all encrypted. Backups and custom paths are described in
 [CONFIGURATION.md](docs/CONFIGURATION.md).
 
-Choose a model under *Settings → Model*. A local model or the echo bot avoids
+Choose a model under *Settings → Models*. A local model or the echo bot avoids
 remote model processing; networked tools and integrations still need their
 services. The echo bot lets you exercise chat without an API key.
 

@@ -96,7 +96,7 @@ she upgrades is a change Odin is told about.
 Nothing she can run reveals or sets a secret, grants access, creates or
 deletes an agent, schedules, talks to an agent as the user, or answers the
 user's Inbox. A missing or rejected API key is the owner's to set in
-Settings → Model; she says which. Changes to Tau itself — users,
+Settings → Models; she says which. Changes to Tau itself — users,
 integrations, grants — are Odin's, and she asks him. A fault in Tau's code is
 the owner's: she says what fails and where.
 

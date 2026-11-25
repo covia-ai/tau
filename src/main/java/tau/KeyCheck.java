@@ -22,7 +22,7 @@ import covia.grid.Status;
 import covia.grid.Venue;
 
 /**
- * Settings → Model's <b>Test</b>: one small call to a model operation as the
+ * Settings → Models's <b>Test</b>: one small call to a model operation as the
  * client's principal, answered in Covia's own terms. A key typed but not yet
  * saved goes as the operation's {@code apiKey} input; with none, the
  * operation reads the caller's stored key as a chat does. No key or setting

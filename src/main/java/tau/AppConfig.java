@@ -119,7 +119,7 @@ public final class AppConfig {
 				"name": "Tau",
 				"port": 8085
 				// Model API keys do NOT belong in this file. Enter them in the app
-				// (Settings → Model) — they are stored encrypted in the vault
+				// (Settings → Models) — they are stored encrypted in the vault
 				// and provisioned into the encrypted venue store at launch. Exporting
 				// e.g. ANTHROPIC_API_KEY before launching also works.
 			},
@@ -130,7 +130,7 @@ public final class AppConfig {
 				"agentId": "Tau",
 				"operation": "v/ops/llmagent/chat",
 				// Model operation used for replies. The model chosen in the app
-				// (Settings → Model) is kept in the venue store
+				// (Settings → Models) is kept in the venue store
 				// and takes precedence over this key.
 				// Use "v/test/ops/llm" for an offline echo bot.
 				"llmOperation": "v/models/anthropic/claude-sonnet-5-5"
