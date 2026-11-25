@@ -12,6 +12,7 @@ import java.util.Set;
 
 import tau.AppConfig;
 import tau.TauSkillsAdapter;
+import tau.model.AgentPermissions;
 import tau.model.Providers;
 import convex.core.data.ACell;
 import convex.core.data.AMap;
@@ -21,7 +22,6 @@ import convex.core.data.Strings;
 import convex.core.data.Vectors;
 import convex.core.data.prim.CVMBool;
 import covia.api.Fields;
-import covia.venue.Config;
 
 /**
  * The setup Tau gives every agent it makes for the owner — the main assistant
@@ -79,7 +79,7 @@ public final class AgentSetup {
 			// summarised in place. None exposes general workspace mutation.
 			// Further tools (writes, HTTP, files, agents, telegram/discord…)
 			// are exposed by loading skills. This controls model context, not
-			// authority: the owner's agent has unrestricted caps below.
+			// authority: what the agent may do is its caps below.
 			"tools", Vectors.of(Strings.create(ChatSession.INSPECT_OP), Strings.create(ChatSession.MEMORY_OP),
 				Strings.create(ChatSession.SKILL_FEEDBACK_OP), Strings.create(ChatSession.COMPACT_TOOL)),
 			"toolCallTimeoutMs", ChatSession.TOOL_CALL_TIMEOUT_MS,
@@ -115,9 +115,11 @@ public final class AgentSetup {
 				Strings.create(ChatSession.USER_SKILLSET),
 				Strings.create(TauSkillsAdapter.SKILLSET),
 				Strings.create(ChatSession.VENUE_SKILLSET)),
-			// The owner's own assistant may do whatever the owner can in their
-			// namespace. This is a creation default, never a routine authority reset.
-			"caps", Config.UNRESTRICTED);
+			// The owner's own assistant gets the scoped assistant set: everything its
+			// skills and tools use, in the owner's namespace, with overwrites and
+			// deletes asking first (AgentPermissions.ASSISTANT). This is a creation
+			// default, never a routine authority reset: an existing agent keeps its caps.
+			"caps", AgentPermissions.ASSISTANT);
 		if (agentName != null) config = config.assoc(Strings.create("name"), Strings.create(agentName));
 		return config;
 	}

@@ -95,8 +95,25 @@ class TokensTest {
 		Tokens tokens = new Tokens(engine(), owner);
 		String bearer = tokens.create("tool", TokenPreset.READ_ONLY.scope("helper")).bearer();
 		RequestContext assistant = engine().context(owner, Principals.agentDID(owner, Strings.create("helper")));
-		engine().jobs().invokeInternal("v/ops/mcp/delete-token", Maps.of(Fields.NAME, "tool"), assistant)
-			.get(5, TimeUnit.SECONDS);
+		// The assistant's delete asks the owner first; approved, the same call goes ahead.
+		java.util.concurrent.CompletableFuture<convex.core.data.ACell> revoke = engine().jobs()
+			.invokeInternal("v/ops/mcp/delete-token", Maps.of(Fields.NAME, "tool"), assistant);
+		Inbox.Request card = null;
+		long until = System.currentTimeMillis() + 10_000;
+		while (card == null && System.currentTimeMillis() < until) {
+			card = Inbox.parse(shared.venue().inbox(owner.toString()), owner.toString()).stream()
+				.filter(Inbox.Request::open).findFirst().orElse(null);
+		}
+		assertNotNull(card, "the revoke waits for the owner");
+		assertFalse(tokens.list().isEmpty(), "nothing is revoked while it waits");
+		Inbox.answer(shared.venue().clientAs(owner.toString()), card.id(),
+			new Inbox.Answer(java.util.Map.of("ok", true), java.util.Map.of(), java.util.List.of(), null));
+		try {
+			revoke.get(30, TimeUnit.SECONDS);
+		} catch (java.util.concurrent.ExecutionException waitedOut) {
+			// The call stopped waiting before the answer came: the same call goes ahead now it is approved.
+			engine().jobs().invokeInternal("v/ops/mcp/delete-token", Maps.of(Fields.NAME, "tool"), assistant).get(30, TimeUnit.SECONDS);
+		}
 		assertTrue(tokens.list().isEmpty(), "the skill's revoke deletes the owner's token");
 		assertNull(store().lookup(bearer));
 	}

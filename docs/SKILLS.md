@@ -5,8 +5,9 @@ Memory supplies preferences across conversations. `TauSkillsAdapter` and
 `src/main/resources/tau/skills/` own the shipped library; Covia owns loading
 and execution.
 
-- **Tool exposure is not authority.** The default assistant has unrestricted
-  caps within its owner's authority. Its initial tools cover reads, memory,
+- **Tool exposure is not authority.** The default assistant's caps, the
+  scoped assistant set on a new install ([IDENTITY.md](IDENTITY.md#what-an-agent-may-do)),
+  decide what it may do. Its initial tools cover reads, memory,
   feedback and compaction; skills expose further tools without granting new
   permissions. Previously loaded skills can remain available in a session.
 - **Every top-level skill is a useful first load.** The assistant is
@@ -169,6 +170,16 @@ the Inbox. One approval or one no covers the call's own checks for a minute
 and no longer, and only a call's first check waits: a second check of the same
 unanswered request refuses at once. The agent's own notes and the shared memory never ask.
 
-The owner's own assistant and any agent given Unrestricted hold no gated
-grants, so their deletes and overwrites do not ask.
+The gate also asks before an agent replaces a stored key (a `secret:set` of
+a name already stored, or any call told to `overwrite`), and before it gives
+another agent permissions: making or updating an agent with caps confers
+them, Covia checks the author holds each one through this gate, and so no
+agent can hand another a write or delete that does not ask. Deleting an agent
+or one of its conversations asks as a delete.
+
+The main assistant of a new install holds the scoped assistant set, so its
+deletes and overwrites ask, scheduled runs included. An assistant from an
+older install keeps Unrestricted until the owner chooses *Use the scoped set*
+on its page, and any agent given Unrestricted holds no gated grants: its
+deletes and overwrites do not ask.
 

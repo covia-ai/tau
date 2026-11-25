@@ -307,6 +307,11 @@ public final class MainWindow extends JFrame {
 			}
 
 			@Override
+			public void setUnrestricted(String agentId, boolean unrestricted) {
+				app.setAgentPermissions(agentId, unrestricted);
+			}
+
+			@Override
 			public void sessionsChanged(List<SessionHistory.Session> sessions, String selectedId) {
 				conversations.setSessions(sessions, selectedId);
 			}

@@ -58,7 +58,7 @@ class JobListTest {
 		userDID = Identity.of("jobs-owner").userDID(venue.did());
 		user = venue.clientAs(userDID);
 		new ChatSession(user, new AppConfig.Chat("jobs-agent", AppConfig.DEFAULT_OPERATION,
-			AppConfig.ECHO_LLM_OPERATION, "Echo the user.")).ensureAgent();
+			AppConfig.ECHO_LLM_OPERATION, "Echo the user.")).withCaps(covia.venue.Config.UNRESTRICTED).ensureAgent(); // its own jobs call the test adapter
 
 		before = System.currentTimeMillis();
 		completed = finish(user.invoke("v/test/ops/echo", Maps.of("message", "hello")));

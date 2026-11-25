@@ -31,7 +31,8 @@ import tau.model.AgentTemplate;
 /**
  * Agents Tau makes start with their template's caps, not Unrestricted: one
  * still completes a turn with its context loads, its caps read back from its
- * record, what lies outside its template is refused, and setting up an existing
+ * record, what lies outside its template is refused (the internet is not a
+ * separate grant in Covia, so no template keeps an agent off it), and setting up an existing
  * agent never touches its caps. Its writes and deletes pass the change gate: a
  * new item goes straight through; an overwrite or a delete raises one Inbox
  * card, is refused as waiting until the owner answers, and then goes ahead
@@ -44,17 +45,14 @@ class AgentPermissionsTest {
 	@RegisterExtension
 	static final SharedVenue shared = new SharedVenue();
 
-	private static long savedWait;
-
 	@BeforeAll
 	static void shortWaits() {
-		savedWait = ChangeGate.waitMillis;
-		ChangeGate.waitMillis = 1500;
+		ShortGateWaits.hold();
 	}
 
 	@AfterAll
 	static void restoreWaits() {
-		ChangeGate.waitMillis = savedWait;
+		ShortGateWaits.release();
 	}
 
 	@Test
@@ -76,8 +74,10 @@ class AgentPermissionsTest {
 		assertTrue(session(owner, "research").withCaps(AgentPermissions.caps(AgentTemplate.RESEARCH)).ensureAgent());
 		RequestContext writing = agent(owner, "writing");
 		RequestContext research = agent(owner, "research");
-		assertThrows(Exception.class, () -> run("v/ops/http/get", Maps.of("url", "http://127.0.0.1:9/"), writing),
-			"Writing may not fetch from the internet");
+		// Covia has no grant for the internet apart from running operations: what stops a fetch to this
+		// computer is the venue's address policy, for every template alike.
+		Exception fetch = assertThrows(Exception.class, () -> run("v/ops/http/get", Maps.of("url", "http://127.0.0.1:9/"), writing));
+		assertTrue(rootMessage(fetch).contains("private/internal"), rootMessage(fetch));
 		run("v/ops/covia/write", Maps.of("path", "w/research/a", "value", "x"), research); // new: goes ahead
 		assertThrows(Exception.class, () -> run("v/ops/covia/delete", Maps.of("path", "w/research/a"), research),
 			"Research may not delete");
@@ -144,7 +144,7 @@ class AgentPermissionsTest {
 		assertEquals(1, open(owner), "one card for the overwrite");
 		answer(shared.venue().clientAs(owner.toString()), owner, false);
 
-		// Research: its internet grant passes; what stops a fetch to this computer is the address policy, not caps.
+		// Research: what stops a fetch to this computer is the address policy, not caps.
 		Exception fetch = assertThrows(Exception.class,
 			() -> run("v/ops/http/get", Maps.of("url", "http://127.0.0.1:9/"), agent(owner, "finder")));
 		assertFalse(rootMessage(fetch).contains("Capability denied"), rootMessage(fetch));

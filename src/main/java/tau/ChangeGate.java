@@ -43,7 +43,9 @@ final class ChangeGate {
 
 	/** What a call would do to what is there. */
 	enum Change {
-		NEW, OVERWRITE, DELETE
+		NEW, OVERWRITE, DELETE,
+		/** Giving an agent permissions (an agent made or updated with caps): it always asks. */
+		PERMISSIONS
 	}
 
 	/** How long an approval holds once given: long enough for the one call's checks, never days. */
@@ -106,7 +108,11 @@ final class ChangeGate {
 		Long until = approved.get(key);
 		if (until != null && until > now) return Maps.of("allowed", CVMBool.TRUE, "approved", CVMBool.TRUE);
 		approved.remove(key);
-		String what = (change == Change.DELETE ? "delete " : "change ") + target;
+		String what = switch (change) {
+			case DELETE -> "delete " + target;
+			case PERMISSIONS -> "give " + target + " permissions";
+			default -> "change " + target;
+		};
 		Long no = declined.get(key);
 		if (no != null && no > now) throw new AuthException("The owner declined to " + what + ". Nothing was changed.");
 		declined.remove(key);
@@ -137,7 +143,16 @@ final class ChangeGate {
 	 */
 	Change change(String op, ACell input, String owner) {
 		String name = op.substring(op.lastIndexOf('/') + 1).toLowerCase(java.util.Locale.ROOT);
+		// Making or updating an agent with caps confers authority (Covia checks the author holds each
+		// grant, through this gate): asked every time, so no agent gets a write or delete that does not ask.
+		if (op.contains("/agent/") && RT.getIn(input, "config", "caps") != null) return Change.PERMISSIONS;
 		if (name.startsWith("delete") || name.equals("remove") || name.equals("prune")) return Change.DELETE;
+		// Any call told to overwrite (a generated key over a stored one, say) is an overwrite.
+		if (CVMBool.TRUE.equals(RT.getIn(input, "overwrite"))) return Change.OVERWRITE;
+		// A stored key replaced is an overwrite; secrets have no read, so their names are listed.
+		if (op.contains("/secret/") && name.equals("set")) {
+			return secretExists(op, input, owner) ? Change.OVERWRITE : Change.NEW;
+		}
 		if (name.equals("write") || name.equals("copy") || name.equals("move") || name.equals("rename")
 			|| name.equals("put") || name.equals("assoc")) {
 			return exists(op, input, owner) ? Change.OVERWRITE : Change.NEW;
@@ -181,6 +196,23 @@ final class ChangeGate {
 		return !missing;
 	}
 
+	/** Whether the secret {@code set} names is already stored; when it can't be told, it counts as there. */
+	boolean secretExists(String op, ACell input, String owner) {
+		String name = str(RT.getIn(input, "name"));
+		if (name == null) return true;
+		String list = op.substring(0, op.lastIndexOf('/') + 1) + "list";
+		try {
+			ACell got = engine.jobs().invokeInternal(list, Maps.of("prefix", name), RequestContext.of(Strings.create(owner)))
+				.get(5, TimeUnit.SECONDS);
+			convex.core.data.AVector<ACell> names = RT.ensureVector(RT.getIn(got, "names"));
+			if (names == null) return true;
+			for (ACell n : names) if (name.equals(str(n))) return true;
+			return false;
+		} catch (Exception e) {
+			return true;
+		}
+	}
+
 	/** Whether a read failed because nothing is there, rather than for some other reason. */
 	private static boolean isMissing(Throwable e) {
 		for (Throwable c = e; c != null; c = (c.getCause() == c) ? null : c.getCause()) {
@@ -196,9 +228,14 @@ final class ChangeGate {
 	/** Raises the approval in the owner's Inbox, as the agent, and returns its job. */
 	private Job ask(String caller, String owner, Change change, String op, String target) {
 		String agent = caller.contains(":g:") ? caller.substring(caller.indexOf(":g:") + 3) : caller;
-		String verb = (change == Change.DELETE) ? "Delete" : "Overwrite";
+		String verb = switch (change) {
+			case DELETE -> "Delete";
+			case PERMISSIONS -> "Give permissions to";
+			default -> "Overwrite";
+		};
 		RequestContext as = engine.context(Strings.create(owner), Strings.create(caller));
-		ACell request = Hitl.request(verb + " " + target + "?")
+		String title = (change == Change.PERMISSIONS) ? "Give " + target + " permissions?" : verb + " " + target + "?";
+		ACell request = Hitl.request(title)
 			.description(agent + " wants to " + verb.toLowerCase(java.util.Locale.ROOT) + " " + target + " (" + op
 				+ "). Nothing changes until you approve.")
 			.ask(Hitl.approval("ok", "Allow it?"))
@@ -233,7 +270,7 @@ final class ChangeGate {
 			String v = str(RT.getIn(input, k));
 			if (v != null) sb.append(v).append(':');
 		}
-		for (String k : new String[] { "path", "to", "file", "name", "id" }) {
+		for (String k : new String[] { "path", "to", "file", "agentId", "name", "id" }) {
 			String v = str(RT.getIn(input, k));
 			if (v != null) return sb.append(v).toString();
 		}

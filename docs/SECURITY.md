@@ -300,8 +300,11 @@ source that influenced it.
 **Provenance informs judgement; it does not confine the agent.** An admitted
 request can cause the assistant to use its own authority. Its caps are checked
 at actions, but they are not automatically reduced to the external sender's
-caps. New owner assistants default to unrestricted caps; routine chat setup
-preserves subsequent restrictions ([SKILLS.md](SKILLS.md)). A model persuaded
+caps. A new install's assistant holds the scoped assistant set, whose
+overwrites, deletes and grants of permissions ask the owner first, scheduled
+runs included ([IDENTITY.md](IDENTITY.md#what-an-agent-may-do)); an older
+install's keeps Unrestricted until the owner switches it on its page. Routine
+chat setup preserves the caps an agent has ([SKILLS.md](SKILLS.md)). A model persuaded
 by hostile content can still misuse any power it holds. Native code running
 in the process is outside that boundary ([ARCHITECTURE.md](ARCHITECTURE.md)).
 
@@ -310,6 +313,25 @@ from provider-facing attribution, token enforcement and persistent agent
 restrictions. They do not establish resistance to every prompt injection or
 test a production model's judgement. Enforced approval for consequential
 actions and route-specific trust remain design work in [TRUST.md](TRUST.md).
+
+## What the main assistant may do
+
+A new install's assistant holds the scoped assistant set, not Unrestricted
+([IDENTITY.md](IDENTITY.md#what-an-agent-may-do)): everything its shipped
+skills and tools use, within the owner's namespace. Its overwrites and
+deletes, replacing a stored key, and giving another agent permissions raise an
+approval in the Inbox and wait for it, scheduled runs included
+([SKILLS.md](SKILLS.md#deletes-and-overwrites-wait-for-you)). It may use the
+owner's stored keys and connected accounts in requests without seeing them,
+and may reach the internet: Covia has no separate grant for that, so a
+prompt-injected assistant can still send what it can read to a host on the
+internet. It cannot widen its own caps or make an agent with more than it
+holds. An older install's assistant keeps Unrestricted until the owner chooses
+*Use the scoped set* on its page; *Make it Unrestricted* there is labelled
+with what it gives up. The gods keep their own caps.
+
+Covia's `test` adapter is off in a real install, and on only while the owner's
+model is the offline echo bot ([CONFIGURATION.md](CONFIGURATION.md)).
 
 ## Runtime secret handling
 

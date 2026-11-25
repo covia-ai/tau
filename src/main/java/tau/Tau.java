@@ -2405,6 +2405,44 @@ public final class Tau {
 		t.start();
 	}
 
+	/**
+	 * Switches the main assistant between the scoped assistant set and
+	 * Unrestricted, on the owner's word from its page: {@code agent:update}
+	 * of its caps, as the owner. Other agents are left as they are.
+	 */
+	public void setAgentPermissions(String agentId, boolean unrestricted) {
+		Venue c = client;
+		if (c == null || agentId == null || !agentId.equals(defaultAgentId())) return;
+		String name = displayNameFor(agentId);
+		Thread t = new Thread(() -> {
+			String note;
+			try {
+				setAgentCaps(c, agentId, unrestricted);
+				log.info("Agent '{}' now has {}", agentId, unrestricted ? "Unrestricted caps" : "the scoped assistant set");
+				note = unrestricted
+					? name + " is Unrestricted: its deletes and overwrites won't ask you first."
+					: name + " now uses the scoped set: overwrites and deletes ask you first.";
+			} catch (Exception e) {
+				log.warn("Could not change the permissions of agent {}: {}", agentId, e.toString());
+				note = "Couldn't change " + name + "'s permissions (" + rootMessage(e)
+					+ "). If it is replying, try again once it is done.";
+			}
+			String text = note;
+			SwingUtilities.invokeLater(() -> {
+				window.agentChanged();
+				window.showSystemMessage(text);
+			});
+		}, "tau-agent-permissions");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/** Sets an agent's caps to the scoped assistant set or Unrestricted ({@code agent:update}). */
+	static void setAgentCaps(Venue client, String agentId, boolean unrestricted) throws Exception {
+		invokeOp(client, "v/ops/agent/update", Maps.of("agentId", agentId, "config", Maps.of("caps",
+			unrestricted ? covia.venue.Config.UNRESTRICTED : tau.model.AgentPermissions.ASSISTANT)));
+	}
+
 	/** Replaces an agent's instructions: {@code agent:update} merging in its {@code systemPrompt}, keeping the rest. */
 	static void setAgentInstructions(Venue client, String agentId, String instructions) throws Exception {
 		invokeOp(client, "v/ops/agent/update",

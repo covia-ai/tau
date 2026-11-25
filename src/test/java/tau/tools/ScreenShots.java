@@ -165,6 +165,37 @@ public final class ScreenShots {
 				return null;
 			});
 			Thread.sleep(3000);
+			// The main assistant's page: the scoped set of a new install, then Unrestricted (an older install's)
+			// with its one-click offer, and both confirmations.
+			for (Dimension size : SIZES) {
+				screens.resize(size);
+				screens.inspect("AGENT");
+				screens.scrollToText("What it may do");
+				shoot(window, out, mode, "trust-caps-assistant", size);
+				screens.scrollToText("Needs an extra grant");
+				shoot(window, out, mode, "trust-caps-assistant-more", size);
+			}
+			screens.dialog(out.resolve(mode).resolve("trust-caps-make-unrestricted.png"), () -> {
+				tau.ui.components.Dialogs.confirmDanger(window, "Make Tau Unrestricted?",
+					tau.ui.inspect.AgentInspector.unrestrictedWarning("Tau"));
+				return null;
+			});
+			standard.setAgentPermissions("Tau", true);
+			Thread.sleep(3000);
+			for (Dimension size : SIZES) {
+				screens.resize(size);
+				screens.inspect("OVERVIEW");
+				screens.inspect("AGENT");
+				screens.scrollToText("What it may do");
+				shoot(window, out, mode, "trust-caps-unrestricted", size);
+			}
+			screens.dialog(out.resolve(mode).resolve("trust-caps-use-scoped.png"), () -> {
+				tau.ui.components.Dialogs.confirm(window, "Use the scoped set for Tau?",
+					tau.ui.inspect.AgentInspector.scopedChanges("Tau"));
+				return null;
+			});
+			standard.setAgentPermissions("Tau", false);
+			Thread.sleep(3000);
 		}
 
 		// The developer loop: Connect a tool (a real token on the scratch venue, its settings, the test), and two
@@ -680,6 +711,37 @@ public final class ScreenShots {
 				return null;
 			});
 			Thread.sleep(600);
+		}
+
+		/** Scrolls the first label or text on screen that contains {@code text} into view, near the top. */
+		void scrollToText(String text) throws Exception {
+			onEdt(() -> {
+				JComponent hit = findText(window.getContentPane(), text);
+				if (hit != null) {
+					javax.swing.JViewport port = (javax.swing.JViewport) SwingUtilities.getAncestorOfClass(javax.swing.JViewport.class, hit);
+					if (port != null) {
+						java.awt.Point at = SwingUtilities.convertPoint(hit.getParent(), hit.getLocation(), port.getView());
+						port.setViewPosition(new java.awt.Point(0, Math.max(0, Math.min(at.y - 12,
+							port.getView().getHeight() - port.getExtentSize().height))));
+					}
+				}
+				return null;
+			});
+			Thread.sleep(500);
+		}
+
+		private static JComponent findText(java.awt.Container in, String text) {
+			for (java.awt.Component c : in.getComponents()) {
+				if (!c.isShowing()) continue;
+				String t = (c instanceof javax.swing.JLabel l) ? l.getText()
+					: (c instanceof JTextComponent tc) ? tc.getText() : null;
+				if (t != null && t.contains(text)) return (JComponent) c;
+				if (c instanceof java.awt.Container k) {
+					JComponent hit = findText(k, text);
+					if (hit != null) return hit;
+				}
+			}
+			return null;
 		}
 
 		/** Makes a Writing agent with its template's caps and opens its chat; returns its id. */

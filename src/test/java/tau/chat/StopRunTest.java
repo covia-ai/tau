@@ -44,7 +44,7 @@ class StopRunTest {
 		AString owner = Strings.create(Identity.of("stop-owner").userDID(shared.venue().did()));
 		engine.getVenueState().users().ensure(owner.toString());
 		new ChatSession(shared.venue().clientAs(owner.toString()), new AppConfig.Chat("Tau", AppConfig.DEFAULT_OPERATION,
-			AppConfig.ECHO_LLM_OPERATION, "Echo."), "Tau").ensureAgent();
+			AppConfig.ECHO_LLM_OPERATION, "Echo."), "Tau").withCaps(covia.venue.Config.UNRESTRICTED).ensureAgent(); // its own jobs call the test adapter
 		RequestContext me = RequestContext.of(owner);
 		RequestContext agent = engine.context(owner, Principals.agentDID(owner, Strings.create("Tau")));
 
