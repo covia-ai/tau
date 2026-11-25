@@ -110,6 +110,56 @@ public final class ScreenShots {
 				shoot(window, out, mode, e.getKey(), size);
 			}
 		}
+		// Trust and recovery: Stop, the Developer tab, Back up now, an agent's caps, and a change waiting for approval.
+		if ("trust".contains(filter) || filter.startsWith("trust")) {
+			screens.dialog(out.resolve(mode).resolve("trust-stop-confirm.png"), () -> {
+				tau.ui.chat.ChatPanel chat = (tau.ui.chat.ChatPanel) Screens.field(window, "chatPanel");
+				Object ask = Screens.field(chat, "askToStop");
+				((java.util.function.BooleanSupplier) ask).getAsBoolean();
+				return null;
+			});
+			for (Dimension size : SIZES) {
+				screens.resize(size);
+				screens.home();
+				screens.stageBeat("WORKING");
+				Object chat = Screens.field(window, "chatPanel");
+				Object bubble = Screens.field(chat, "thinkingBubble");
+				Method summary = bubble.getClass().getDeclaredMethod("setSummary", String.class);
+				summary.setAccessible(true);
+				Screens.onEdt(() -> {
+					summary.invoke(bubble, "Stopping…");
+					return null;
+				});
+				Thread.sleep(500);
+				shoot(window, out, mode, "trust-stopping", size);
+				screens.endStage();
+				Screens.onEdt(() -> {
+					((tau.ui.chat.ChatPanel) chat).appendSystem("Stopped. Steps already finished keep their results.");
+					return null;
+				});
+				Thread.sleep(500);
+				shoot(window, out, mode, "trust-stopped", size);
+				screens.settings("DEVELOPER");
+				Thread.sleep(2500);
+				shoot(window, out, mode, "trust-developer", size);
+				screens.backUpNow(size == SIZES.get(0));
+				shoot(window, out, mode, "trust-backup", size);
+			}
+			String agent = screens.templateAgent();
+			screens.overwriteAsAgent(agent);
+			for (Dimension size : SIZES) {
+				screens.resize(size);
+				screens.inspect("AGENT");
+				shoot(window, out, mode, "trust-caps", size);
+				screens.inbox();
+				Thread.sleep(800);
+				shoot(window, out, mode, "trust-confirm-inbox", size);
+				screens.home();
+				Thread.sleep(800);
+				shoot(window, out, mode, "trust-confirm-chat", size);
+			}
+		}
+
 		// The developer loop: Connect a tool (a real token on the scratch venue, its settings, the test), and two
 		// failures as the chat shows them (a refused model key, and a refusal with its Details open).
 		for (Dimension size : SIZES) {
@@ -570,6 +620,98 @@ public final class ScreenShots {
 				if (k instanceof java.awt.Container kc) out.addAll(allComponents(kc));
 			}
 			return out;
+		}
+
+		/** Runs {@code open} (which shows a modal dialog) and writes the dialog to {@code file}, then closes it. */
+		void dialog(Path file, Call open) throws Exception {
+			SwingUtilities.invokeLater(() -> {
+				try {
+					open.call();
+				} catch (Exception e) {
+					System.err.println("  could not open the dialog: " + e);
+				}
+			});
+			javax.swing.JDialog d = waitFor(() -> {
+				for (java.awt.Window w : java.awt.Window.getWindows()) {
+					if (w instanceof javax.swing.JDialog j && j.isShowing()) return j;
+				}
+				return null;
+			}, 10_000);
+			Thread.sleep(800);
+			AtomicReference<BufferedImage> img = new AtomicReference<>();
+			SwingUtilities.invokeAndWait(() -> {
+				JComponent root = d.getRootPane();
+				double scale = d.getGraphicsConfiguration().getDefaultTransform().getScaleX();
+				BufferedImage b = new BufferedImage((int) Math.ceil(root.getWidth() * scale),
+					(int) Math.ceil(root.getHeight() * scale), BufferedImage.TYPE_INT_RGB);
+				Graphics2D g = b.createGraphics();
+				g.scale(scale, scale);
+				root.printAll(g);
+				g.dispose();
+				img.set(b);
+			});
+			Files.createDirectories(file.getParent());
+			ImageIO.write(img.get(), "png", file.toFile());
+			System.out.println("  " + file);
+			SwingUtilities.invokeAndWait(d::dispose);
+		}
+
+		/** Settings → General scrolled to the data store, after Back up now when {@code press}. */
+		void backUpNow(boolean press) throws Exception {
+			settings("GENERAL");
+			Thread.sleep(800);
+			tau.ui.settings.GeneralPanel general = find(window, tau.ui.settings.GeneralPanel.class);
+			JComponent button = (JComponent) field(general, "backupButton");
+			if (press) {
+				Method m = general.getClass().getDeclaredMethod("backUpNow");
+				m.setAccessible(true);
+				onEdt(() -> m.invoke(general));
+				Thread.sleep(2500);
+			}
+			onEdt(() -> {
+				button.scrollRectToVisible(new java.awt.Rectangle(0, -200, button.getWidth(), button.getHeight() + 400));
+				return null;
+			});
+			Thread.sleep(600);
+		}
+
+		/** Makes a Writing agent with its template's caps and opens its chat; returns its id. */
+		String templateAgent() throws Exception {
+			Tau app = app();
+			onEdt(() -> {
+				app.createAgent("Editor", app.currentModelOp(), tau.model.AgentTemplate.WRITING.systemPrompt("Editor"),
+					tau.model.AgentTemplate.WRITING.skill(), tau.model.AgentPermissions.caps(tau.model.AgentTemplate.WRITING));
+				return null;
+			});
+			String me = app.actingPrincipal();
+			return waitFor(() -> {
+				for (String id : new String[] { "editor", "Editor" }) {
+					if (app.venue().agentRecord(me, id) != null) return id;
+				}
+				return null;
+			}, 60_000);
+		}
+
+		/** As agent {@code id}, writes a note and then overwrites it: the overwrite waits for approval in the Inbox. */
+		void overwriteAsAgent(String id) throws Exception {
+			Tau app = app();
+			covia.venue.Engine engine = app.venue().engine();
+			convex.core.data.AString me = convex.core.data.Strings.create(app.actingPrincipal());
+			covia.venue.RequestContext as = engine.context(me,
+				covia.grid.Principals.agentDID(me, convex.core.data.Strings.create(id)));
+			engine.jobs().invokeInternal("v/ops/covia/write",
+				convex.core.data.Maps.of("path", "w/notes/plan.md", "value", "Draft one"), as).get(20,
+					java.util.concurrent.TimeUnit.SECONDS);
+			Thread.ofVirtual().start(() -> {
+				try {
+					engine.jobs().invokeInternal("v/ops/covia/write",
+						convex.core.data.Maps.of("path", "w/notes/plan.md", "value", "Draft two"), as).get(60,
+							java.util.concurrent.TimeUnit.SECONDS);
+				} catch (Exception e) {
+					// refused as waiting for the owner: what the shot shows
+				}
+			});
+			Thread.sleep(3000);
 		}
 
 		/** Opens Rooms, and room {@code name} on it when given. */
