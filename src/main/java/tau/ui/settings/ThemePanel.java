@@ -231,13 +231,17 @@ public final class ThemePanel extends JPanel {
 	/** Shows that the mode follows the system (its radio chosen), or not; fires no host call. */
 	public void refreshSystem(boolean matching) {
 		followingSystem = matching;
-		if (!matching) return;
 		syncing = true;
 		try {
-			system.setSelected(true);
+			modeButton().setSelected(true);
 		} finally {
 			syncing = false;
 		}
+	}
+
+	/** The switch's button for the mode in force: Match the system while following it, else Dark or Light. */
+	private JRadioButton modeButton() {
+		return followingSystem ? system : LAF.isLight(mode) ? light : dark;
 	}
 
 	/** Reflect the layout and density in use; fires no host call. */
@@ -256,7 +260,7 @@ public final class ThemePanel extends JPanel {
 		syncing = true;
 		try {
 			this.mode = LAF.isLight(mode) ? LAF.LIGHT : LAF.DARK;
-			(LAF.isLight(mode) ? light : dark).setSelected(true);
+			modeButton().setSelected(true);
 			higherContrast.setSelected(higher);
 
 			themes.clear();

@@ -1098,7 +1098,22 @@ public final class MainWindow extends JFrame {
 
 	/** Re-read the Theme page after the look changed: the mode's list, its selected theme, the accent and the contrast. */
 	public void refreshTheme() {
+		updateDetachedUI();
+		settingsScreen.theme().refreshSystem(LAF.SYSTEM.equalsIgnoreCase(app.modeChoice()));
 		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent(), app.higherContrast());
+	}
+
+	/**
+	 * A new look reaches every window's tree, but not the window's parts out of
+	 * it just now: the closed palette, the bar or sidebar not in use, the Inbox
+	 * panel while undocked. They take it too, so they show in it when they return.
+	 */
+	private void updateDetachedUI() {
+		for (JComponent part : java.util.Arrays.asList(palette, navBar, rail, strip, inboxPanel)) {
+			if (part != null && javax.swing.SwingUtilities.getWindowAncestor(part) == null) {
+				javax.swing.SwingUtilities.updateComponentTreeUI(part);
+			}
+		}
 	}
 
 	private void showSettings(SettingsScreen.Tab tab) {
@@ -1353,7 +1368,9 @@ public final class MainWindow extends JFrame {
 		sidebarWidth = railShell ? ShellLayout.LIST : SIDEBAR_WIDTH;
 		if (sessionsPane.isVisible()) split.setDividerLocation(sidebarWidth);
 		sessionsPane.revalidate();
+		SettingsScreen.Tab settingsShown = settingsScreen.isVisible() ? settingsScreen.selected() : null;
 		placeMovedPages(railShell);
+		followMovedPage(railShell, settingsShown);
 		chatCard.removeAll();
 		if (railShell) {
 			JPanel content = new JPanel(new BorderLayout());
@@ -1635,6 +1652,24 @@ public final class MainWindow extends JFrame {
 		jobsHolder.revalidate();
 	}
 
+	/**
+	 * The page on screen moved with the layout: show it where it now lives,
+	 * not the empty place it left (the Jobs or Vault screen, or Settings' entry).
+	 * {@code settingsShown}: the Settings section on screen before the move, or null.
+	 */
+	private void followMovedPage(boolean railShell, SettingsScreen.Tab settingsShown) {
+		if (!railShell) {
+			if (jobsHolder.isVisible()) showSettings(SettingsScreen.Tab.JOBS);
+			else if (vaultScreen.isVisible()) showSettings(switch (vaultScreen.selected()) {
+				case SECRETS -> SettingsScreen.Tab.SECRETS;
+				case ACCESS -> SettingsScreen.Tab.ACCESS;
+				case PASSPHRASE -> SettingsScreen.Tab.VAULT;
+			});
+		} else if (settingsShown != null && settingsScreen.isElsewhere(settingsShown)) {
+			showSettings(settingsShown); // its entry opens its own screen now
+		}
+	}
+
 	private void openVault(tau.ui.vault.VaultScreen.Page page) {
 		go(Destination.VAULT);
 		vaultScreen.select(page);
@@ -1674,6 +1709,7 @@ public final class MainWindow extends JFrame {
 	private void applyDensity(boolean compact) {
 		tau.ui.components.Density.set(compact);
 		SwingUtilitiesRepaint.all(this);
+		updateDetachedUI();
 	}
 
 	private String myIdentity() {
