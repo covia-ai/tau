@@ -522,9 +522,20 @@ public final class Tau {
 			EmbeddedVenue v;
 			StoreRepair.Outcome repaired = null;
 			StoreSpace.Compacted compacted = null;
+			// A build that has not opened this store before may upgrade its schema: snapshot it first, closed.
+			Path storeFile = storePath(venueConfig);
+			if (Backups.upgradeDue(config.home(), storeFile, BuildInfo.version())) {
+				progress("Backing up the data store before upgrading…");
+				try {
+					Backups.snapshot(config.home(), storeFile, "before-" + BuildInfo.version());
+				} catch (IOException e) {
+					log.warn("Could not back up the store before upgrading: {}", e.toString());
+				}
+			}
 			try {
 				if (compacting) compacted = space.compact(storeConfig);
 				v = launchOn(venueConfig, compacted);
+				Backups.opened(config.home(), BuildInfo.version());
 			} catch (RuntimeException | IOException e) {
 				if (EmbeddedVenue.isNewerStore(e)) {
 					log.error("The store is newer than this build", e);
@@ -713,6 +724,7 @@ public final class Tau {
 			return Relaunch.start(configPath, options).toHandle();
 		}
 		Path staged = Relaunch.stage(jar, config.home());
+		backUp("before-relaunch");
 		log.info("Relaunching: starting a new " + APP_NAME + " from {} with {}", staged, options);
 		return Relaunch.start(staged, configPath, options).toHandle();
 	}
@@ -3102,6 +3114,24 @@ public final class Tau {
 		if (v == null) return;
 		String url = v.url();
 		desktop("open the dashboard", d -> d.browse(URI.create(url)));
+	}
+
+	/**
+	 * Snapshots the running store now ({@link Backups}): flushed first, so the
+	 * copy holds everything saved. Returns the snapshot's folder, or null when
+	 * there is no store to copy. Never on the event thread.
+	 */
+	public Path backUp(String reason) throws IOException {
+		EmbeddedVenue v = venue;
+		if (v != null) v.durable();
+		Path store = storePath(config.venueConfig());
+		if (store == null) return null;
+		return Backups.snapshot(config.home(), store, reason);
+	}
+
+	/** Where snapshots are kept, and how many there are now. */
+	public Path backupsDir() {
+		return Backups.dir(config.home());
 	}
 
 	/** The configuration file this instance runs with. */

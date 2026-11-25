@@ -151,6 +151,33 @@ enter the venue configuration in memory just before launch and are never
 written to `config.json`; there is no plaintext `venue.key` and no plaintext
 legacy mode.
 
+## Backups
+
+`Backups` snapshots the data store into `backups/<date>-<reason>/` in the data
+folder: before a new build first opens the store (when any schema upgrade
+runs, with the store still closed), before relaunching into a new build, and
+when the owner chooses *Back up now* (*Settings → General → Data store*). A
+snapshot holds `venue.etch`, `identity.enc`, `vault.salt` and the plain
+settings files. It never holds `unlock.passphrase`, `tool-token.json`,
+`operator-token.json` or `keys.enc`, so opening a snapshot takes the
+passphrase or the recovery phrase, as the store itself does. The last five are
+kept. `skills/`, `files/` and `code/` are outside the store and outside
+snapshots; back them up separately if they matter.
+
+**Restoring a snapshot.**
+
+1. Quit Tau (tray icon → Quit), so nothing holds the store.
+2. Move the current `venue.etch` (and `identity.enc` and `vault.salt`, if
+   restoring those too) aside, out of the data folder, rather than deleting
+   them.
+3. Copy the snapshot's files into the data folder.
+4. Start Tau and open it with the passphrase, or the recovery phrase.
+
+A snapshot taken while Tau ran (*Back up now*, before a relaunch) restores like
+a store that was not closed cleanly: Tau checks and rebuilds it at the first
+start ([LAUNCH.md](LAUNCH.md#when-the-store-was-not-closed-cleanly)).
+Keep the moved-aside files until the restored data is verified.
+
 ## Recovery procedure
 
 **What to back up.** The recovery phrase, offline and apart from the computer;

@@ -416,6 +416,27 @@ public final class MainWindow extends JFrame {
 			}
 
 			@Override
+			public String backUpNow() {
+				try {
+					java.nio.file.Path made = app.backUp("now");
+					if (made == null) return null;
+					return "Backed up to " + made + ". The last " + tau.Backups.KEEP + " backups are kept; your "
+						+ "passphrase and access tokens are never copied.";
+				} catch (java.io.IOException e) {
+					return "Couldn't back up. " + tau.ui.Problems.fileLine(e);
+				}
+			}
+
+			@Override
+			public String backupsWhere() {
+				java.nio.file.Path dir = app.backupsDir();
+				int n = tau.Backups.list(app.config().home()).size();
+				return "Backups are in " + dir + " (" + (n == 0 ? "none yet" : n + " kept") + "). One is made "
+					+ "before a new build first opens the store and before a relaunch; the last " + tau.Backups.KEEP
+					+ " are kept.";
+			}
+
+			@Override
 			public void removeKeptOriginals() {
 				StoreSpace.Report report = app.storeReport();
 				if (report == null || report.keptOriginals().isEmpty()) return;
