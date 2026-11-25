@@ -17,7 +17,7 @@ try:
 	d = json.loads(sys.stdin.read())
 	if d.get('version') == 'dev': print('started ' + str(d.get('started')))
 except Exception: pass")
-[ -z "$source" ] || echo "note  Tau runs from source ($source): an ERROR below may be classes rebuilt under it, and a relaunch would end that session"
+[ -z "$source" ] || echo "note  Tau runs from source ($source): an ERROR below may be classes rebuilt under it; a relaunch takes it over"
 
 since=$(grep -n "ready at" "$home/logs/tau.log" | tail -1 | cut -d: -f1)
 problems=$(tail -n "+${since:-1}" "$home/logs/tau.log" | grep -E "Startup check|ERROR" | grep -v "^\s*at " | head -5)
@@ -28,7 +28,8 @@ for agent in "${MAIN_AGENT:-Tau}" "${LOOP_AGENT:-Improver}"; do
 	status=$("$here/mcp.sh" agent_info "$args" 2>&1 | python -I -c "import json,sys
 try: print(json.loads(sys.stdin.read()).get('status'))
 except Exception: print('unreadable')")
-	case "$status" in SUSPENDED|unreadable) false;; *) true;; esac; check "$agent is not stuck ($status)" $? "$status"
+	# None: no such agent (MAIN_AGENT unset or wrong), which is no pass.
+	case "$status" in SUSPENDED|unreadable|None) false;; *) true;; esac; check "$agent is there and not stuck ($status)" $? "$status"
 done
 
 stamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
