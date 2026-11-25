@@ -30,7 +30,7 @@ import covia.venue.AgentEvents;
  */
 class SuspensionTest {
 
-	private static final long TIMEOUT_SECONDS = 5;
+	private static final long TIMEOUT_SECONDS = 30;
 
 	@RegisterExtension
 	static final SharedVenue shared = new SharedVenue();

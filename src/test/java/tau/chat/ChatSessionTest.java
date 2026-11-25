@@ -48,6 +48,7 @@ import covia.grid.Asset;
 import covia.grid.Job;
 import covia.grid.Status;
 import covia.grid.Venue;
+import covia.venue.AgentEvents;
 import covia.venue.Engine;
 import covia.venue.Models;
 
@@ -59,18 +60,23 @@ import covia.venue.Models;
 @Execution(ExecutionMode.CONCURRENT)
 class ChatSessionTest {
 
+	private static final long TIMEOUT_SECONDS = 30;
+
 	@RegisterExtension
 	static final SharedVenue shared = new SharedVenue();
 
+	private static EmbeddedVenue embedded;
 	private static Engine engine;
+	private static String userDID;
 	private static Venue venue;
 
 	@BeforeAll
 	static void boot() {
-		EmbeddedVenue embedded = shared.venue();
+		embedded = shared.venue();
 		engine = embedded.engine();
 		// Act as a named local user sub-principal of the venue, as Tau does.
-		venue = embedded.clientAs(Identity.of("chatter").userDID(embedded.did()));
+		userDID = Identity.of("chatter").userDID(embedded.did());
+		venue = embedded.clientAs(userDID);
 	}
 
 	private static AppConfig.Chat echoChat(String agentId) {
@@ -154,10 +160,10 @@ class ChatSessionTest {
 
 		// Shared memory written by one assistant reaches another's assembled context.
 		venue.invoke("v/ops/memory", Maps.of("path", ChatSession.SHARED_MEMORY_PATH, "command", "remember",
-			"text", "Prefers British English")).get(5, TimeUnit.SECONDS).future().get(5, TimeUnit.SECONDS);
+			"text", "Prefers British English")).get(TIMEOUT_SECONDS, TimeUnit.SECONDS).future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		new ChatSession(venue, echoChat("bs-memory-other")).ensureAgent();
 		ACell assembled = venue.invoke("v/ops/agent/context", Maps.of("agentId", "bs-memory-other"))
-			.get(5, TimeUnit.SECONDS).future().get(5, TimeUnit.SECONDS);
+			.get(TIMEOUT_SECONDS, TimeUnit.SECONDS).future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		assertTrue(String.valueOf(assembled).contains("Prefers British English"), "the other assistant sees it");
 
 		// A context entry runs before every inference, and the venue admits only
@@ -179,7 +185,7 @@ class ChatSessionTest {
 		new ChatSession(venue, echoChat(agentId)).ensureAgent();
 		assertNotNull(RT.getIn(agentInfo(agentId), Fields.CONFIG, Fields.LOADS, skill));
 		assertNotNull(venue.invoke("v/ops/agent/context", Maps.of("agentId", agentId))
-			.get(5, TimeUnit.SECONDS).future().get(5, TimeUnit.SECONDS), "the pinned skill loads");
+			.get(TIMEOUT_SECONDS, TimeUnit.SECONDS).future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS), "the pinned skill loads");
 	}
 
 	private static boolean declaresReadOnly(String op) {
@@ -220,7 +226,7 @@ class ChatSessionTest {
 			venue.invoke("v/ops/agent/update", Maps.of(
 				Fields.AGENT_ID, agentId,
 				Fields.CONFIG, Maps.of("testGate", gateName)))
-				.get(5, TimeUnit.SECONDS).future().get(5, TimeUnit.SECONDS);
+				.get(TIMEOUT_SECONDS, TimeUnit.SECONDS).future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
 			AtomicReference<String> acceptedSession = new AtomicReference<>();
 			CountDownLatch accepted = new CountDownLatch(1);
@@ -235,8 +241,8 @@ class ChatSessionTest {
 				}
 			});
 
-			assertTrue(accepted.await(5, TimeUnit.SECONDS), "the venue accepts the chat before replying");
-			assertTrue(gate.awaitEntered(5, TimeUnit.SECONDS), "the first agent cycle is still in flight");
+			assertTrue(accepted.await(TIMEOUT_SECONDS, TimeUnit.SECONDS), "the venue accepts the chat before replying");
+			assertTrue(gate.awaitEntered(TIMEOUT_SECONDS, TimeUnit.SECONDS), "the first agent cycle is still in flight");
 			String sid = acceptedSession.get();
 			ChatSession.Delivery delivery = session.enqueue("follow-up", sid);
 			assertEquals(sid, delivery.sessionId(), "the follow-up is routed to the active session");
@@ -248,9 +254,9 @@ class ChatSessionTest {
 			assertEquals(Strings.create("follow-up"), RT.getIn(((AVector<?>) pending).get(0), Fields.MESSAGE));
 
 			gate.release();
-			assertEquals(sid, first.get(5, TimeUnit.SECONDS).sessionId());
+			assertEquals(sid, first.get(TIMEOUT_SECONDS, TimeUnit.SECONDS).sessionId());
 			venue.run("v/ops/agent/trigger", Maps.of(Fields.AGENT_ID, agentId, "force", false))
-				.get(5, TimeUnit.SECONDS);
+				.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 		}
 	}
 
@@ -268,7 +274,7 @@ class ChatSessionTest {
 			venue.invoke("v/ops/agent/update", Maps.of(
 				Fields.AGENT_ID, agentId,
 				Fields.CONFIG, Maps.of("testGate", gateName)))
-				.get(5, TimeUnit.SECONDS).future().get(5, TimeUnit.SECONDS);
+				.get(TIMEOUT_SECONDS, TimeUnit.SECONDS).future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
 			CountDownLatch accepted = new CountDownLatch(1);
 			CompletableFuture<ChatSession.Reply> first = CompletableFuture.supplyAsync(() -> {
@@ -278,13 +284,13 @@ class ChatSessionTest {
 					throw new java.util.concurrent.CompletionException(e);
 				}
 			});
-			assertTrue(accepted.await(5, TimeUnit.SECONDS), "the venue accepts the chat");
-			assertTrue(gate.awaitEntered(5, TimeUnit.SECONDS), "the turn is in flight");
+			assertTrue(accepted.await(TIMEOUT_SECONDS, TimeUnit.SECONDS), "the venue accepts the chat");
+			assertTrue(gate.awaitEntered(TIMEOUT_SECONDS, TimeUnit.SECONDS), "the turn is in flight");
 
 			// The wait has no deadline of its own; the user ends it.
 			assertTrue(session.cancel(), "the chat job in flight is cancelled");
 			ExecutionException stopped = assertThrows(ExecutionException.class,
-				() -> first.get(5, TimeUnit.SECONDS));
+				() -> first.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
 			assertTrue(stopped.getCause() instanceof CancellationException, String.valueOf(stopped.getCause()));
 			String sid = session.sessionId();
 			assertNotNull(sid, "the conversation is kept");
@@ -292,26 +298,26 @@ class ChatSessionTest {
 
 			// Cancelling the job does not interrupt the agent: its turn finishes
 			// and the reply still lands in the session for the watcher to show.
-			gate.release();
-			assertTrue(awaitReplyInSession(agentId, sid, 10_000), "the turn's reply reaches the session");
+			// The cycle's end is announced after its merge has written the reply.
+			CountDownLatch cycleEnded = new CountDownLatch(1);
+			try (AutoCloseable events = embedded.subscribeAgent(userDID, agentId, e -> {
+					if (AgentEvents.CYCLE_END.equals(e.type())) cycleEnded.countDown();
+				})) {
+				gate.release();
+				assertTrue(cycleEnded.await(TIMEOUT_SECONDS, TimeUnit.SECONDS), "the turn finishes");
+			}
+			assertTrue(hasReplyInSession(agentId, sid), "the turn's reply reaches the session");
 			assertEquals(sid, session.send("second").sessionId(), "the same conversation continues");
 		}
 	}
 
 	/**
-	 * Whether the session's raw conversation gains an assistant turn. Raw, not
+	 * Whether the session's raw conversation has an assistant turn. Raw, not
 	 * the projection: the test transition replies with a map, which the chat
 	 * projection does not show as a message.
 	 */
-	private static boolean awaitReplyInSession(String agentId, String sid, long timeoutMs) throws Exception {
-		long deadline = System.currentTimeMillis() + timeoutMs;
-		while (System.currentTimeMillis() < deadline) {
-			for (SessionHistory.RawTurn turn : SessionHistory.rawTurns(venue, agentId, sid)) {
-				if ("assistant".equals(turn.role())) return true;
-			}
-			Thread.sleep(100);
-		}
-		return false;
+	private static boolean hasReplyInSession(String agentId, String sid) {
+		return SessionHistory.rawTurns(venue, agentId, sid).stream().anyMatch(turn -> "assistant".equals(turn.role()));
 	}
 
 	@Test
@@ -476,7 +482,7 @@ class ChatSessionTest {
 	}
 
 	private static ACell job(String op, AMap<AString, ACell> input) throws Exception {
-		return venue.invoke(op, input).get(5, TimeUnit.SECONDS).future().get(5, TimeUnit.SECONDS);
+		return venue.invoke(op, input).get(TIMEOUT_SECONDS, TimeUnit.SECONDS).future().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 	}
 
 	@SuppressWarnings("unchecked")

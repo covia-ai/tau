@@ -37,7 +37,9 @@ import covia.grid.Venue;
 
 /**
  * The Moltbook operations against a stand-in for Moltbook on loopback: what
- * reaches the agent when Moltbook refuses, and what of an answer it is given.
+ * reaches the agent when Moltbook refuses, and what of an answer it is given,
+ * and what is refused before any request, which the stand-in's Not found for
+ * an unexpected request would show up in. No test reaches Moltbook itself.
  * The venue is this class's own, so its Moltbook adapter can be pointed at the
  * stand-in; each test is its own user, and asks for paths of its own or for
  * the one page of notifications they all share.
@@ -193,6 +195,60 @@ class MoltbookStubTest {
 		ACell first = run(user, "v/ops/moltbook/notifications", Maps.empty());
 		ACell second = run(user, "v/ops/moltbook/notifications", Maps.empty());
 		assertNotEquals(RT.getIn(first, "outputPath"), RT.getIn(second, "outputPath"));
+	}
+
+	@Test
+	void withoutAnAccountTheOperationSaysWhereToSetOneUp() throws Exception {
+		Venue user = venue.clientAs(Identity.of("no-moltbook").userDID(venue.did()));
+		String message = failure(user, "v/ops/moltbook/home", Maps.empty());
+		assertTrue(message.contains("Settings"), "names where the owner sets it up: " + message);
+	}
+
+	@Test
+	void accountReportsNotConfiguredWithoutAKey() throws Exception {
+		Venue user = venue.clientAs(Identity.of("unconfigured").userDID(venue.did()));
+		ACell out = run(user, "v/ops/moltbook/account", Maps.empty());
+		assertEquals(CVMBool.FALSE, RT.getIn(out, "configured"));
+		assertTrue(String.valueOf(RT.getIn(out, "how")).contains("register"), "says how to set one up");
+	}
+
+	@Test
+	void registeringNeedsANameBeforeAnythingElse() throws Exception {
+		Venue user = venue.clientAs(Identity.of("nameless").userDID(venue.did()));
+		String message = failure(user, "v/ops/moltbook/register", Maps.of("description", "no name given"));
+		assertTrue(message.contains("name"), "a name is required: " + message);
+	}
+
+	@Test
+	void registeringTwiceIsRefused() throws Exception {
+		String message = failure(connected("twice"), "v/ops/moltbook/register", Maps.of("name", "AnotherMolty"));
+		assertTrue(message.contains("already"), "an existing account is not replaced: " + message);
+	}
+
+	/**
+	 * A key lets the operation past the set-up check; the input then has to be
+	 * right before Moltbook is contacted at all. A request would get the
+	 * stand-in's Not found, which no refusal here says.
+	 */
+	@Test
+	void inputIsRefusedBeforeAnyRequestIsMade() throws Exception {
+		Venue user = connected("has-moltbook");
+
+		String missingTitle = failure(user, "v/ops/moltbook/create-post", Maps.of("submolt", "general"));
+		assertTrue(missingTitle.contains("title"), "a post needs a title: " + missingTitle);
+
+		String badTarget = failure(user, "v/ops/moltbook/vote", Maps.of("target", "molty", "id", "x"));
+		assertTrue(badTarget.contains("post or comment"), "vote targets are checked: " + badTarget);
+
+		String badScope = failure(user, "v/ops/moltbook/feed", Maps.of("scope", "everything"));
+		assertTrue(badScope.contains("scope"), "feed scopes are checked: " + badScope);
+
+		String commentDownvote = failure(user, "v/ops/moltbook/vote",
+			Maps.of("target", "comment", "id", "c1", "direction", "down"));
+		assertTrue(commentDownvote.contains("upvoted"), "comments cannot be downvoted: " + commentDownvote);
+
+		String badPage = failure(user, "v/ops/moltbook/notifications", Maps.of("limit", 0));
+		assertTrue(badPage.contains("positive whole number"), "notification pages are checked: " + badPage);
 	}
 
 	/** The value at {@code path}, read as the caller. */

@@ -436,7 +436,7 @@ public class TauAdapter extends AAdapter {
 		}
 		if ("jobs".equals(op)) {
 			try {
-				return CompletableFuture.completedFuture(new JobsOperation(engine).invoke(ctx, input));
+				return CompletableFuture.completedFuture(new JobsOperation(engine, java.time.ZoneId.systemDefault()).invoke(ctx, input));
 			} catch (Exception e) {
 				return CompletableFuture.failedFuture(e);
 			}
@@ -480,7 +480,7 @@ public class TauAdapter extends AAdapter {
 				text.append('\n');
 			}
 			appendProcessingContext(text, modelOperation);
-			appendClock(text);
+			appendClock(text, java.time.ZonedDateTime.now());
 			text.append("- ").append(REQUEST_PROVENANCE);
 			text.append("- Conversation history, memory and skills are stored in the owner's local encrypted " + APP_NAME + " vault. Do not imply that model processing is local unless the configured model route is local.\n")
 				.append("- Follow the configured assistant name, role and working style. Keep Covia and venue plumbing out of everyday conversation unless the owner asks how " + APP_NAME + " works.\n")
@@ -503,8 +503,7 @@ public class TauAdapter extends AAdapter {
 	 * invisible. Assembled when the context is built, so it dates the session
 	 * rather than the turn.
 	 */
-	static void appendClock(StringBuilder text) {
-		java.time.ZonedDateTime now = java.time.ZonedDateTime.now();
+	static void appendClock(StringBuilder text, java.time.ZonedDateTime now) {
 		text.append("- Today is ").append(now.toLocalDate()).append(" (").append(now.getZone().getId())
 			.append("). Timestamp ").append(now.toInstant().toEpochMilli()).append(".\n");
 	}
