@@ -355,15 +355,27 @@ class RoomsScreenTest {
 	// ------------------------------------------------------------------
 
 	/** Collects the posts a room view shows, to wait on without a pause. */
+	/**
+	 * Counts the posts the open room has shown, as its own {@code onShown}
+	 * signal reports them. A wait ends on the condition, the first showing and
+	 * at least so many posts, however the room batches them; the deadline is a
+	 * safety net for a room that stops showing anything, not the pass mark, so
+	 * a slow machine (or the event thread busy with other classes' screens)
+	 * only makes it take longer.
+	 */
 	private static final class Shown {
+		/** How long a wait may take in all before it fails: far beyond any machine's flood. */
+		static final long DEADLINE_SECONDS = 180;
 		final LinkedBlockingQueue<Integer> counts = new LinkedBlockingQueue<>();
 		int total;
 		boolean first;
 
 		void await(int atLeast) throws InterruptedException {
+			long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(DEADLINE_SECONDS);
 			while (!first || total < atLeast) {
-				Integer n = counts.poll(WAIT, TimeUnit.SECONDS);
-				assertNotNull(n, "posts shown: " + total + " of " + atLeast);
+				long left = until - System.nanoTime();
+				Integer n = (left > 0) ? counts.poll(left, TimeUnit.NANOSECONDS) : null;
+				assertNotNull(n, "posts shown: " + total + " of " + atLeast + " within " + DEADLINE_SECONDS + " s");
 				first = true;
 				total += n;
 			}
