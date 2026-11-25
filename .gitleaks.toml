@@ -16,6 +16,9 @@ regexes = [
 	'''key, Point2D\.Double''',
 	# Prose in docs/SECURITY.md describing how API keys are wrapped.
 	'''keys?, AES-256-GCM-wrapped''',
+	# The fake signed login DiagnosticsTest seeds to prove the report redacts it
+	# ({"sub":"seeded"}, signature "seededsignature").
+	'''eyJhbGciOiJFZERTQSJ9\.eyJzdWIiOiJzZWVkZWQifQ\.c2VlZGVkc2lnbmF0dXJl''',
 ]
 
 [[allowlists]]
