@@ -97,7 +97,7 @@ public final class RecordScreen extends JPanel {
 		header.action(export);
 
 		JLabel about = Labels.small("Every job run for you on this computer, newest first: when, who started it, "
-			+ "which agent ran it, what it ran, and how it ended. Entries can't be edited or removed.");
+			+ "which agent ran it, what it ran, and how it ended.");
 		Styles.classes(about, Styles.SMALL, Styles.MUTED);
 		about.setBorder(BorderFactory.createEmptyBorder(8, 20, 8, 20));
 
