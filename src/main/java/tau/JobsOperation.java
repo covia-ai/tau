@@ -83,9 +83,12 @@ final class JobsOperation {
 		.toFormatter();
 
 	private final Engine engine;
+	/** The zone local times are in: times shown, and a start given without an offset. */
+	private final ZoneId zone;
 
-	JobsOperation(Engine engine) {
+	JobsOperation(Engine engine, ZoneId zone) {
 		this.engine = engine;
+		this.zone = zone;
 	}
 
 	/** The jobs {@code input} asks for, of the user {@code ctx} acts for. */
@@ -112,7 +115,7 @@ final class JobsOperation {
 	 * ran what, when and how it ended, then each of {@code fields}. A job with
 	 * no caller is named in full as the user's own, as job status names it.
 	 */
-	private static AMap<AString, ACell> view(JobList.Job job, AString user, List<AString> fields) {
+	private AMap<AString, ACell> view(JobList.Job job, AString user, List<AString> fields) {
 		AMap<AString, ACell> record = Attribution.inFull(job.record(), user);
 		AMap<AString, ACell> v = Maps.of(Fields.ID, Strings.create(job.id()));
 		v = time(v, Fields.CREATED, record);
@@ -138,10 +141,9 @@ final class JobsOperation {
 		return v.assoc(key, new CellExplorer(BUDGET).explore(value));
 	}
 
-	private static AMap<AString, ACell> time(AMap<AString, ACell> v, AString key, AMap<AString, ACell> record) {
+	private AMap<AString, ACell> time(AMap<AString, ACell> v, AString key, AMap<AString, ACell> record) {
 		if (!(record.get(key) instanceof CVMLong ms) || ms.longValue() <= 0) return v;
-		return v.assoc(key, Strings.create(TIME.format(Instant.ofEpochMilli(ms.longValue())
-			.atZone(ZoneId.systemDefault()))));
+		return v.assoc(key, Strings.create(TIME.format(Instant.ofEpochMilli(ms.longValue()).atZone(zone))));
 	}
 
 	/** An id the record may hold as bytes, as text an agent can pass back. */
@@ -154,7 +156,7 @@ final class JobsOperation {
 	 * The start as epoch milliseconds; 0 when absent. A time without an offset
 	 * is local, and a date alone is its local midnight.
 	 */
-	private static long start(ACell input) {
+	private long start(ACell input) {
 		ACell v = RT.getIn(input, K_START);
 		if (v == null) return 0;
 		if (v instanceof CVMLong l) {
@@ -169,11 +171,10 @@ final class JobsOperation {
 		} catch (DateTimeParseException e) {
 			throw new InvalidInputException("start is not an ISO-8601 time, such as 2026-11-21T09:00: " + s, e);
 		}
-		ZoneId here = ZoneId.systemDefault();
 		Instant at = switch (t) {
 			case OffsetDateTime o -> o.toInstant();
-			case LocalDateTime l -> l.atZone(here).toInstant();
-			case LocalDate d -> d.atStartOfDay(here).toInstant();
+			case LocalDateTime l -> l.atZone(zone).toInstant();
+			case LocalDate d -> d.atStartOfDay(zone).toInstant();
 			default -> throw new InvalidInputException("start is not an ISO-8601 time: " + s);
 		};
 		return at.toEpochMilli();
