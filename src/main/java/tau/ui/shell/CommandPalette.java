@@ -40,8 +40,9 @@ import tau.ui.components.Theme;
  * The command palette: type to find any screen, Settings page, menu item, or
  * action in {@link Commands}, with where it lives and its shortcut on each
  * row, so it also teaches the layout. Enter runs the selected row, the arrows
- * move, Esc closes. Shown over the window in its layered pane, keeping focus
- * inside while open.
+ * move, Esc closes, and so does a click anywhere else in the window. Shown over the
+ * window in its layered pane, keeping focus inside while open; closing gives
+ * focus back to where it was, unless a click outside took it.
  */
 @SuppressWarnings("serial")
 public final class CommandPalette extends JPanel {
@@ -51,6 +52,15 @@ public final class CommandPalette extends JPanel {
 	private final DefaultListModel<Commands.Command> model = new DefaultListModel<>();
 	private final JList<Commands.Command> list = new JList<>(model);
 	private JRootPane root;
+	/** What had focus when it opened, given it back on closing. */
+	private Component returnTo;
+	/** Closes it on a press anywhere else in its window, while it is open. */
+	private final java.awt.event.AWTEventListener outside = e -> {
+		if (e.getID() == MouseEvent.MOUSE_PRESSED && e.getSource() instanceof Component c
+				&& SwingUtilities.getRootPane(c) == root && !SwingUtilities.isDescendingFrom(c, this)) {
+			close(false);
+		}
+	};
 
 	public CommandPalette(Commands commands) {
 		super(new BorderLayout(0, UIScale.scale(6)));
@@ -120,6 +130,10 @@ public final class CommandPalette extends JPanel {
 	/** Opens over {@code root}'s window, with the field empty and focused. */
 	public void open(JRootPane root) {
 		this.root = root;
+		if (!isOpen()) {
+			returnTo = java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();
+			java.awt.Toolkit.getDefaultToolkit().addAWTEventListener(outside, java.awt.AWTEvent.MOUSE_EVENT_MASK);
+		}
 		field.setText("");
 		refilter();
 		JLayeredPane layers = root.getLayeredPane();
@@ -137,13 +151,23 @@ public final class CommandPalette extends JPanel {
 		return isVisible() && getParent() != null;
 	}
 
+	/** Closes it, giving focus back to where it was. */
 	public void close() {
+		close(true);
+	}
+
+	/** {@code restore}: give focus back; not after a click outside, which put focus where it wanted. */
+	private void close(boolean restore) {
+		java.awt.Toolkit.getDefaultToolkit().removeAWTEventListener(outside);
 		setVisible(false);
 		if (getParent() != null) {
 			java.awt.Container p = getParent();
 			p.remove(this);
 			p.repaint();
 		}
+		Component back = returnTo;
+		returnTo = null;
+		if (restore && back != null && back.isShowing()) back.requestFocusInWindow();
 	}
 
 	private void run(Commands.Command c) {
