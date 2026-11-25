@@ -234,6 +234,31 @@ checks may not refuse newer data safely, and migrated stores may be unreadable
 to earlier builds. Keep a pre-upgrade store backup. `CoviaMigrationTest`
 exercises an installation written by an older build.
 
+## Self-test
+
+`tau --self-test <folder>` (the installed launcher, or `java -jar tau.jar`)
+checks that a copy of Tau works end to end, headless, and exits; it is never
+on otherwise. `SelfTest` runs the code the app runs, in a throwaway folder on a
+free port, so a Tau already running is never touched:
+
+- **First run, in an empty folder:** the Java in use is named, the venue comes
+  up and answers on 127.0.0.1 and on no other address, onboarding with the
+  offline echo bot saves an identity, one chat turn round-trips, a read-only
+  named token lists tools over MCP and is refused once revoked, a room post is
+  read back, Stop (`StopRun`) cancels a job that would never end, and the
+  venue closes.
+- **Second run, in the same folder:** the store unlocks without a repair, so
+  it was closed cleanly, and the first run's chat turn is still there.
+
+Each step prints PASS, FAIL or SKIP (not checkable here, with the reason) and
+is appended to `self-test-report.txt` in the folder, because the Windows
+launcher has no console. The exit code is 0 when nothing failed, 1 when a step
+failed, 2 when the folder is refused and 64 for a missing folder. The folder
+must be empty, or one an earlier self-test made (it holds `.tau-self-test`),
+and is never the default data directory. The passphrase is a fixed throwaway
+one: the folder holds nothing worth protecting. CI runs it on every installer
+after installing it ([README.md](../README.md#installers)).
+
 ## When launch fails
 
 `Venue failed to start` in the log names the cause. `File lock failed on

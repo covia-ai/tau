@@ -69,9 +69,12 @@ remove `~/.tau` yourself, with Tau stopped, to reset it.
 | Platform | Installer | Program folder | Bundled Java | Jar |
 |---|---|---|---|---|
 | macOS | `tau-<version>-mac-<arch>.dmg` | `/Applications/Tau.app` | `Contents/runtime/Contents/Home/bin/java` | `Contents/app/tau.jar` |
-| Windows | `tau-<version>-windows-x64.msi` | `C:\Program Files\Tau` (chosen at install) | `runtime\bin\java.exe` | `app\tau.jar` |
-| Linux | `tau-<version>-linux-x64.deb` | `/opt/tau` | `lib/runtime/bin/java` | `lib/app/tau.jar` |
-| Linux | `tau-<version>-linux-x64.AppImage` | the AppImage itself | inside the image | inside the image |
+| Windows | `tau-<version>-windows-<arch>.msi` | `C:\Program Files\Tau` (chosen at install) | `runtime\bin\java.exe` | `app\tau.jar` |
+| Linux | `tau-<version>-linux-<arch>.deb` | `/opt/tau` | `lib/runtime/bin/java` | `lib/app/tau.jar` |
+| Linux | `tau-<version>-linux-<arch>.AppImage` | the AppImage itself | inside the image | inside the image |
+
+`<arch>` is `x64` or `arm64`. To check an installed copy works, run its
+launcher with `--self-test` and an empty folder ([LAUNCH.md](LAUNCH.md#self-test)).
 
 The bundled runtime is a reduced Java 25 holding the modules listed in
 `packaging/runtime-modules.txt`. It keeps its `java` command because a

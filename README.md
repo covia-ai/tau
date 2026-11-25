@@ -83,8 +83,21 @@ conversation or an agent for what you can do with it; everything else is under
 
 CI builds native installers with their own Java runtime, so no separate Java
 is needed to run them: a `.dmg` for macOS (Apple silicon and Intel), an
-`.msi` for Windows and a `.deb` and AppImage for Linux. Each run of the
-*Installers* workflow attaches them as artefacts, with SHA-256 checksums.
+`.msi` for Windows and a `.deb` and AppImage for Linux, each for x64 and
+arm64 where the platform has both. Each run of the *Installers* workflow
+installs every one the way a person would, runs the installed app's
+[self-test](docs/LAUNCH.md#self-test) twice, uninstalls it and checks the data
+folder was left alone, then attaches the installers as artefacts with SHA-256
+checksums.
+
+| Platform | Architectures | Built and tested on |
+|---|---|---|
+| macOS | Apple silicon (arm64), Intel (x64) | `macos-latest`, `macos-15-intel` |
+| Windows | x64, arm64 | `windows-latest`, `windows-11-arm` |
+| Linux | x64, arm64 | `ubuntu-latest`, `ubuntu-24.04-arm` (installers on `ubuntu-22.04` and `ubuntu-22.04-arm`) |
+
+Tau is a desktop app: phones and tablets (iOS, iPadOS, Android) are not a
+target, and there is no mobile build.
 They are unsigned until signing credentials are configured, so macOS and
 Windows warn on first launch. Installing, upgrading or uninstalling never
 touches `~/.tau`.
@@ -154,9 +167,12 @@ mvn test      # boots real venues, headless; no API key needed
 mvn package   # → target/tau.jar
 ```
 
-CI builds and tests every push and pull request on Linux, macOS and Windows,
-and scans the shipped dependencies for known vulnerabilities and the whole
-history for committed secrets (`.github/workflows/ci.yml`). Images other than
+CI builds and tests every push and pull request on each platform and
+architecture in the table above, runs the jar's self-test, renders every
+screen at four window sizes in dark and light with the screenshot harness
+(kept as artefacts), and scans the shipped dependencies for known
+vulnerabilities and the whole history for committed secrets
+(`.github/workflows/ci.yml`). Images other than
 the app icon, the Lucide icons and the documentation screenshots fail CI
 until they are added to `packaging/allowed-images.txt`.
 

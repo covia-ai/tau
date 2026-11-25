@@ -53,7 +53,52 @@ public final class ScreenShots {
 	private ScreenShots() {
 	}
 
-	public static void main(String[] args) throws Exception {
+	/**
+	 * Runs the walk, then ends the process: 0 when it finished and the scratch
+	 * log holds no error that is not listed in {@link #EXPECTED_ERRORS}, else 1,
+	 * with the reason. A failure anywhere in the walk ends it too, rather than
+	 * leaving the window's threads holding the process open.
+	 */
+	public static void main(String[] args) {
+		int code;
+		try {
+			Path scratch = walk(args);
+			List<String> errors = unexpectedErrors(scratch.resolve("logs").resolve("tau.log"));
+			if (errors.isEmpty()) {
+				System.out.println("No unexpected errors in the log.");
+				code = 0;
+			} else {
+				System.out.println("Unexpected errors in the log (" + errors.size() + "):");
+				errors.forEach(e -> System.out.println("  " + e));
+				code = 1;
+			}
+		} catch (Throwable t) {
+			System.out.println("The walk failed: " + t);
+			t.printStackTrace(System.out);
+			code = 1;
+		}
+		System.exit(code);
+	}
+
+	/**
+	 * Errors the walk causes on purpose, so they are not failures: each
+	 * pattern is matched against an ERROR line of the scratch log.
+	 */
+	static final List<java.util.regex.Pattern> EXPECTED_ERRORS = List.of();
+
+	/** The log's ERROR lines that no {@link #EXPECTED_ERRORS} pattern explains. */
+	static List<String> unexpectedErrors(Path log) throws java.io.IOException {
+		if (!Files.exists(log)) return List.of("no log at " + log);
+		List<String> found = new ArrayList<>();
+		for (String line : Files.readAllLines(log)) {
+			if (!line.contains(" ERROR ")) continue;
+			if (EXPECTED_ERRORS.stream().noneMatch(p -> p.matcher(line).find())) found.add(line);
+		}
+		return found;
+	}
+
+	/** Walks every screen, writing the shots, and returns the scratch data directory. */
+	static Path walk(String[] args) throws Exception {
 		Path out = Path.of(args.length > 0 ? args[0] : "target/shots");
 		String mode = args.length > 1 ? args[1] : "dark";
 		filter = args.length > 2 ? args[2] : "";
@@ -289,7 +334,7 @@ public final class ScreenShots {
 			}
 		}
 		System.out.println("Screenshots written to " + out.toAbsolutePath());
-		System.exit(0);
+		return scratch;
 	}
 
 	static void onEdtGo(MainWindow window, String destination) throws Exception {

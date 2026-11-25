@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 
 patterns=()
 while IFS= read -r line; do
-	patterns+=("$line")
+	patterns+=("${line%$'\r'}") # a Windows-style checkout ends each line with CR
 done < <(grep -v '^[[:space:]]*#' packaging/allowed-images.txt | grep -v '^[[:space:]]*$')
 
 unexpected=0

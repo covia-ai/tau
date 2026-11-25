@@ -110,7 +110,7 @@ icon() {
 runtime() {
 	[[ -f target/tau.jar ]] || { echo "target/tau.jar is missing: run mvn package first" >&2; exit 1; }
 	local modules
-	modules="$(grep -v '^[[:space:]]*#' packaging/runtime-modules.txt | grep -v '^[[:space:]]*$' | paste -sd, -)"
+	modules="$(tr -d '\r' < packaging/runtime-modules.txt | grep -v '^[[:space:]]*#' | grep -v '^[[:space:]]*$' | paste -sd, -)"
 	rm -rf "$RUNTIME"
 	mkdir -p "$WORK"
 	# Native commands are kept: Tau restarts itself with the runtime's own
@@ -197,15 +197,20 @@ installer() {
 	rename_output "$type"
 }
 
+# This machine's architecture as installer names give it: x64 or arm64.
+arch_label() {
+	case "$(uname -m)" in
+		x86_64|amd64) echo x64 ;;
+		arm64|aarch64) echo arm64 ;;
+		*) uname -m ;;
+	esac
+}
+
 # Names each installer for its platform and architecture, so the files from
 # every CI job can sit side by side in one release.
 rename_output() {
 	local type="$1" arch file
-	arch="$(uname -m)"
-	case "$arch" in
-		x86_64|amd64) arch=x64 ;;
-		arm64|aarch64) arch=arm64 ;;
-	esac
+	arch="$(arch_label)"
 	# jpackage names its output differently per type; take the newest.
 	# shellcheck disable=SC2012
 	file="$(ls -t "$OUT"/*."$type" | head -1)"
@@ -236,9 +241,12 @@ appimage() {
 	exec "$HERE/usr/bin/Tau" "$@"
 	EOF
 	chmod +x "$appdir/AppRun"
+	# appimagetool names the architecture as uname does (x86_64, aarch64).
 	arch="$(uname -m)"
-	ARCH="$arch" "$tool" --no-appstream "$appdir" "$OUT/$PACKAGE_NAME-$(pom_version)-linux-${arch/x86_64/x64}.AppImage"
-	echo "Installer: $OUT/$PACKAGE_NAME-$(pom_version)-linux-${arch/x86_64/x64}.AppImage"
+	local target
+	target="$OUT/$PACKAGE_NAME-$(pom_version)-linux-$(arch_label).AppImage"
+	ARCH="$arch" "$tool" --no-appstream "$appdir" "$target"
+	echo "Installer: $target"
 }
 
 case "${1:-}" in

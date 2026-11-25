@@ -14,13 +14,32 @@ concurrency:
 
 jobs:
   build:
-    name: Build and test (${{ matrix.os }})
+    name: Build and test (${{ matrix.name }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+        include:
+          - name: linux-x64
+            runner: ubuntu-latest
+            jdk: temurin
+          - name: linux-arm64
+            runner: ubuntu-24.04-arm
+            jdk: temurin
+          - name: macos-arm64
+            runner: macos-latest
+            jdk: temurin
+          - name: macos-x64
+            runner: macos-15-intel
+            jdk: temurin
+          - name: windows-x64
+            runner: windows-latest
+            jdk: temurin
+          # Temurin publishes no JDK 25 for Windows on ARM; Microsoft's build of OpenJDK does.
+          - name: windows-arm64
+            runner: windows-11-arm
+            jdk: microsoft
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -29,7 +48,7 @@ jobs:
       - name: Set up JDK 25
         uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
-          distribution: temurin
+          distribution: ${{ matrix.jdk }}
           java-version: '25'
           cache: maven
 
@@ -44,12 +63,54 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: test-reports-${{ matrix.os }}
+          name: test-reports-${{ matrix.name }}
           path: target/surefire-reports/
           retention-days: 7
 
+      - name: Self-test the jar
+        shell: bash
+        run: |
+          java -jar target/tau.jar --self-test "$RUNNER_TEMP/tau-self-test"
+          java -jar target/tau.jar --self-test "$RUNNER_TEMP/tau-self-test"
+
+      # Every screen at the four window sizes, dark and light, through the
+      # screenshot harness: it fails on an exception or an unexpected error in
+      # the log. The character's art is never in this repository, so the
+      # screens show the glyph that stands in for it.
+      - name: Install a virtual display
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb
+
+      - name: Screens render (dark and light)
+        shell: bash
+        run: |
+          set -euo pipefail
+          unset TAU_CHARACTER_DIR
+          mvn -B -ntp -q org.apache.maven.plugins:maven-dependency-plugin:3.9.0:build-classpath -Dmdep.outputFile=target/cp.txt
+          sep=':'
+          [[ "$RUNNER_OS" == Windows ]] && sep=';'
+          cp="target/test-classes${sep}target/classes${sep}$(cat target/cp.txt)"
+          display=()
+          [[ "$RUNNER_OS" == Linux ]] && display=(xvfb-run -a -s "-screen 0 1600x1000x24")
+          for mode in dark light; do
+            echo "== $mode"
+            ${display[@]+"${display[@]}"} java -cp "$cp" tau.tools.ScreenShots target/shots "$mode"
+          done
+
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: screenshots-${{ matrix.name }}
+          path: target/shots/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Keep the jar
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.name == 'linux-x64'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: tau-jar

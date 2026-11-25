@@ -8,7 +8,7 @@ name: Installers
 on:
   push:
     # The integration branch runs too, so the installers are tested on the whole app before it merges.
-    branches: [develop, master, feature/tau-stack]
+    branches: [develop, master, feature/tau-stack, feature/e2e-platforms]
     tags: ['v*']
   pull_request:
     paths:
@@ -122,6 +122,21 @@ jobs:
         shell: bash
         run: security delete-keychain "$TAU_MAC_KEYCHAIN" || true
 
+      # Installed as a person would, then the installed app's own launcher
+      # proves the product works (packaging/e2e-installed.sh), and uninstalled.
+      - name: Install, self-test and uninstall
+        shell: bash
+        run: packaging/e2e-installed.sh dmg target/installer/*.dmg
+
+      - name: Keep the end-to-end evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-macos-${{ matrix.arch }}
+          path: target/e2e/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Checksums
         shell: bash
         run: cd target/installer && shasum -a 256 -- *.dmg | tee SHA256SUMS-macos-${{ matrix.arch }}.txt
@@ -134,8 +149,19 @@ jobs:
           retention-days: 14
 
   windows:
-    name: Windows (x64)
-    runs-on: windows-latest
+    name: Windows (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            arch: x64
+            jdk: temurin
+          # Temurin publishes no JDK 25 for Windows on ARM; Microsoft's build of OpenJDK does.
+          - runner: windows-11-arm
+            arch: arm64
+            jdk: microsoft
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     env:
       WINDOWS_CERTIFICATE_PFX: ${{ secrets.WINDOWS_CERTIFICATE_PFX }}
@@ -150,7 +176,7 @@ jobs:
       - name: Set up JDK 25
         uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
-          distribution: temurin
+          distribution: ${{ matrix.jdk }}
           java-version: '25'
           cache: maven
 
@@ -223,26 +249,54 @@ jobs:
         shell: pwsh
         run: Remove-Item -Force -ErrorAction SilentlyContinue $env:TAU_PFX
 
+      - name: Install, self-test and uninstall
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem target\installer\*.msi | Select-Object -First 1
+          ./packaging/e2e-installed.ps1 -Msi $msi.FullName
+
+      - name: Keep the end-to-end evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-windows-${{ matrix.arch }}
+          path: target/e2e/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Checksums
         shell: bash
-        run: cd target/installer && sha256sum -- *.msi | tee SHA256SUMS-windows-x64.txt
+        run: cd target/installer && sha256sum -- *.msi | tee SHA256SUMS-windows-${{ matrix.arch }}.txt
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: tau-windows-x64
+          name: tau-windows-${{ matrix.arch }}
           path: target/installer/
           if-no-files-found: error
           retention-days: 14
 
   linux:
-    name: Linux (x64)
+    name: Linux (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            arch: x64
+            appimagetool: appimagetool-x86_64.AppImage
+            appimagetool-sha256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+          - runner: ubuntu-22.04-arm
+            arch: arm64
+            appimagetool: appimagetool-aarch64.AppImage
+            appimagetool-sha256: f0837e7448a0c1e4e650a93bb3e85802546e60654ef287576f46c71c126a9158
     # The oldest supported runner, so the deb's computed dependencies and the
     # AppImage's launcher suit the widest range of distributions.
-    runs-on: ubuntu-22.04
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     env:
       APPIMAGETOOL_VERSION: 1.9.1
-      APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+      APPIMAGETOOL_FILE: ${{ matrix.appimagetool }}
+      APPIMAGETOOL_SHA256: ${{ matrix.appimagetool-sha256 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -262,7 +316,7 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q fakeroot dpkg-dev desktop-file-utils
           curl -fsSL -o "$RUNNER_TEMP/appimagetool" \
-            "https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-x86_64.AppImage"
+            "https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/${APPIMAGETOOL_FILE}"
           echo "$APPIMAGETOOL_SHA256  $RUNNER_TEMP/appimagetool" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/appimagetool"
           echo "APPIMAGETOOL=$RUNNER_TEMP/appimagetool" >> "$GITHUB_ENV"
@@ -308,13 +362,30 @@ jobs:
             exit 1
           fi
 
+      - name: Install the deb, self-test and uninstall
+        shell: bash
+        run: packaging/e2e-installed.sh deb target/installer/*.deb
+
+      - name: Run the AppImage's self-test
+        shell: bash
+        run: E2E_DIR=target/e2e/appimage packaging/e2e-installed.sh appimage target/installer/*.AppImage
+
+      - name: Keep the end-to-end evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-linux-${{ matrix.arch }}
+          path: target/e2e/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Checksums
         shell: bash
-        run: cd target/installer && sha256sum -- *.deb *.AppImage | tee SHA256SUMS-linux-x64.txt
+        run: cd target/installer && sha256sum -- *.deb *.AppImage | tee SHA256SUMS-linux-${{ matrix.arch }}.txt
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: tau-linux-x64
+          name: tau-linux-${{ matrix.arch }}
           path: target/installer/
           if-no-files-found: error
           retention-days: 14
