@@ -117,6 +117,8 @@ public final class ThemePanel extends JPanel {
 	private final JRadioButton comfortable = new JRadioButton("Comfortable");
 	private final JRadioButton compact = new JRadioButton("Compact");
 	private String mode = LAF.DARK;
+	/** Whether the mode follows the system, so choosing the mode it shows still leaves it. */
+	private boolean followingSystem;
 	private String currentAccent = LAF.TAU_ACCENT;
 	private boolean syncing;
 
@@ -228,6 +230,7 @@ public final class ThemePanel extends JPanel {
 
 	/** Shows that the mode follows the system (its radio chosen), or not; fires no host call. */
 	public void refreshSystem(boolean matching) {
+		followingSystem = matching;
 		if (!matching) return;
 		syncing = true;
 		try {
@@ -293,7 +296,7 @@ public final class ThemePanel extends JPanel {
 	}
 
 	private void chooseMode(String chosen) {
-		if (syncing || chosen.equals(mode)) return;
+		if (syncing || (chosen.equals(mode) && !followingSystem)) return;
 		host.setMode(chosen);
 	}
 
