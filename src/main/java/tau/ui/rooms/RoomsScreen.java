@@ -766,19 +766,31 @@ public final class RoomsScreen extends JPanel {
 			if (w != null) w.cancel(true);
 		}
 
+		/** Waits on the room that failed and were retried; for the following state a test reports. */
+		private int waitFailures;
+
+		/** How the room is being followed, in a line: for a test that waits on it to say why it stopped. */
+		String followState() {
+			return "lastN=" + lastN + ", waiting=" + (waiting != null) + ", running=" + running + ", gone=" + gone
+				+ ", paused=" + pause.isSelected() + ", failed waits=" + waitFailures + ", status='" + statusText() + "'";
+		}
+
 		/** One wait at a time on the room from the last post shown, issued again on each answer. */
 		void follow() {
 			if (!running || gone || pause.isSelected() || waiting != null) return;
 			CompletableFuture<Rooms.Page> w = rooms.await(room.name(), lastN < 0 ? null : lastN, 60_000);
 			waiting = w;
 			w.whenComplete((page, error) -> SwingUtilities.invokeLater(() -> {
+				// A wait this view cancelled itself is no longer the one waiting: nothing to do.
 				if (waiting != w) return;
 				waiting = null;
 				if (!running) return;
 				if (error != null) {
-					if (error instanceof java.util.concurrent.CancellationException) return;
+					waitFailures++;
+					// Any other failure is retried: following stops only when the room is gone, which the rooms
+					// list must confirm, never on a "not found" from one wait alone.
 					Rooms.Failure f = Rooms.failure(error);
-					if (f.kind() == Rooms.Kind.GONE) {
+					if (f.kind() == Rooms.Kind.GONE && find(room.name()) == null) {
 						deleted();
 						return;
 					}

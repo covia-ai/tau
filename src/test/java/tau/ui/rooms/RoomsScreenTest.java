@@ -292,6 +292,7 @@ class RoomsScreenTest {
 	}
 
 	@Test
+	@org.junit.jupiter.api.Timeout(value = 200, unit = TimeUnit.SECONDS) // above Shown's deadline, so a stall reports itself
 	void aFloodStaysResponsiveFoldsLongPostsAndNotifiesOnce() throws Exception {
 		AString me = user("rooms-flood");
 		Rooms rooms = new Rooms(engine(), me.toString());
@@ -306,7 +307,12 @@ class RoomsScreenTest {
 		shown.await(0);
 		RequestContext bot = collaborator(me, "flood-bot");
 		post(bot, "flood", "a long one\n" + "more\n".repeat(40));
+		long started = System.nanoTime();
 		for (int i = 1; i < 500; i++) post(bot, "flood", "flood " + i);
+		// Posting and showing are timed apart, so a failure says which side was slow.
+		String posting = "posting 500 took " + (System.nanoTime() - started) / 1_000_000 + " ms; ";
+		java.util.function.Supplier<String> room = shown.state;
+		shown.state = () -> posting + room.get();
 		shown.await(500);
 		edt(() -> {
 			screen.viewChanged(rooms.view());
@@ -364,18 +370,27 @@ class RoomsScreenTest {
 	 * only makes it take longer.
 	 */
 	private static final class Shown {
-		/** How long a wait may take in all before it fails: far beyond any machine's flood. */
-		static final long DEADLINE_SECONDS = 180;
+		/**
+		 * How long a wait may take in all before it fails: far beyond any machine's flood, and inside the
+		 * {@code @Timeout} of the tests that wait, so the failure says what the room was doing.
+		 */
+		static final long DEADLINE_SECONDS = 150;
 		final LinkedBlockingQueue<Integer> counts = new LinkedBlockingQueue<>();
 		int total;
 		boolean first;
 
-		void await(int atLeast) throws InterruptedException {
+		/** What the open room says of its following, for the message when a wait gives up. */
+		java.util.function.Supplier<String> state = () -> "";
+
+		void await(int atLeast) throws Exception {
 			long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(DEADLINE_SECONDS);
 			while (!first || total < atLeast) {
 				long left = until - System.nanoTime();
 				Integer n = (left > 0) ? counts.poll(left, TimeUnit.NANOSECONDS) : null;
-				assertNotNull(n, "posts shown: " + total + " of " + atLeast + " within " + DEADLINE_SECONDS + " s");
+				if (n == null) {
+					throw new AssertionError("posts shown: " + total + " of " + atLeast + " within " + DEADLINE_SECONDS
+						+ " s; the room: " + state.get());
+				}
 				first = true;
 				total += n;
 			}
@@ -429,6 +444,13 @@ class RoomsScreenTest {
 			screen.openRoom().onShown = posts -> shown.counts.add(posts.size());
 			return null;
 		});
+		shown.state = () -> {
+			try {
+				return edt(() -> screen.openRoom() == null ? "closed" : screen.openRoom().followState());
+			} catch (Exception e) {
+				return "unreadable (" + e + ")";
+			}
+		};
 		return shown;
 	}
 
