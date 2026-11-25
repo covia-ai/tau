@@ -11,9 +11,11 @@ import javax.swing.SwingUtilities;
 
 import org.junit.jupiter.api.Test;
 
+import tau.ui.ReadsLook;
 import tau.ui.components.SelectableText;
 
 /** The Identity page as it switches between the owner and the venue operator. Headless. */
+@ReadsLook
 class ProfilePanelTest {
 
 	private static final String VENUE = "did:key:z6MkTestVenue";

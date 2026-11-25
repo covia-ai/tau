@@ -17,12 +17,14 @@ import org.junit.jupiter.api.Test;
 import com.formdev.flatlaf.FlatClientProperties;
 
 import tau.Inbox;
+import tau.ui.ReadsLook;
 
 /**
  * The Inbox's decision cards: one filled primary in the whole view, verb
  * buttons for a single approval, the self-approval reason in plain words,
  * and the summary of what is waiting. Headless.
  */
+@ReadsLook
 class DecisionCardsTest {
 
 	private static final long NOW = System.currentTimeMillis();

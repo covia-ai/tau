@@ -12,7 +12,10 @@ import javax.swing.SwingUtilities;
 
 import org.junit.jupiter.api.Test;
 
+import tau.ui.ReadsLook;
+
 /** The command palette closes on a click elsewhere in its window, not on one inside it. Headless. */
+@ReadsLook
 class CommandPaletteTest {
 
 	@Test

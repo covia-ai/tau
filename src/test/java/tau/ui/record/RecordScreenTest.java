@@ -18,6 +18,7 @@ import javax.swing.JPanel;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import tau.ui.ReadsLook;
 import tau.ui.vault.VaultScreen;
 
 /**
@@ -26,6 +27,7 @@ import tau.ui.vault.VaultScreen;
  * as coming, never claimed. The Vault holds Secrets, Access, and Passphrase.
  * Headless.
  */
+@ReadsLook
 class RecordScreenTest {
 
 	private static final List<String> FORBIDDEN = List.of("undo", "revert", "delete", "edit", "remove", "rollback");

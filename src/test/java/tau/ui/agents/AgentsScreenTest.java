@@ -12,6 +12,7 @@ import javax.swing.JPopupMenu;
 
 import org.junit.jupiter.api.Test;
 
+import tau.ui.ReadsLook;
 import tau.ui.agents.AgentsScreen.Kind;
 import tau.ui.components.IdentityMark;
 import tau.ui.agents.AgentsScreen.Row;
@@ -22,6 +23,7 @@ import tau.ui.agents.AgentsScreen.Row;
  * agent can come from with the network ones marked as coming, and gives
  * outside agents their own actions. Headless: no window.
  */
+@ReadsLook
 class AgentsScreenTest {
 
 	private final List<String> calls = new ArrayList<>();

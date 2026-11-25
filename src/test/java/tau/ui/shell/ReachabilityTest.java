@@ -15,6 +15,7 @@ import javax.swing.JPopupMenu;
 
 import org.junit.jupiter.api.Test;
 
+import tau.ui.ReadsLook;
 import tau.ui.shell.ShellCommands.Page;
 
 /**
@@ -24,6 +25,7 @@ import tau.ui.shell.ShellCommands.Page;
  * window is asked to open. Headless: the window's side is a recording
  * {@link ShellCommands.Actions}, and the sidebar is built without a frame.
  */
+@ReadsLook
 class ReachabilityTest {
 
 	private final List<String> calls = new ArrayList<>();

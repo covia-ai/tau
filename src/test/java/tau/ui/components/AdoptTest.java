@@ -11,11 +11,14 @@ import javax.swing.JPanel;
 
 import org.junit.jupiter.api.Test;
 
+import tau.ui.ReadsLook;
+
 /**
  * A page moved out of a card deck, where it was a hidden card, shows in its
  * new place: the sidebar's Jobs screen holds Settings' Jobs page this way.
  * Headless.
  */
+@ReadsLook
 class AdoptTest {
 
 	@Test

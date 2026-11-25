@@ -14,19 +14,19 @@ import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Isolated;
 
 import tau.AgentContext;
+import tau.ui.ChangesLook;
 import tau.ui.LAF;
 import tau.ui.shell.ShellLayout;
 
 /**
  * In the inspector docked beside the chat (320 pt wide) the Overview shows
  * every caption, value and line in full, in both Tau themes: no label is cut
- * short, and nothing runs past the column's edge. Isolated: it swaps the
- * JVM's look and feel. Headless: the Overview is laid out without a window.
+ * short, and nothing runs past the column's edge. Headless: the Overview is
+ * laid out without a window.
  */
-@Isolated
+@ChangesLook
 class DockedInspectorLayoutTest {
 
 	@Test

@@ -13,9 +13,9 @@ import javax.swing.JButton;
 import javax.swing.SwingUtilities;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Isolated;
 
 import tau.JobList;
+import tau.ui.ChangesLook;
 import tau.ui.LAF;
 import convex.core.data.Blob;
 import convex.core.data.Maps;
@@ -25,10 +25,8 @@ import covia.api.Fields;
  * The Jobs list: its own title only where no screen header says Jobs, and
  * bar buttons that are unavailable, and say why, until a job that can take
  * them is selected. Headless.
- * Isolated: it installs a look and feel, which classes running alongside
- * must not see change under them.
  */
-@Isolated
+@ChangesLook
 class JobsBarTest {
 
 	private static JobsScreen screen() throws Exception {
