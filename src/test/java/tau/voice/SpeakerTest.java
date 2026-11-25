@@ -27,30 +27,26 @@ import org.junit.jupiter.api.Test;
  */
 class SpeakerTest {
 
-	/** An output that keeps what it is given; with {@code gate}, the first write waits until it opens or the line is cut. */
+	/** An output that keeps what it is given; with {@code gate}, each write waits until it opens or the line is cut. */
 	static final class Kept implements Speaker.Output {
 		final ByteArrayOutputStream played = new ByteArrayOutputStream();
 		final List<AudioFormat> formats = new CopyOnWriteArrayList<>();
 		final CountDownLatch writing = new CountDownLatch(1);
-		volatile CountDownLatch gate;
+		volatile CompletableFuture<Void> gate;
 
 		@Override
 		public Speaker.Line open(AudioFormat format) {
 			formats.add(format);
 			return new Speaker.Line() {
-				final CountDownLatch cut = new CountDownLatch(1);
+				final CompletableFuture<Void> cut = new CompletableFuture<>();
 
 				@Override
 				public void write(byte[] pcm, int offset, int length) {
 					writing.countDown();
-					CountDownLatch g = gate;
+					CompletableFuture<Void> g = gate;
 					if (g != null) {
-						try {
-							while (g.getCount() > 0 && cut.getCount() > 0) g.await(1, TimeUnit.MILLISECONDS);
-						} catch (InterruptedException e) {
-							Thread.currentThread().interrupt();
-						}
-						if (cut.getCount() == 0) return;
+						CompletableFuture.anyOf(g, cut).join();
+						if (cut.isDone()) return;
 					}
 					synchronized (played) {
 						played.write(pcm, offset, length);
@@ -58,7 +54,7 @@ class SpeakerTest {
 				}
 
 				@Override public void drain() { }
-				@Override public void cut() { cut.countDown(); }
+				@Override public void cut() { cut.complete(null); }
 				@Override public void close() { }
 			};
 		}
@@ -115,7 +111,7 @@ class SpeakerTest {
 	@Test
 	void stoppingCutsTheReplyOffAndTheMicrophoneHearsAgain() throws Exception {
 		Kept out = new Kept();
-		out.gate = new CountDownLatch(1);
+		out.gate = new CompletableFuture<>();
 		Speaker speaker = new Speaker(out, 0);
 		List<String> made = new CopyOnWriteArrayList<>();
 
@@ -123,7 +119,7 @@ class SpeakerTest {
 			made.add(text);
 			return CompletableFuture.completedFuture(wav(pcm(1_000, 5), 24_000));
 		});
-		out.writing.await(10, TimeUnit.SECONDS);
+		assertTrue(out.writing.await(10, TimeUnit.SECONDS), "a part is being played");
 		assertTrue(speaker.speaking(), "speaking while a part plays, so the microphone hears silence");
 
 		speaker.stop();
@@ -136,16 +132,16 @@ class SpeakerTest {
 	@Test
 	void aNewReplyTakesThePlaceOfTheOnePlaying() throws Exception {
 		Kept out = new Kept();
-		out.gate = new CountDownLatch(1);
+		out.gate = new CompletableFuture<>();
 		Speaker speaker = new Speaker(out, 0);
 		CompletableFuture<Void> older = speaker.say(List.of("Old."),
 			text -> CompletableFuture.completedFuture(wav(pcm(1_000, 3), 24_000)));
-		out.writing.await(10, TimeUnit.SECONDS);
+		assertTrue(out.writing.await(10, TimeUnit.SECONDS), "the older reply is being played");
 
 		byte[] newer = pcm(2_000, 11);
 		CompletableFuture<Void> latest = speaker.say(List.of("New."), text -> CompletableFuture.completedFuture(wav(newer, 24_000)));
 		older.get(10, TimeUnit.SECONDS);
-		out.gate.countDown();
+		out.gate.complete(null);
 		latest.get(10, TimeUnit.SECONDS);
 		assertArrayEquals(newer, out.played(), "only the newer reply is heard");
 		assertFalse(speaker.speaking());
