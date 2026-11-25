@@ -222,7 +222,8 @@ There is no online recovery service, no escrow and no operator backdoor.
 
 ## Authentication and network exposure
 
-By default the venue binds HTTP to `127.0.0.1`, disables the anonymous public
+By default the venue binds HTTP to `127.0.0.1`, and Covia also opens IPv6
+loopback `::1`; both reach only this computer. It disables the anonymous public
 principal, requires venue authentication for the API and MCP, and, while
 bound to loopback, permits browser Private Network Access preflights so local
 web tooling can reach the authenticated API. Bound to any other address, the
@@ -348,8 +349,10 @@ model is the offline echo bot ([CONFIGURATION.md](CONFIGURATION.md)).
   in a trusted desktop session and clear the clipboard after.
 - The seed and derived keys necessarily exist in the running JVM; a debugger,
   a malicious same-user process or a compromised JVM can read them.
-- *Log out* clears the user's UI and session state but leaves the venue
-  running: a session lock, not key erasure. Quit to release in-memory keys.
+- *Log out* and *Lock* clear the user's UI and session state but leave the
+  venue running: a session lock, not key erasure. Named tokens made for outside
+  tools keep working while Tau is locked; revoke one in *Settings → Access* to
+  stop it. Quit to release in-memory keys.
 - Model calls send the assembled context to the chosen provider under its
   terms; a local model avoids that disclosure.
 

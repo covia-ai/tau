@@ -106,7 +106,7 @@ is the reference for those details.
 
 The source of truth is `TauSkillsAdapter` and the resources under
 `src/main/resources/tau/skills/`. The Skills screen shows what the assistant
-can discover; a session's Skills tab shows what it has loaded.
+can discover; a session's *Context* view shows what it has loaded (*Skills* and *Loaded*).
 
 The library covers conversations, speech, files and structured data;
 research, writing, planning and coding; automation and the Inbox; diagnostics,

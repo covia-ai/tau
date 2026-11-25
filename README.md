@@ -154,7 +154,7 @@ configuration, logs, imported skills and checked-out code are separate files
 and are not all encrypted. Backups and custom paths are described in
 [CONFIGURATION.md](docs/CONFIGURATION.md).
 
-Choose a model under *Settings → Model*. A local model or the echo bot avoids
+Choose a model under *Settings → Models*. A local model or the echo bot avoids
 remote model processing; networked tools and integrations still need their
 services. The echo bot lets you exercise chat without an API key.
 

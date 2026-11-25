@@ -1,6 +1,6 @@
 # Jobs
 
-How *Settings → Jobs* shows the acting principal's jobs and acts on them,
+How the *Jobs* screen (in the sidebar) shows the acting principal's jobs and acts on them,
 with Covia's own lattice components as its domain model. What the page offers
 the owner is described in [CONFIGURATION.md](CONFIGURATION.md#jobs); Covia's
 job model is in [Covia Jobs](https://github.com/covia-ai/covia/blob/develop/venue/docs/JOBS.md).

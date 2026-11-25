@@ -60,7 +60,9 @@ An unattended launch with missing setup or an invalid remembered passphrase
 fails without a window. If it has already displaced the previous instance,
 it reports a subsequent failure in a dialog where possible. Settings → General
 → Startup controls ordinary-launch preferences; command-line modes override
-them. Lock always asks for the passphrase and leaves the venue running.
+them. Lock always asks for the passphrase and leaves the venue running: named
+tokens made for outside tools keep working while Tau is locked, and a kept
+local login is removed until Tau is next opened with the passphrase.
 
 ### Starting at Windows sign-in
 
@@ -242,7 +244,8 @@ on otherwise. `SelfTest` runs the code the app runs, in a throwaway folder on a
 free port, so a Tau already running is never touched:
 
 - **First run, in an empty folder:** the Java in use is named, the venue comes
-  up and answers on 127.0.0.1 and on no other address, a website's browser
+  up and answers on loopback (127.0.0.1; Covia also opens IPv6 `::1`) and on
+  no other address this computer has, a website's browser
   request gets no Access-Control-Allow-Origin while a page on this computer
   does, onboarding with the
   offline echo bot saves an identity, one chat turn round-trips, a read-only
@@ -255,8 +258,9 @@ free port, so a Tau already running is never touched:
 Each step prints PASS, FAIL or SKIP (not checkable here, with the reason) and
 is appended to `self-test-report.txt` in the folder, because the Windows
 launcher has no console. The exit code is 0 when nothing failed, 1 when a step
-failed, 2 when the folder is refused and 64 for a missing folder. The folder
-must be empty, or one an earlier self-test made (it holds `.tau-self-test`),
+failed, 2 when the folder is refused, and 64 when no folder is named. A folder
+that does not exist yet is made. The folder must be empty, or one an earlier
+self-test made (it holds `.tau-self-test`),
 and is never the default data directory. The passphrase is a fixed throwaway
 one: the folder holds nothing worth protecting. CI runs it on every installer
 after installing it ([README.md](../README.md#installers)).

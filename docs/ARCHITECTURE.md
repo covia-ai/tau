@@ -46,7 +46,7 @@ Tau application ──► Embedded Venue API (in-process Java)
                                  embedded Covia venue
                                  lattice state → venue.etch
                                          │
-External clients ──► HTTP / MCP / A2A on 127.0.0.1
+External clients ──► HTTP / MCP / A2A on loopback
 ```
 
 For MCP clients that launch a stdio subprocess, `Main` selects `McpStdio`

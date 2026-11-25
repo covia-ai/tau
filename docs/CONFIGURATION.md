@@ -182,7 +182,8 @@ no Tau change.
 
 Tau's defaults:
 
-- bind to `127.0.0.1` (loopback only — nothing on your network can reach it)
+- bind to `127.0.0.1` (loopback only: nothing on your network can reach it);
+  the venue also opens IPv6 loopback, `::1`, which is this computer too
 - a persistent encrypted store at `~/.tau/venue.etch`, with its identity
   and encryption material injected only into the in-memory venue configuration
 - anonymous HTTP and MCP access disabled; local tools must authenticate
@@ -587,7 +588,8 @@ appear:
   Code's own tools. An outside tool's messages show in the chat as *via* its
   token's name.
   It expires after the lifetime chosen when it is made (30 days by default;
-  1, 7, or 90 days, or until revoked), and revoking ends it sooner. The page
+  1, 7, or 90 days), and revoking ends it sooner. *New access* in the
+  advanced options also offers a token that lasts until it is revoked. The page
   lists each token, when it expires, and its key (behind
   your passphrase), *New key* and *Revoke*.
 - **Login as you** (advanced): appears as you, with everything you can do,
@@ -854,7 +856,7 @@ schedule instead.
 
 ## Jobs
 
-*Settings → Jobs* lists everything that has run or is running for the acting
+*Jobs* (in the sidebar) lists everything that has run or is running for the acting
 principal: chats, agent tasks, scheduled runs, tool calls that were kept,
 anything run through the venue. The newest are first. Filter by how a job
 stands (all, or one of active, waiting for you, failed, completed and

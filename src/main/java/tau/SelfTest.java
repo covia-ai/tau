@@ -268,7 +268,7 @@ public final class SelfTest {
 				return;
 			}
 		}
-		pass("loopback", "answers on 127.0.0.1 only; refused on " + others.size() + " other address(es)");
+		pass("loopback", "answers on loopback only; refused on " + others.size() + " other address(es)");
 	}
 
 	/**
