@@ -872,6 +872,25 @@ passphrase is remembered on this computer, the gate opens without asking,
 as it does for the primary seed. Acting as the
 venue operator (Identity → switch user) shows the operator's store instead.
 
+## Developer
+
+*Settings → Developer* gathers what a developer needs in one place: the
+venue's address, what it is bound to, its adapters and their status, and the
+Tau and Covia versions; the settings file, with *Open settings file* and
+*Open logs folder*; the log itself, with a level (All, INFO, WARN, ERROR) and a
+text filter; *Show raw context* (what the model receives for the chat on
+screen); and *Open dashboard*. The command palette keeps its own entries for
+these.
+
+*Copy diagnostics* copies a report for a bug: the versions, the platform, the
+safe-defaults posture (the venue's binding, anonymous access, users created on
+first sign-in, logins kept for local tools, a remembered passphrase, sealed
+token keys, the audit logs), the adapters, and the last 200 log lines.
+`Diagnostics.redact` takes out anything shaped like a key, a token, a signed
+login, a seed, a passphrase, or an email address, the caller's list of rights
+from a refusal, and the home folder, and a test seeds each shape into a log to
+check that none survives.
+
 ## Environment variables
 
 | Variable | Effect |

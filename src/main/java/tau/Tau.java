@@ -3104,6 +3104,11 @@ public final class Tau {
 		desktop("open the dashboard", d -> d.browse(URI.create(url)));
 	}
 
+	/** The configuration file this instance runs with. */
+	public Path configFile() {
+		return configPath;
+	}
+
 	public void openConfigFile() {
 		desktop("open the settings file", d -> d.open(configPath.toFile()));
 	}

@@ -193,8 +193,9 @@ Etch refuses a writable open after an unclean stop. With `repairStore` enabled,
 the new file fails, it attempts to restore the original.
 
 Repair restores the last checkpoint, not necessarily every published change.
-Keep the preserved file until the recovered data is verified; diagnostic
-problems are logged. Set `repairStore: false` to stop instead and restore a
+Keep the preserved file until the recovered data is verified. The notice and
+the log both name what the check found (the first few problems, and how many
+more), not only how many there were. Set `repairStore: false` to stop instead and restore a
 backup manually. Interrupted collection has additional limits below.
 
 ## Compacting the store

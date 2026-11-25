@@ -744,6 +744,7 @@ public final class MainWindow extends JFrame {
 				}
 			}));
 		settingsScreen.install(SettingsScreen.Tab.TREASURY, treasuryPanel);
+		settingsScreen.install(SettingsScreen.Tab.DEVELOPER, new tau.ui.settings.DeveloperPanel(new DeveloperHost()));
 
 		mainDeck = new JPanel(mainCards);
 		mainDeck.add(split, MAIN_CHAT);
@@ -1806,6 +1807,40 @@ public final class MainWindow extends JFrame {
 				"Nothing to show here yet.").withMark(104);
 			add(empty, BorderLayout.CENTER);
 		}
+	}
+
+	/** What Settings → Developer reads and does. */
+	private final class DeveloperHost implements tau.ui.settings.DeveloperPanel.Host {
+		@Override public String tauVersion() { return tau.BuildInfo.version(); }
+		@Override public String coviaVersion() { return tau.BuildInfo.coviaVersion(); }
+		@Override public String venueUrl() {
+			tau.EmbeddedVenue v = app.venue();
+			return (v == null) ? null : v.url();
+		}
+		@Override public String bind() {
+			return String.valueOf(convex.core.lang.RT.getIn(app.config().venueConfig(), covia.venue.Config.BIND_ADDRESS));
+		}
+		@Override public List<String> adapters() {
+			tau.EmbeddedVenue v = app.venue();
+			if (v == null) return List.of();
+			try {
+				convex.core.data.ACell out = v.engine().jobs().invokeInternal("v/ops/venue/adapters",
+					convex.core.data.Maps.empty(), v.engine().venueContext()).get(10, java.util.concurrent.TimeUnit.SECONDS);
+				return tau.Diagnostics.adapterLines(out);
+			} catch (Exception e) {
+				return List.of("Couldn't read the adapters: " + tau.ui.Problems.describe(e).what());
+			}
+		}
+		@Override public java.nio.file.Path configFile() { return app.configFile(); }
+		@Override public java.nio.file.Path logFile() { return app.config().home().resolve("logs").resolve("tau.log"); }
+		@Override public tau.Diagnostics.Posture posture() {
+			return tau.Diagnostics.posture(app.config().venueConfig(), app.keepToolToken(), app.keepOperatorToken(),
+				app.hasRememberedPassphrase());
+		}
+		@Override public void openDashboard() { app.openDashboard(); }
+		@Override public void openConfigFile() { app.openConfigFile(); }
+		@Override public void openLogsFolder() { app.openLogsFolder(); }
+		@Override public void showRawContext() { inspectChat(true); }
 	}
 
 	/** The shell's hosts: what the sidebar, the strip, the menu bar and the palette ask of the window. */

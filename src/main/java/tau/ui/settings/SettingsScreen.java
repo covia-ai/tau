@@ -49,7 +49,9 @@ public final class SettingsScreen extends JPanel {
 		JOBS("Jobs", IconTile.Concept.JOBS, true),
 		// Keys and access.
 		SECRETS("Secrets", IconTile.Concept.SECRETS, false), VAULT("Vault", IconTile.Concept.VAULT, false),
-		ACCESS("Access", IconTile.Concept.ACCESS, false);
+		ACCESS("Access", IconTile.Concept.ACCESS, false),
+		// For whoever builds on or debugs Tau.
+		DEVELOPER("Developer", "wrench", IconTile.Family.NEUTRAL, true);
 
 		final String label;
 		/** The {@link Lucide} icon in the section's tile. */
@@ -187,6 +189,7 @@ public final class SettingsScreen extends JPanel {
 			case SECRETS -> "secrets keys passwords";
 			case VAULT -> "vault passphrase remember stored";
 			case ACCESS -> "access tokens token mcp login permissions connect";
+			case DEVELOPER -> "developer logs log diagnostics venue status adapters version config raw context dashboard debug";
 		};
 	}
 

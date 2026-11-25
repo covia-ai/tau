@@ -44,6 +44,8 @@ public final class StoreRepair {
 	static final String KEPT = ".unclean-";
 	private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 	private static final int MOVE_ATTEMPTS = 10;
+	/** How many of a repair's problems its words name; the log has the rest. */
+	static final int FOUND_SHOWN = 5;
 
 	/**
 	 * What a repair did: the {@code store} now in place, the old file
@@ -55,15 +57,23 @@ public final class StoreRepair {
 		/** One line for the log. */
 		public String summary() {
 			return status + ": " + values + " values into " + store + "; the old file kept as " + kept.getFileName()
-				+ (problems.isEmpty() ? "" : "; " + problems.size() + " problem(s) noted");
+				+ (problems.isEmpty() ? "" : "; " + problems.size() + " problem(s) noted: " + found());
 		}
 
 		/** What to tell the owner, in their words. */
 		public String notice() {
 			String base = APP_NAME + " wasn't closed cleanly last time, so it checked and rebuilt its data store "
 				+ "before starting. The previous file is kept as " + kept.getFileName() + " in case anything is missing.";
-			return (status == EtchRebuilder.Status.COMPLETE) ? base
+			String said = (status == EtchRebuilder.Status.COMPLETE) ? base
 				: base + " The check could not read the whole old file, so anything written after the last save may be missing.";
+			return problems.isEmpty() ? said : said + " It found: " + found() + ".";
+		}
+
+		/** What the check found, in its words: the first few problems, and how many more. */
+		public String found() {
+			int shown = Math.min(FOUND_SHOWN, problems.size());
+			String list = String.join("; ", problems.subList(0, shown));
+			return (problems.size() > shown) ? list + "; and " + (problems.size() - shown) + " more" : list;
 		}
 	}
 

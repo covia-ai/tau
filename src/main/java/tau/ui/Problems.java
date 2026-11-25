@@ -153,7 +153,7 @@ public final class Problems {
 	private static final Pattern ROOM_REFUSAL = Pattern.compile(
 		"This request may not (create|post in|read) room ([a-z0-9-]+)|Only the owner of room ([a-z0-9-]+)");
 	/** What the venue appends to a refusal: everything the caller may do. Never shown. */
-	private static final Pattern RIGHTS = Pattern.compile("(?is)\\s*\\.?\\s*(Your capabilities are|Caller holds|holds \\[).*$");
+	private static final Pattern RIGHTS = Pattern.compile("(?i)[ \\t]*\\.?[ \\t]*(Your capabilities are|Caller holds|holds \\[)[^\\r\\n]*");
 	/** Words in an auth-typed failure that make it the model provider's, not a refusal. */
 	private static final Pattern MODEL_HINT = Pattern.compile("api.?key|x-api-key|provider|anthropic|openai|model");
 
