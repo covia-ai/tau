@@ -132,8 +132,9 @@ public final class ShellCommands {
 			c.add("go:" + d.name().toLowerCase(), d.label, "Sidebar", VIEW,
 				KeyStroke.getKeyStroke(KeyEvent.VK_0 + (d.key - '0'), cmd), () -> a.go(d), aliases(d));
 		}
+		// macOS's own Show Sidebar; elsewhere Ctrl+B, since Ctrl+Alt is AltGr on Windows and types letters.
 		c.add("toggle-rail", "Sidebar: collapse or expand", "View", VIEW,
-			KeyStroke.getKeyStroke(KeyEvent.VK_S, mac ? cmd | InputEvent.CTRL_DOWN_MASK : InputEvent.CTRL_DOWN_MASK | InputEvent.ALT_DOWN_MASK),
+			mac ? KeyStroke.getKeyStroke(KeyEvent.VK_S, cmd | InputEvent.CTRL_DOWN_MASK) : KeyStroke.getKeyStroke(KeyEvent.VK_B, cmd),
 			a::toggleRail, "Collapse sidebar", "Expand sidebar");
 		c.add("toggle-chats", "Chats list", "Home and Agents", VIEW, KeyStroke.getKeyStroke(KeyEvent.VK_BACK_SLASH, cmd),
 			a::toggleChatsList, "Sessions", "Conversations");
