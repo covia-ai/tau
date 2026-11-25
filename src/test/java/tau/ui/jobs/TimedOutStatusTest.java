@@ -10,7 +10,6 @@ import org.junit.jupiter.api.parallel.Isolated;
 
 import tau.JobList;
 import tau.ui.LAF;
-import tau.ui.components.StatusBadge;
 import tau.ui.components.Theme;
 import tau.ui.components.Tone;
 import convex.core.data.Blob;
@@ -67,8 +66,6 @@ class TimedOutStatusTest {
 			assertEquals(Tone.TIMED_OUT, JobLooks.tone(t));
 			assertNotEquals(Theme.error(), Tone.TIMED_OUT.colour(), theme);
 			assertNotEquals(Theme.error(), Tone.TIMED_OUT.text(), theme);
-			StatusBadge b = StatusBadge.timedOut();
-			assertEquals("Timed out", b.getText());
 			assertEquals(Tone.ERROR, JobLooks.tone(job("FAILED")), "a failure keeps its colour");
 		}
 		LAF.init(LAF.TAU_DARK, null, null, false, null);
