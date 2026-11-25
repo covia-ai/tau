@@ -16,6 +16,8 @@ public final class Main {
 			// library initialisation. All incidental console output goes to stderr.
 			System.setOut(System.err);
 			System.exit(McpStdio.run(args, System.in, protocol, System.err));
+		} else if (Arrays.asList(args).contains(RelaunchCommand.OPTION)) {
+			System.exit(RelaunchCommand.run(args, System.out, System.err));
 		} else {
 			Tau.main(args);
 		}

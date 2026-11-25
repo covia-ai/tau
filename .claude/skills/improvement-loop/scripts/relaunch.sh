@@ -1,47 +1,55 @@
 #!/bin/sh
-# Relaunches Tau into a jar with the venue operator login, waits for the new
-# process, and prints its info. Tau starts its successor itself, so it
-# outlives this session.
-#   relaunch.sh [jar]   jar: file://code/tau/target/tau.jar by default;
-#                       file://code/last-good.jar is the rollback
-# Needs ~/.tau/operator-token.json (Settings > Access: keep a venue operator
-# login for local tools). The relaunch is a recorded job of the venue's.
+# Starts Tau from a jar, taking over the one running if there is one, waits
+# until the new process answers, and prints its info.
+#   relaunch.sh [jar]   jar: ~/.tau/code/tau/target/tau.jar by default;
+#                       ~/.tau/code/last-good.jar is the rollback
+# The jar's own --relaunch starts the new Tau outside this session's Windows
+# job, so it outlives the session. It unlocks with the remembered passphrase
+# and signs the takeover with the venue's key, so no login is kept for it;
+# without a remembered passphrase it refuses.
 here=$(dirname "$0")
-jar="${1:-file://code/tau/target/tau.jar}"
 home="${TAU_HOME:-$HOME/.tau}"
-[ -f "$home/operator-token.json" ] || {
-	echo "No operator login at $home/operator-token.json: tick 'Keep a venue operator login for local tools'" \
-		"in Settings > Access, or relaunch from Tau's window." >&2
-	exit 3
-}
+jar="${1:-$home/code/tau/target/tau.jar}"
+[ -f "$jar" ] || { echo "No jar at $jar" >&2; exit 2; }
+config="$home/config.json"
+if command -v cygpath >/dev/null 2>&1; then jar=$(cygpath -w "$jar"); config=$(cygpath -w "$config"); fi
 
 pid_now() {
-	AS=operator "$here/mcp.sh" grid_run '{"operation":"v/ops/tau/info"}' 2>/dev/null \
+	"$here/mcp.sh" grid_run '{"operation":"v/ops/tau/info"}' 2>/dev/null \
 		| python -I -c "import json,sys;print(json.loads(sys.stdin.read()).get('pid',''))" 2>/dev/null
 }
 
-before=$(pid_now)
-[ -n "$before" ] || { echo "Tau is not answering, so it cannot relaunch itself" >&2; exit 2; }
-request=$(python -I -c 'import json,sys; print(json.dumps({"operation": "v/ops/tau/relaunch", "input": {"jar": sys.argv[1]}}))' "$jar")
-# The answer comes before the handover; the call may also be cut off by it.
-out=$(AS=operator "$here/mcp.sh" grid_run "$request") || {
-	case "$out" in
-		*refused*|*Refused*|*denied*|*"not Tau"*) printf '%s\n' "$out"; echo "Tau refused the relaunch" >&2; exit 1 ;;
-	esac
+# Whether a process is still there: Git Bash on Windows lists Windows ids
+# with ps -W (fourth column); elsewhere, kill -0.
+alive() {
+	if ps -W >/dev/null 2>&1; then
+		ps -W | awk -v p="$1" '$4 == p { found = 1 } END { exit !found }'
+	else
+		kill -0 "$1" 2>/dev/null
+	fi
 }
-printf '%s\n' "$out"
 
-# The old process answers, then stops; the newcomer takes over the store and
-# writes fresh logins. Wait for a different pid (up to five minutes).
+before=$(pid_now)
+out=$(java -jar "$jar" --relaunch "$config") || { printf '%s\n' "$out" >&2; exit 1; }
+printf '%s\n' "$out"
+new=$(printf '%s\n' "$out" | sed -n 's/.* as process \([0-9]*\).*/\1/p')
+[ -n "$new" ] || { echo "No process id in the launcher's answer" >&2; exit 1; }
+
+# The new process unlocks, asks the old one to stop, waits for its store, and
+# opens the venue. Wait until it is the one answering (up to five minutes).
 i=0
 while [ $i -lt 100 ]; do
 	pid=$(pid_now)
-	if [ -n "$pid" ] && [ "$pid" != "$before" ]; then
-		AS=operator "$here/mcp.sh" grid_run '{"operation":"v/ops/tau/info"}'
+	if [ "$pid" = "$new" ]; then
+		"$here/mcp.sh" grid_run '{"operation":"v/ops/tau/info"}'
 		exit 0
 	fi
+	alive "$new" || {
+		echo "The new Tau (process $new) has stopped${before:+; the old one was $before${pid:+ and is still answering}}: check its log." >&2
+		exit 1
+	}
 	i=$((i + 1))
 	timeout 3 tail -f /dev/null 2>/dev/null
 done
-echo "Tau did not come back from the relaunch (old pid $before): check its log." >&2
+echo "The new Tau (process $new) did not answer within five minutes: check its log." >&2
 exit 1

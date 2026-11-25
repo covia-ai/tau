@@ -30,6 +30,13 @@ Standard output carries MCP messages only; diagnostics go to standard error.
 Closing the client's input ends that connection and leaves the app running.
 See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
 
+With `--relaunch`, `RelaunchCommand` copies its jar into the run directory,
+starts the copy with `--unlock --takeover` outside the caller's Windows job,
+prints the new process id and exits. It is how a local tool, such as the
+improvement loop, brings in a build or starts Tau without holding any login:
+the new process unlocks with the remembered passphrase and authorises the
+takeover with the venue's key. Without a remembered passphrase it refuses.
+
 Startup follows this order:
 
 1. Read configuration, initialise logging and theme, and check for an existing

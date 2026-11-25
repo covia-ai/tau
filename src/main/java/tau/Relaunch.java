@@ -22,8 +22,9 @@ import covia.grid.AContent;
  * Starts this program again as a separate process: the same Java, and the same
  * jar, or the same class path when there is none (a launch from an IDE), or a
  * jar copied in for the purpose ({@link #stage}). The MCP bridge starts the app
- * this way when it is absent ({@link McpStartup}), and a relaunch starts its
- * successor this way ({@code brightside:relaunch}).
+ * this way when it is absent ({@link McpStartup}), a relaunch starts its
+ * successor this way ({@code brightside:relaunch}), and so does the launcher's
+ * {@code --relaunch} ({@link RelaunchCommand}).
  */
 final class Relaunch {
 
@@ -77,9 +78,23 @@ final class Relaunch {
 	 * process runs, which a later relaunch of this program needs.
 	 */
 	static Path stage(AContent jar, Path home) throws IOException {
+		return stage(jar::getInputStream, home);
+	}
+
+	/** As {@link #stage(AContent, Path)}, from a jar on disk. */
+	static Path stage(Path jar, Path home) throws IOException {
+		return stage(() -> Files.newInputStream(jar), home);
+	}
+
+	/** Where a jar's bytes come from. */
+	private interface Source {
+		InputStream open() throws IOException;
+	}
+
+	private static Path stage(Source jar, Path home) throws IOException {
 		Path dir = Files.createDirectories(home.resolve(RUN_DIR));
 		Path copy = Files.createTempFile(dir, PREFIX, SUFFIX);
-		try (InputStream in = jar.getInputStream()) {
+		try (InputStream in = jar.open()) {
 			Files.copy(in, copy, StandardCopyOption.REPLACE_EXISTING);
 		}
 		String main = mainClass(copy);

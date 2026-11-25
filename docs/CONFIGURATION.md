@@ -680,8 +680,8 @@ after a `401`:
 ```
 
 With that, and a remembered passphrase, Claude Code can start Tau
-itself with `java -jar target/tau.jar --unlock --takeover` and connect
-once it is up, with nobody at the computer. On Windows the helper may run
+itself with `java -jar target/tau.jar --relaunch` and connect once it is up,
+with nobody at the computer. On Windows the helper may run
 under `cmd.exe`, which has no `cat` and does not expand `~`: use
 `powershell.exe -NoProfile -Command Get-Content -Raw C:/Users/<you>/.tau/tool-token.json`.
 A helper that fails sends no token, and the venue's `401` then shows up as a
@@ -699,8 +699,9 @@ above.
 login for local tools* and Tau also keeps an operator login, on the same
 terms, in `~/.tau/operator-token.json`. A tool that reads it can do whatever
 the venue's own authority allows: manage users, adapters and the venue's
-secrets, and relaunch Tau into a build, as the self-improvement loop does
-([SELF_IMPROVEMENT.md](SELF_IMPROVEMENT.md)). Anyone who can read your files
+secrets, and relaunch Tau into a build. Bringing in a build needs no such
+login: `java -jar tau.jar --relaunch` does it with the remembered passphrase
+([LAUNCH.md](LAUNCH.md#startup)). Anyone who can read your files
 can use it, so keep it only on a computer nobody else signs in to.
 
 ## Files and personal drives

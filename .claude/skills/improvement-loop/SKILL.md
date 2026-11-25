@@ -45,14 +45,10 @@ Do not infer the agent id from its display name.
   '{"operation":"v/ops/tau/info"}'` directly. Exit 2 means unreachable, not
   necessarily stopped: check the process and log before starting another
   instance. A locked app or missing local token needs attention, not takeover.
-  If Tau is confirmed stopped, start it from a copy of
-  `~/.tau/code/last-good.jar` with
-  `javaw -jar <copy> --unlock --takeover` (PowerShell `Start-Process`), then
-  `$S/relaunch.sh file://code/last-good.jar`, and say in the report why it was
-  down, from its log: the process this session starts sits in the session's
-  Windows job and ends with it, while the one Tau relaunches into leaves the
-  job and runs on. Any other failed check: report it; fixing it is this run's
-  work.
+  If Tau is confirmed stopped, start it with
+  `$S/relaunch.sh ~/.tau/code/last-good.jar`, and say in the report why it was
+  down, from its log. Any other failed check: report it; fixing it is this
+  run's work.
 
 ## 2. The improvement agent
 
@@ -162,19 +158,19 @@ cd "$W" && mvn -q package -DskipTests
 $S/relaunch.sh && $S/smoke.sh
 ```
 
-The script relaunches with the venue operator login, which Tau keeps in
-`~/.tau/operator-token.json` while the owner has it ticked in Settings →
-Access; without it, it stops and says so, and the relaunch is reported for the
-owner to do. Tau running from source (`v/ops/tau/info` says version `dev`),
-such as the owner's IDE launch, is relaunched the same way: it stops itself
-and the jar runs on in its place. The report says what changed since the build Tau ran and the
+The script runs the jar's `--relaunch`: a new Tau, outside this session's
+Windows job, unlocks with the remembered passphrase and takes over from the
+running one, which needs no login. Without a remembered passphrase it stops
+and says so, and the relaunch is reported for the owner to do. Tau running
+from source (`v/ops/tau/info` says version `dev`), such as the owner's IDE
+launch, is taken over the same way, and the jar runs on in its place. The report says what changed since the build Tau ran and the
 tests that passed, or for a rollback what failed.
 
 On success: `cp "$W/target/tau.jar" ~/.tau/code/last-good.jar`,
 then re-run the failing actions of the entries this chunk fixed, and go to
 step 4: after an upgrade always, after an improvement if the bound at the top
 allows. On failure:
-`$S/relaunch.sh file://code/last-good.jar` and
+`$S/relaunch.sh ~/.tau/code/last-good.jar` and
 `$S/smoke.sh`. For an
 upgrade, then debug it as step 3 says. For an improvement, revert this
 chunk's commits, stop taking chunks, and merge what passed.
