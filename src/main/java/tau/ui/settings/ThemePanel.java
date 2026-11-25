@@ -84,7 +84,25 @@ public final class ThemePanel extends JPanel {
 		/** Compact rows in tables and lists ({@code true}) or comfortable ones. */
 		default void setDensity(boolean compact) {
 		}
+
+		/** How much the character moves: a level, or null to match the system. */
+		default void setMotion(tau.ui.character.Motion motion) {
+		}
 	}
+
+	/** A Motion choice on offer: a level, or null for the system's own setting. */
+	private record MotionChoice(String label, tau.ui.character.Motion level) {
+		@Override
+		public String toString() {
+			return label;
+		}
+	}
+
+	private static final MotionChoice[] MOTIONS = {
+		new MotionChoice("Match the system", null),
+		new MotionChoice("Full", tau.ui.character.Motion.FULL),
+		new MotionChoice("Reduced", tau.ui.character.Motion.REDUCED),
+		new MotionChoice("Off", tau.ui.character.Motion.OFF) };
 
 	/** A named accent on offer. */
 	private record Accent(String label, String hex) {
@@ -114,6 +132,7 @@ public final class ThemePanel extends JPanel {
 	private final JRadioButton bottomLayout = new JRadioButton("Bottom bar");
 	private final JRadioButton comfortable = new JRadioButton("Comfortable");
 	private final JRadioButton compact = new JRadioButton("Compact");
+	final javax.swing.JComboBox<MotionChoice> motion = new javax.swing.JComboBox<>(MOTIONS);
 	private String mode = LAF.DARK;
 	private String currentAccent = LAF.TAU_ACCENT;
 	private boolean syncing;
@@ -215,6 +234,15 @@ public final class ThemePanel extends JPanel {
 		densityRow.add(Box.createHorizontalStrut(18));
 		densityRow.add(compact);
 		layout.add(densityRow);
+		motion.setToolTipText("How much " + APP_NAME + "'s character moves. Reduced keeps only crossfades; Off shows still "
+			+ "poses. Match the system follows your computer's reduce-motion setting.");
+		motion.addActionListener(e -> {
+			if (syncing) return;
+			MotionChoice c = (MotionChoice) motion.getSelectedItem();
+			host.setMotion(c == null ? null : c.level());
+		});
+		layout.add(Labels.text("Motion"));
+		layout.add(motion, "growx 0");
 		form.add(layout, "growx, wmin 0");
 
 		add(form, BorderLayout.CENTER);
@@ -226,6 +254,16 @@ public final class ThemePanel extends JPanel {
 		syncing = true;
 		try {
 			system.setSelected(true);
+		} finally {
+			syncing = false;
+		}
+	}
+
+	/** Reflect the Motion choice: a level, or null when it matches the system; fires no host call. */
+	public void refreshMotion(tau.ui.character.Motion level) {
+		syncing = true;
+		try {
+			for (MotionChoice c : MOTIONS) if (c.level() == level) motion.setSelectedItem(c);
 		} finally {
 			syncing = false;
 		}

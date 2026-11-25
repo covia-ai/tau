@@ -182,7 +182,7 @@ public final class SettingsScreen extends JPanel {
 			case PEERS -> "peers people homes follow relay discovery network map";
 			case TREASURY -> "treasury plan free paid payments money njord limits billing";
 			case GENERAL -> "general lock quit startup sign in tray voice read aloud data store compact dashboard logs about";
-			case THEME -> "theme dark light system accent colour density layout sidebar bottom bar";
+			case THEME -> "theme dark light system accent colour density layout sidebar bottom bar motion animation reduce";
 			case INTEGRATIONS -> "integrations discord moltbook connections";
 			case SCHEDULE -> "schedule timer remind repeat later";
 			case JOBS -> "jobs tasks running record";

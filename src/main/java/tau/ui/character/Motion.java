@@ -11,8 +11,9 @@ import org.slf4j.LoggerFactory;
 /**
  * How much the character moves: Full, Reduced, or Off. The system property
  * {@value #PROPERTY} ({@code full}, {@code reduced}, or {@code off}) wins;
- * otherwise the operating system's own reduce-motion setting is read once,
- * and Full is assumed when it can't be read.
+ * then the owner's choice in Settings → Theme, when it is not "Match the
+ * system"; otherwise the operating system's own reduce-motion setting is
+ * read once, and Full is assumed when it can't be read.
  *
  * <ul>
  * <li><b>Full</b>: crossfades, the settle, breathing on large slots, blinks, the
@@ -29,6 +30,8 @@ public enum Motion {
 
 	private static final Logger log = LoggerFactory.getLogger(Motion.class);
 	private static volatile Motion current;
+	/** The owner's choice in Settings, or null to match the system. */
+	private static volatile Motion chosen;
 
 	/** The motion the app runs with. */
 	public static Motion get() {
@@ -42,9 +45,31 @@ public enum Motion {
 		return m;
 	}
 
-	/** Sets the motion from now on (a setting, or a test); null finds it again. */
+	/** Sets the motion from now on (a test); null finds it again. */
 	public static void set(Motion motion) {
 		current = motion;
+	}
+
+	/**
+	 * The owner's choice (Settings → Theme, Motion): a level that overrides
+	 * the system's setting, or null to match the system again. Takes effect
+	 * at once; {@value #PROPERTY} still wins over it.
+	 */
+	public static void choose(Motion motion) {
+		chosen = motion;
+		current = null;
+	}
+
+	/** The owner's choice, or null when it matches the system. */
+	public static Motion chosen() {
+		return chosen;
+	}
+
+	/** A saved choice ({@code full}, {@code reduced}, {@code off}, or {@code system}) as a level, or null for the system. */
+	public static Motion parse(String saved) {
+		if (saved == null) return null;
+		for (Motion m : values()) if (m.name().equalsIgnoreCase(saved.strip())) return m;
+		return null;
 	}
 
 	public boolean loops() {
@@ -61,10 +86,10 @@ public enum Motion {
 	}
 
 	static Motion find() {
-		String named = System.getProperty(PROPERTY);
-		if (named != null) {
-			for (Motion m : values()) if (m.name().equalsIgnoreCase(named.strip())) return m;
-		}
+		Motion named = parse(System.getProperty(PROPERTY));
+		if (named != null) return named;
+		Motion owner = chosen;
+		if (owner != null) return owner;
 		return systemReducesMotion() ? REDUCED : FULL;
 	}
 

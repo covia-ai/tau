@@ -527,6 +527,13 @@ public final class MainWindow extends JFrame {
 				app.setUiPref("density", compact ? "compact" : "comfortable");
 				applyDensity(compact);
 			}
+
+			@Override
+			public void setMotion(tau.ui.character.Motion motion) {
+				app.setUiPref(MOTION_PREF, motion == null ? "system" : motion.name().toLowerCase(java.util.Locale.ROOT));
+				tau.ui.character.Motion.choose(motion);
+				repaint();
+			}
 		});
 
 		ModelPanel modelPanel = new ModelPanel(new ModelPanel.Handler() {
@@ -1138,6 +1145,7 @@ public final class MainWindow extends JFrame {
 		settingsScreen.general().refreshStore(app.storeReport());
 		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent());
 		settingsScreen.theme().refreshLayout(railShell, tau.ui.components.Density.compact());
+		settingsScreen.theme().refreshMotion(tau.ui.character.Motion.chosen());
 		settingsScreen.theme().refreshSystem(LAF.SYSTEM.equalsIgnoreCase(app.modeChoice()));
 		settingsScreen.model().preselect(app.currentModelOp());
 		app.refreshServedModels(); // answers through showServedModels, off the event thread
@@ -1389,7 +1397,11 @@ public final class MainWindow extends JFrame {
 		railCollapsedByChoice = "true".equals(app.uiPref("rail.collapsed", "false"));
 		applyShell(!"classic".equals(app.uiPref("shell", "rail")));
 		applyDensity("compact".equals(app.uiPref("density", "comfortable")));
+		tau.ui.character.Motion.choose(tau.ui.character.Motion.parse(app.uiPref(MOTION_PREF, "system")));
 	}
+
+	/** Where the Motion choice is kept: {@code ui.motion} in prefs.properties ({@code system}, {@code full}, {@code reduced}, {@code off}). */
+	static final String MOTION_PREF = "motion";
 
 	/** {@code true}: the sidebar and status strip; {@code false}: the classic bottom bar. Live, remembered by the caller. */
 	private void applyShell(boolean railShell) {

@@ -9,7 +9,7 @@ character would stand.
 - **Signed poses only.** Poses are crossfaded, never rotated or re-drawn; the eyes are their own layer, so they can look, squash, and blink.
 - **Motion reports a fact.** The figure changes because Tau's work did: a request arrives, the model thinks, a tool runs, another agent is asked, something waits on you.
 - **Few places, and never in some.** Chats, the sidebar status, first launch, greeting empty states, and About; never the Record, the Vault, the Constellation, Rooms, agent rows or profiles, refusals, or errors.
-- **Reduced motion is honoured.** The system's setting, or `tau.motion`, holds a still pose per beat.
+- **Reduced motion is honoured.** The system's setting, the Motion choice in Settings, or `tau.motion` holds a still pose per beat.
 
 ## The art and the switch
 
@@ -64,7 +64,9 @@ hop and jump play; from 128 px it floats too. Tau draws its own floor shadow,
 which narrows as the figure rises.
 
 `Motion` is Full, Reduced, or Off: the system property `tau.motion` wins,
-else the operating system's own setting where it can be read, else Full.
+then the owner's choice in *Settings → Theme → Motion* (kept as `ui.motion`
+in `prefs.properties`) unless it is *Match the system*, then the operating
+system's own setting where it can be read, else Full. A change applies at once.
 Reduced keeps the crossfade and nothing else (no breathing, blinks, hops, or
 sparks); Off swaps stills. The player's timer runs only while its view is
 showing and something moves, and the loops stop a minute after the last beat.
@@ -86,4 +88,3 @@ still images, as they are today.
 
 - The eyes look towards the step line and the agent asked, not at exact things on screen, and there is no listening beat while you type.
 - Finished steps land in place in the chip; there is no Record count in the window to go up.
-- There is no Motion control in Settings yet: the system's setting or `tau.motion` decides.

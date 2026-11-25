@@ -914,4 +914,7 @@ check that none survives.
 | `TAU_MCP_TOKEN` | A named token's key for the `--mcp-stdio` bridge, which then sends it instead of the local login in `tool-token.json` (what *Connect a tool* writes for stdio clients); also an optional home for the token a `.mcp.json` can reference as `${TAU_MCP_TOKEN}` instead of embedding it. |
 | `TAU_CHARACTER_DIR` | The directory holding the character's art pack (or the system property `tau.character.dir`); without one, the pack in `<data folder>/character/` (which Settings → Theme → Add character pack… fills), and without that the τ glyph stands in. See [CHARACTER.md](CHARACTER.md). |
 
-The system property `tau.motion` (`full`, `reduced`, or `off`) sets how much the character moves, over the operating system's own setting.
+*Settings → Theme → Motion* sets how much the character moves: *Match the
+system*, *Full*, *Reduced*, or *Off*, kept as `ui.motion` in
+`prefs.properties`. A level overrides the operating system's own setting. The
+system property `tau.motion` (`full`, `reduced`, or `off`) wins over both.
