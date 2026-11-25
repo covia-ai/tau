@@ -70,6 +70,9 @@ class TokensTest {
 		var reference = store().lookup(issued.bearer());
 		assertNotNull(store().resolve(reference, expires - 1), "it works until then");
 		assertNull(store().resolve(reference, expires), "and stops at its expiry");
+		var row = new tau.ui.settings.AccessPanel.Row("thirty-days", "", 0, "you", false, expires);
+		assertFalse(row.expired(expires - 1));
+		assertTrue(row.expired(expires), "the list calls it expired when the venue stops its key");
 		assertThrows(IllegalArgumentException.class,
 			() -> tokens.create("never-lives", TokenPreset.READ_ONLY.scope("Tau"), 0L));
 		tokens.revoke("thirty-days");

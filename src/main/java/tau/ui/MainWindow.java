@@ -1506,9 +1506,11 @@ public final class MainWindow extends JFrame {
 				agentDID(a.id())));
 		}
 		try {
+			long now = System.currentTimeMillis();
 			for (AccessPanel.Row t : app.listTokens()) {
 				rows.add(new tau.ui.agents.AgentsScreen.Row(t.name(), t.name(),
-					tau.ui.agents.AgentsScreen.Kind.OUTSIDE_MCP, "A local client", "Token active",
+					tau.ui.agents.AgentsScreen.Kind.OUTSIDE_MCP, "A local client",
+					t.expired(now) ? "Token expired" : "Token active",
 					t.unrestricted() ? "Unrestricted" : t.scope(), null));
 			}
 		} catch (RuntimeException e) {

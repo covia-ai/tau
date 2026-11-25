@@ -57,7 +57,12 @@ public final class AccessPanel extends SettingsPage {
 
 	/** One of the owner's tokens, as the list shows it; {@code unrestricted} when it can do all the owner can. */
 	/** A named token as listed; {@code expires} is in milliseconds since the epoch, or null for until revoked. */
-	public record Row(String name, String scope, long created, String madeBy, boolean unrestricted, Long expires) {}
+	public record Row(String name, String scope, long created, String madeBy, boolean unrestricted, Long expires) {
+		/** Whether it has stopped working by {@code now}, as the venue judges a key ({@code expires} is when it stops). */
+		public boolean expired(long now) {
+			return expires != null && now >= expires;
+		}
+	}
 
 	/** What the page can do; calls that may fail throw with a message fit to show. */
 	public interface Host {
@@ -342,7 +347,7 @@ public final class AccessPanel extends SettingsPage {
 
 	private void addRow(Row row) {
 		JLabel label = Styles.classes(new JLabel(row.name()), Styles.MONOSPACED);
-		boolean expired = row.expires() != null && row.expires() <= System.currentTimeMillis();
+		boolean expired = row.expired(System.currentTimeMillis());
 		JLabel details = Labels.small(row.scope() + " · made " + Times.absolute(row.created()) + " by " + row.madeBy()
 			+ " · " + (row.expires() == null ? "until revoked"
 				: (expired ? "expired " : "expires ") + Times.absolute(row.expires())));
