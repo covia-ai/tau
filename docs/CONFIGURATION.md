@@ -531,7 +531,10 @@ each says how the tool will appear:
   It expires after the lifetime chosen when it is made (30 days by default;
   1, 7, or 90 days, or until revoked), and revoking ends it sooner. The page
   lists each token, when it expires, and its key (behind
-  your passphrase), *New key* and *Revoke*.
+  your passphrase), *New key* and *Revoke*. *New key* makes the token again
+  with a fresh key, its lifetime starting over, whether or not it has
+  expired; the old key stops working. A token another tool made to be
+  accepted beyond the MCP endpoint can't be made again here.
 - **Login as you** — appears as you, with everything you can do, for a
   chosen time; shown once and never written to disk.
 - **Venue operator login** (advanced) — the venue itself, for administration.

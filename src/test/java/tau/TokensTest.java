@@ -13,6 +13,7 @@ import convex.core.data.AString;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.Vectors;
+import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import covia.adapter.MCPAdapter;
 import covia.adapter.token.AccessToken;
@@ -79,6 +80,53 @@ class TokensTest {
 	}
 
 	@Test
+	void aNewKeyStartsTheTokensLifetimeAgainExpiredOrNot() {
+		AString owner = owner("tokens-renew");
+		Tokens tokens = new Tokens(engine(), owner);
+		long day = 24L * 3600 * 1000, week = 7 * day;
+		Tokens.Scope scope = TokenPreset.COLLABORATE.scope("Tau");
+		tokens.create("weekly", scope, week / 1000);
+		assertAWeekFromNow(tokens, "weekly");
+
+		// Made eight days ago, as the store would hold it a day after it expired.
+		long then = System.currentTimeMillis() - 8 * day;
+		store().update(owner, Strings.create("weekly"), record -> record
+			.assoc(Fields.CREATED, CVMLong.create(then)).assoc(Fields.EXPIRES, CVMLong.create(then + week)));
+		Issued renewed = assertAWeekFromNow(tokens, "weekly");
+		assertNotNull(store().resolve(store().lookup(renewed.bearer()), now()), "its new key works");
+		assertEquals(scope, Tokens.scope(renewed.token()), "with the tools and caps it had");
+		assertAWeekFromNow(tokens, "weekly"); // and a week again, however often
+
+		tokens.create("standing", scope);
+		assertNull(tokens.newKey("standing").token().expires(), "one made until revoked stays so");
+	}
+
+	@Test
+	void aTokenAcceptedBeyondMcpIsNotMadeAgain() {
+		AString owner = owner("tokens-beyond");
+		Tokens tokens = new Tokens(engine(), owner);
+		TokenAdapter adapter = (TokenAdapter) engine().getAdapter(TokenAdapter.NAME);
+		var access = Maps.of(MCPAdapter.ACCESS_POINT, Maps.of(Fields.TOOLS, Vectors.empty()), "test", Maps.empty());
+		String bearer = adapter.create(RequestContext.of(owner), Strings.create("wide"), access, null, null,
+			adapter.administration()).bearer();
+		assertThrows(IllegalStateException.class, () -> tokens.newKey("wide"));
+		assertEquals(bearer, tokens.key("wide"), "left as it was");
+		assertThrows(NotFoundException.class, () -> tokens.newKey("never-made"));
+	}
+
+	/** Gives token {@code name} a new key, and checks it now lasts a week from then. */
+	private static Issued assertAWeekFromNow(Tokens tokens, String name) {
+		long week = 7L * 24 * 3600 * 1000;
+		long before = System.currentTimeMillis();
+		Issued issued = tokens.newKey(name);
+		long after = System.currentTimeMillis();
+		Long expires = issued.token().expires();
+		assertTrue(expires != null && expires >= before + week && expires <= after + week,
+			() -> name + " lasts a week from its new key, not until " + expires);
+		return issued;
+	}
+
+	@Test
 	void everyPresetMakesATokenWithinTheOwnersAuthority() {
 		AString owner = owner("tokens-presets");
 		Tokens tokens = new Tokens(engine(), owner);
@@ -129,6 +177,11 @@ class TokensTest {
 
 	private static AccessTokens store() {
 		return ((TokenAdapter) engine().getAdapter(TokenAdapter.NAME)).tokens();
+	}
+
+	/** The venue's clock, which judges expiry. */
+	private static long now() {
+		return engine().currentTimestamp().longValue();
 	}
 
 	private static Engine engine() {

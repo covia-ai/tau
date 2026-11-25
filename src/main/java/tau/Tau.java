@@ -1693,7 +1693,7 @@ public final class Tau {
 				: (preset != null) ? preset.label() : "Custom: " + scope.tools().count() + " tools";
 			String issuer = String.valueOf(token.issuer());
 			String madeBy = issuer.equals(owner) ? "you" : issuer.substring(issuer.lastIndexOf(':') + 1);
-			long created = convex.core.lang.RT.ensureLong(token.record().get(covia.api.Fields.CREATED)).longValue();
+			long created = Tokens.created(token);
 			boolean unrestricted = scope != null && covia.lattice.Caps.UNRESTRICTED.equals(scope.caps());
 			rows.add(new tau.ui.settings.AccessPanel.Row(token.name().toString(), shown, created, madeBy,
 				unrestricted, token.expires()));

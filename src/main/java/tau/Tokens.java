@@ -10,6 +10,7 @@ import convex.core.data.AVector;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.Vectors;
+import convex.core.data.prim.CVMLong;
 import convex.core.lang.RT;
 import convex.lattice.ALatticeComponent;
 import covia.adapter.MCPAdapter;
@@ -72,7 +73,7 @@ public final class Tokens {
 	public Issued create(String name, Scope scope, Long lifetimeSeconds) {
 		if (lifetimeSeconds != null && lifetimeSeconds <= 0) throw new IllegalArgumentException("A token's lifetime must be positive");
 		ACell expires = (lifetimeSeconds == null) ? null
-			: convex.core.data.prim.CVMLong.create(System.currentTimeMillis() + lifetimeSeconds * 1000);
+			: CVMLong.create(System.currentTimeMillis() + lifetimeSeconds * 1000);
 		return adapter().create(inPerson(), Strings.create(name), access(scope), scope.caps(), expires,
 			adapter().administration());
 	}
@@ -83,11 +84,39 @@ public final class Tokens {
 	}
 
 	/**
-	 * Gives token {@code name} a new key, which stops the old one working, and
-	 * returns it with the new key. The token keeps its expiry.
+	 * Gives token {@code name} a new key by making it again: the same name,
+	 * tools, caps and lifetime, starting now (one made to last until revoked
+	 * still does), expired or not. The old key stops working. The venue keeps
+	 * a token's making time however it is changed, so making it afresh is what
+	 * keeps its lifetime the same each time. Only a token accepted at the MCP
+	 * endpoint alone, as this class makes them, can be made again here.
+	 *
+	 * @throws IllegalStateException if the token is accepted beyond the MCP endpoint
 	 */
 	public Issued newKey(String name) {
-		return adapter().update(inPerson(), Strings.create(name), null, null, null, true, adapter().administration());
+		AccessToken token = adapter().tokens().token(owner, Strings.create(name));
+		Scope scope = (token.record() == null) ? null : scope(token);
+		if (token.record() != null && scope == null) {
+			throw new IllegalStateException("\"" + name + "\" is accepted beyond the MCP endpoint, so it can't be made again here");
+		}
+		Long lifetime = (scope == null) ? null : lifetimeSeconds(token.expires(), created(token));
+		revoke(name); // refuses a token that does not exist
+		return create(name, scope, lifetime);
+	}
+
+	/** When {@code token} was made, in milliseconds since the epoch. */
+	public static long created(AccessToken token) {
+		return RT.ensureLong(token.record().get(Fields.CREATED)).longValue();
+	}
+
+	/**
+	 * The lifetime a token was given, in whole seconds, from when it
+	 * {@code expires} and was {@code created} (milliseconds); null for one that
+	 * lasts until revoked. The venue stamps the making a moment after the
+	 * expiry is set, so the difference is rounded.
+	 */
+	public static Long lifetimeSeconds(Long expires, long created) {
+		return (expires == null) ? null : Math.round((expires - created) / 1000.0);
 	}
 
 	/** Revokes token {@code name}: its key stops working, on work it already started too. */
