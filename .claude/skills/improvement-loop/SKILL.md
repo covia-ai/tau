@@ -20,7 +20,7 @@ it, finish what is in hand, leave the rest to the backlog and report.
 Names used below (Git Bash):
 
 ```bash
-S=<this skill's directory>/scripts      # mcp.sh covia.sh relaunch.sh smoke.sh
+S=<this skill's directory>/scripts      # mcp.sh covia.sh relaunch.sh smoke.sh main-agent.sh
 W=~/.tau/code/tau          # the loop's worktree, branch improve
 M=$(dirname "$(git -C "$W" rev-parse --path-format=absolute --git-common-dir)")  # main checkout, on develop
 ```
@@ -28,10 +28,9 @@ M=$(dirname "$(git -C "$W" rev-parse --path-format=absolute --git-common-dir)") 
 Work in `$W`. Follow the repository's AGENTS.md there. Never edit `../covia`,
 never push, never release.
 
-Read `chat.agentId` from the active `config.json` (under `TAU_HOME`, or
-`~/.tau` by default), using `Tau` only when the key is absent. Export that id
-as `MAIN_AGENT` before the smoke checks, and use it as the fork's `sourceId`.
-Do not infer the agent id from its display name.
+`$S/main-agent.sh` prints the main agent's id, `chat.agentId` from the
+active `config.json`; use it as the fork's `sourceId`. The smoke checks find
+it themselves. Do not infer the agent id from its display name.
 
 ## 1. Preflight
 
@@ -64,7 +63,10 @@ of the configured main agent with `agent_fork` (`sourceId` as above, `agentId`
 uses, when Covia's version moved, or when the last upgrade is a week old.
 Skip when the change is only tests, docs or build plumbing. Which Covia to
 build on is the run's choice: develop, a release or hotfix tag, or an
-earlier commit, whichever makes sense for Tau. A store-format change is no
+earlier commit, whichever makes sense for Tau, but never one whose venue
+version (`VenueMigrations.VERSION`) is below the running store's
+(`storeVersion` in `v/ops/tau/info`): it could not open the store, and Tau
+refuses to take over with it. A store-format change is no
 bar, but the last good build cannot read a store the new one has migrated:
 once relaunched across one, a failure is fixed forward, never rolled back, so
 say in the report that the store moved.

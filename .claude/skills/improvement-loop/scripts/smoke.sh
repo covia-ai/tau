@@ -23,7 +23,7 @@ since=$(grep -n "ready at" "$home/logs/tau.log" | tail -1 | cut -d: -f1)
 problems=$(tail -n "+${since:-1}" "$home/logs/tau.log" | grep -E "Startup check|ERROR" | grep -v "^\s*at " | head -5)
 [ -z "$problems" ]; check "last start reported no problems" $? "$problems"
 
-for agent in "${MAIN_AGENT:-Tau}" "${LOOP_AGENT:-Improver}"; do
+for agent in "${MAIN_AGENT:-$("$here/main-agent.sh")}" "${LOOP_AGENT:-Improver}"; do
 	args=$(python -I -c 'import json,sys; print(json.dumps({"agentId": sys.argv[1]}))' "$agent")
 	status=$("$here/mcp.sh" agent_info "$args" 2>&1 | python -I -c "import json,sys
 try: print(json.loads(sys.stdin.read()).get('status'))

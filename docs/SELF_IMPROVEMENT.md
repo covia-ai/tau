@@ -41,7 +41,8 @@ work is integrated into local `develop`; failures are rolled back where the
 store remains compatible and reported to the owner.
 
 The run chooses which Covia to build on: develop, a release or an earlier
-commit. It may move the store to a new format; past that point the last good
+commit, but never one older than the store's format. It may move the store
+to a new format; past that point the last good
 build cannot read the store, so a failure is fixed forward rather than rolled
 back.
 
