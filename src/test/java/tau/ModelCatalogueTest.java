@@ -24,7 +24,8 @@ class ModelCatalogueTest {
 			Providers.catalogued(v.resolve(v.did() + ":u:catalogue-reader", "v/models"));
 		assertFalse(catalogued.isEmpty(), "the venue catalogues models");
 		for (Providers.Provider p : Providers.ALL) {
-			if (p.anyModel()) continue;
+			// The echo bot is Covia's test model, outside v/models.
+			if (p.anyModel() || p.id().equals(Providers.ECHO)) continue;
 			List<String> ids = catalogued.getOrDefault(p.id(), List.of());
 			for (Providers.Model m : p.models()) {
 				assertTrue(ids.contains(m.id()), p.id() + "/" + m.id() + " is offered but not catalogued");

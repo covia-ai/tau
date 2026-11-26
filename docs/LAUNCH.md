@@ -30,6 +30,13 @@ Standard output carries MCP messages only; diagnostics go to standard error.
 Closing the client's input ends that connection and leaves the app running.
 See [stdio setup](CONFIGURATION.md#from-a-stdio-mcp-client).
 
+With `--relaunch`, `RelaunchCommand` copies its jar into the run directory,
+starts the copy with `--unlock --takeover` outside the caller's Windows job,
+prints the new process id and exits. It is how a local tool, such as the
+improvement loop, brings in a build or starts Tau without holding any login:
+the new process unlocks with the remembered passphrase and authorises the
+takeover with the venue's key. Without a remembered passphrase it refuses.
+
 Startup follows this order:
 
 1. Read configuration, initialise logging and theme, and check for an existing
@@ -41,10 +48,15 @@ Startup follows this order:
 4. Register Tau's adapters and integrations in Covia's pre-start hook, then run
    the [startup pass](#the-startup-pass), before recovering jobs or starting
    workers. A failed hook closes the partially assembled venue.
-5. Bind the owner's identity, transfer any staged provider keys, import changed
-   filesystem skills and bind the views. Report launch or binding failures
-   where the owner can see them. The main agent is configured on its first
-   message; startup may separately configure gods and request Eir's help.
+5. Bind the owner's identity, move any provider keys an older install left
+   in `keys.enc`, import changed filesystem skills and bind the views. Report
+   launch or binding failures where the owner can see them. The main agent is
+   configured on its first message; startup may separately configure gods and
+   request Eir's help.
+6. Show what the owner should know from this start (a model with no key,
+   problems the startup pass left, a repair or compaction) in one dialog once
+   the window is in front, never in a conversation. A launch into the tray
+   keeps it until the window is opened.
 
 The default listener is authenticated loopback; configuration can override it
 ([SECURITY.md](SECURITY.md#authentication-and-network-exposure)).
@@ -100,7 +112,9 @@ A returning owner can authorise takeover; a new installation cannot, because
 it does not hold the incumbent's seed. After unlock, the newcomer identifies
 the incumbent using a short-lived operator token signed by that seed. It
 requires a matching Tau identity and obtains the process and store details,
-then requests authenticated shutdown.
+including the store's format, then requests authenticated shutdown. If that
+format is newer than the newcomer reads, it refuses and leaves the incumbent
+running, since nothing else could open the store.
 
 These calls deliberately use `v/ops/brightside/info` and
 `v/ops/brightside/shutdown` so an older running instance can be replaced.
@@ -156,12 +170,14 @@ instance serving and are reported by the successor.
 
 The operation returns the successor's process ID when it starts, not when it
 is ready. A caller must verify readiness and the new process through
-`brightside:info`. There is no “newer jar” check; an incompatible store is
-refused at launch ([store versions](#opening-a-store-an-older-build-wrote)).
+`brightside:info`. There is no “newer jar” check; a successor that cannot
+read the store's format refuses the takeover, and this instance runs on.
 
-On Windows the successor attempts to leave the parent's process job, so ending
-a coding session does not end Tau. Restrictive enclosing jobs can prevent
-that; a failure is logged. `WindowsProcess` owns the platform mechanism.
+On Windows the successor leaves the parent's process job, so ending a coding
+session, or the Claude desktop app around it, does not end Tau: it breaks
+away where the job allows, and otherwise WMI starts it, outside every job of
+the parent's, with the user's own environment. Only if both fail does it stay
+in the job, which is logged. `WindowsProcess` owns the platform mechanism.
 
 Relaunch is refused while locked, while an earlier successor remains pending,
 without a desktop app, or from an embedded launcher such as `mvn exec:java`
@@ -216,9 +232,9 @@ So compaction is asked for, from Settings → General → Data store or by Odin
 store. The next launch spends the request before anything else, so a
 compaction cut short is not tried again at every start; `StoreSpace` then
 opens the store, runs Covia's start-up collection on it and launches the venue
-on the result, and the chat opens with a note of what it held before and
-after. A collection that fails before it cuts over leaves the store as it was,
-and the note says so. Where Windows still pins the old file, the venue runs on
+on the result, and the start-up dialog says what it held before and after.
+A collection that fails before it cuts over leaves the store as it was, and
+the dialog says so. Where Windows still pins the old file, the venue runs on
 the compacted one under its own name and Etch swaps them at the next start.
 
 How much disk comes back depends on how much was garbage: Etch grows a file in

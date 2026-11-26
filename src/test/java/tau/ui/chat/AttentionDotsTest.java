@@ -11,12 +11,14 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import tau.SessionHistory;
+import tau.ui.ReadsLook;
 
 /**
  * A conversation with activity since it was last seen open is marked new, in
  * words as well as a dot; nothing is marked on first sight, and opening it
  * clears the mark. Headless.
  */
+@ReadsLook
 class AttentionDotsTest {
 
 	private final ConversationList list = new ConversationList((ConversationList.Listener) Proxy.newProxyInstance(

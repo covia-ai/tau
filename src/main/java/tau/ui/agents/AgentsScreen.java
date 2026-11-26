@@ -138,7 +138,7 @@ public final class AgentsScreen extends JPanel {
 		this.host = host;
 
 		JButton add = Buttons.primary("Add an agent");
-		add.setIcon(Lucide.icon("plus", 16, () -> java.awt.Color.WHITE));
+		add.setIcon(Lucide.icon("plus", 16, add::getForeground));
 		add.setToolTipText("Create an agent here, or bring in one you already use");
 		add.addActionListener(e -> addMenu().show(add, 0, add.getHeight()));
 		ScreenHeader header = new ScreenHeader("Agents");

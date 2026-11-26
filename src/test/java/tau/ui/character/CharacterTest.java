@@ -38,6 +38,7 @@ import tau.ui.components.Tone;
  * the fallback to the τ glyph with no art, sizes below 32 px, reduced and no
  * motion, the catch, and that the never-list screens have no way to show it.
  */
+@tau.ui.ReadsLook
 class CharacterTest {
 
 	@TempDir

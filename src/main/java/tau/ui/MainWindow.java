@@ -3,6 +3,7 @@ package tau.ui;
 import static tau.Tau.APP_NAME;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.awt.BorderLayout;
@@ -31,6 +32,7 @@ import javax.swing.WindowConstants;
 import tau.Tau;
 import tau.EmbeddedVenue;
 import tau.Identity;
+import tau.KeyCheck;
 import tau.SessionHistory;
 import tau.Sizes;
 import tau.StoreSpace;
@@ -71,6 +73,7 @@ import tau.ui.shell.StatusStrip;
 @SuppressWarnings("serial")
 public final class MainWindow extends JFrame {
 
+	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MainWindow.class);
 	private static final String CARD_ONBOARD = "onboarding";
 	private static final String CARD_WELCOME = "welcome";
 	private static final String CARD_CHAT = "chat";
@@ -105,6 +108,7 @@ public final class MainWindow extends JFrame {
 	private int sidebarWidth = SIDEBAR_WIDTH;
 	private final tau.ui.onboarding.OnboardingWizard onboarding;
 	private final WelcomePanel welcomePanel;
+	private final List<String> pendingNotices = new ArrayList<>(); // start-up notices not yet shown
 	private final ChatPanel chatPanel = new ChatPanel();
 	private final ConversationList conversations;
 	private NavBar.Tab activeTab = NavBar.Tab.HOME;
@@ -131,6 +135,8 @@ public final class MainWindow extends JFrame {
 	private tau.ui.agents.AgentsScreen agentsScreen;
 	/** The agents as last reported, for the Agents roster. */
 	private List<tau.model.AgentRef> lastAgents = List.of();
+	/** Bumped by each refresh of the Agents roster, so only the latest one's token read lands. */
+	private long agentsVersion;
 	private String lastDefaultAgent;
 	/** The window opens at about this size the first time; a remembered size always wins. */
 	static final int DEFAULT_WIDTH = 1200, DEFAULT_HEIGHT = 800;
@@ -283,7 +289,7 @@ public final class MainWindow extends JFrame {
 			boolean main = !app.actingAsOperator() && aid.equals(app.mainAgentId());
 			return tau.ui.peers.Colours.agent(owner, aid, main);
 		});
-		agentList.setIdentities(aid -> app.actingPrincipal() != null ? app.actingPrincipal() + "/g/" + aid : null);
+		agentList.setIdentities(this::agentDID);
 		sessionsPane = new JPanel(new BorderLayout());
 		sessionsPane.add(agentList, BorderLayout.WEST);
 		sessionsPane.add(conversations, BorderLayout.CENTER);
@@ -309,6 +315,11 @@ public final class MainWindow extends JFrame {
 			@Override
 			public void setUnrestricted(String agentId, boolean unrestricted) {
 				app.setAgentPermissions(agentId, unrestricted);
+			}
+
+			@Override
+			public void stopAgent(String agentId) {
+				app.stopAgent(agentId);
 			}
 
 			@Override
@@ -507,6 +518,11 @@ public final class MainWindow extends JFrame {
 			}
 
 			@Override
+			public void setHigherContrast(boolean on) {
+				app.setHigherContrast(on);
+			}
+
+			@Override
 			public void openThemesFolder() {
 				app.openThemesFolder();
 			}
@@ -546,6 +562,11 @@ public final class MainWindow extends JFrame {
 			@Override
 			public boolean storeApiKey(String providerId, String apiKey) {
 				return app.storeApiKey(providerId, apiKey);
+			}
+
+			@Override
+			public KeyCheck.Result testModel(String providerId, String modelId, String apiKey) {
+				return app.testModel(providerId, modelId, apiKey);
 			}
 		}, app.currentModelOp());
 		ProfilePanel profilePanel = new ProfilePanel(new ProfilePanel.Host() {
@@ -780,6 +801,11 @@ public final class MainWindow extends JFrame {
 					String did = myIdentity();
 					if (did != null) tau.ui.components.Clipboard.copy(did, getRootPane());
 				}
+
+				@Override
+				public boolean listensLocallyOnly() {
+					return app.config().listensLocallyOnly();
+				}
 			}));
 		settingsScreen.install(SettingsScreen.Tab.TREASURY, treasuryPanel);
 		settingsScreen.install(SettingsScreen.Tab.DEVELOPER, new tau.ui.settings.DeveloperPanel(new DeveloperHost()));
@@ -899,6 +925,11 @@ public final class MainWindow extends JFrame {
 			@Override
 			public void windowIconified(WindowEvent e) {
 				app.onWindowIconified();
+			}
+
+			@Override
+			public void windowActivated(WindowEvent e) {
+				presentNotices();
 			}
 		});
 
@@ -1143,7 +1174,7 @@ public final class MainWindow extends JFrame {
 			app.hasRememberedPassphrase(), app.startAtSignInUnavailable());
 		settingsScreen.general().refreshVoice(app.readRepliesAloud(), app.sendAfterPauseSeconds());
 		settingsScreen.general().refreshStore(app.storeReport());
-		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent());
+		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent(), app.higherContrast());
 		settingsScreen.theme().refreshLayout(railShell, tau.ui.components.Density.compact());
 		settingsScreen.theme().refreshMotion(tau.ui.character.Motion.chosen());
 		settingsScreen.theme().refreshSystem(LAF.SYSTEM.equalsIgnoreCase(app.modeChoice()));
@@ -1159,9 +1190,24 @@ public final class MainWindow extends JFrame {
 		settingsScreen.access().bind();
 	}
 
-	/** Re-read the Theme page after the look changed: the mode's list, its selected theme and the accent. */
+	/** Re-read the Theme page after the look changed: the mode's list, its selected theme, the accent and the contrast. */
 	public void refreshTheme() {
-		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent());
+		updateDetachedUI();
+		settingsScreen.theme().refreshSystem(LAF.SYSTEM.equalsIgnoreCase(app.modeChoice()));
+		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent(), app.higherContrast());
+	}
+
+	/**
+	 * A new look reaches every window's tree, but not the window's parts out of
+	 * it just now: the closed palette, the bar or sidebar not in use, the Inbox
+	 * panel while undocked. They take it too, so they show in it when they return.
+	 */
+	private void updateDetachedUI() {
+		for (JComponent part : java.util.Arrays.asList(palette, navBar, rail, strip, inboxPanel)) {
+			if (part != null && javax.swing.SwingUtilities.getWindowAncestor(part) == null) {
+				javax.swing.SwingUtilities.updateComponentTreeUI(part);
+			}
+		}
 	}
 
 	private void showSettings(SettingsScreen.Tab tab) {
@@ -1291,6 +1337,23 @@ public final class MainWindow extends JFrame {
 		chatPanel.appendSystem(text);
 	}
 
+	/**
+	 * What the owner should know from a start, in one dialog: now if this
+	 * window is in front, else when it next comes to the front (after a launch
+	 * into the tray, say).
+	 */
+	public void showNotices(List<String> notices) {
+		pendingNotices.addAll(notices);
+		if (isActive()) presentNotices();
+	}
+
+	private void presentNotices() {
+		if (pendingNotices.isEmpty()) return;
+		String text = String.join("\n\n", pendingNotices);
+		pendingNotices.clear();
+		Dialogs.info(this, APP_NAME + " started", new SelectableText(text).wrapAt(480));
+	}
+
 	public void startupFailed(Throwable t) {
 		startupFailed(APP_NAME + " couldn't start up. Technical details are in the log folder"
 			+ " (Settings → General → Open logs folder).");
@@ -1415,7 +1478,9 @@ public final class MainWindow extends JFrame {
 		sidebarWidth = railShell ? ShellLayout.LIST : SIDEBAR_WIDTH;
 		if (sessionsPane.isVisible()) split.setDividerLocation(sidebarWidth);
 		sessionsPane.revalidate();
+		SettingsScreen.Tab settingsShown = settingsScreen.isVisible() ? settingsScreen.selected() : null;
 		placeMovedPages(railShell);
+		followMovedPage(railShell, settingsShown);
 		chatCard.removeAll();
 		if (railShell) {
 			JPanel content = new JPanel(new BorderLayout());
@@ -1499,7 +1564,6 @@ public final class MainWindow extends JFrame {
 					markDestination(Destination.VAULT);
 				} else {
 					rail.setSettingsActive();
-					rail.slot().setQuietScreenOpen(false);
 				}
 			}
 		}
@@ -1565,29 +1629,66 @@ public final class MainWindow extends JFrame {
 	 * with a named token.
 	 */
 	private void refreshAgentsScreen() {
-		List<tau.ui.agents.AgentsScreen.Row> rows = new java.util.ArrayList<>();
+		List<tau.model.AgentRef> agents = lastAgents;
 		boolean operator = app.actingAsOperator();
-		for (tau.model.AgentRef a : lastAgents) {
-			String role = operator ? godRole(a.id()) : null;
-			rows.add(new tau.ui.agents.AgentsScreen.Row(a.id(), a.name(),
-				role != null ? tau.ui.agents.AgentsScreen.Kind.VENUE : tau.ui.agents.AgentsScreen.Kind.YOURS,
-				"This computer", "Ready", role != null ? "Looks after this computer" : "Acts for you", role,
-				app.actingPrincipal() != null ? app.actingPrincipal() + "/g/" + a.id() : null));
-		}
-		java.util.Map<String, List<String>> roomsByToken = roomsByToken();
-		agentsScreen.setRoomsByToken(roomsByToken);
-		try {
-			for (AccessPanel.Row t : app.listTokens()) {
-				List<String> posted = roomsByToken.getOrDefault(t.name(), List.of());
-				String grant = (t.unrestricted() ? "Unrestricted" : t.scope())
-					+ (posted.isEmpty() ? "" : " · Posts in rooms: " + String.join(", ", posted));
-				rows.add(new tau.ui.agents.AgentsScreen.Row(t.name(), t.name(),
-					tau.ui.agents.AgentsScreen.Kind.OUTSIDE_MCP, "A local client", "Token active", grant, null));
+		String defaultAgent = lastDefaultAgent;
+		long version = ++agentsVersion;
+		// The agents' states and the tokens are read off the event thread; a later refresh's answer replaces this one's.
+		new javax.swing.SwingWorker<RosterRead, Void>() {
+			@Override
+			protected RosterRead doInBackground() {
+				List<AccessPanel.Row> tokens;
+				try {
+					tokens = app.listTokens();
+				} catch (RuntimeException e) {
+					tokens = List.of(); // no token store yet (still starting): the roster shows the agents alone
+				}
+				return new RosterRead(app.agentStatuses(), tokens);
 			}
-		} catch (RuntimeException e) {
-			// No token store yet (still starting): the roster shows the agents alone.
-		}
-		agentsScreen.setRows(rows, lastDefaultAgent);
+
+			@Override
+			protected void done() {
+				if (version != agentsVersion) return;
+				RosterRead read;
+				try {
+					read = get();
+				} catch (InterruptedException | java.util.concurrent.ExecutionException e) {
+					log.warn("Couldn't read the Agents roster's states: {}", e.toString());
+					read = new RosterRead(java.util.Map.of(), List.of());
+				}
+				List<tau.ui.agents.AgentsScreen.Row> rows = new java.util.ArrayList<>();
+				for (tau.model.AgentRef a : agents) {
+					String role = operator ? godRole(a.id()) : null;
+					rows.add(new tau.ui.agents.AgentsScreen.Row(a.id(), a.name(),
+						role != null ? tau.ui.agents.AgentsScreen.Kind.VENUE : tau.ui.agents.AgentsScreen.Kind.YOURS,
+						"This computer", tau.AgentInfo.state(read.statuses().get(a.id())),
+						role != null ? "Looks after this computer" : "Acts for you", role, agentDID(a.id())));
+				}
+				long now = System.currentTimeMillis();
+				java.util.Map<String, List<String>> roomsByToken = roomsByToken();
+				agentsScreen.setRoomsByToken(roomsByToken);
+				for (AccessPanel.Row t : read.tokens()) {
+					List<String> posted = roomsByToken.getOrDefault(t.name(), List.of());
+					String grant = (t.unrestricted() ? "Unrestricted" : t.scope())
+						+ (posted.isEmpty() ? "" : " · Posts in rooms: " + String.join(", ", posted));
+					rows.add(new tau.ui.agents.AgentsScreen.Row(t.name(), t.name(),
+						tau.ui.agents.AgentsScreen.Kind.OUTSIDE_MCP, "A local client",
+						t.expired(now) ? "Token expired" : "Token active", grant, null));
+				}
+				agentsScreen.setRows(rows, defaultAgent);
+			}
+		}.execute();
+	}
+
+	/** What the Agents roster reads off the event thread: each agent's run state by id, and the named tokens. */
+	private record RosterRead(java.util.Map<String, String> statuses, List<AccessPanel.Row> tokens) {
+	}
+
+	/** The DID of the acting principal's agent {@code aid}, {@code <owner>:g:<id>}, or null before an identity is bound. */
+	private String agentDID(String aid) {
+		String owner = app.actingPrincipal();
+		return (owner == null) ? null
+			: covia.grid.Principals.agentDID(convex.core.data.Strings.create(owner), convex.core.data.Strings.create(aid)).toString();
 	}
 
 	/** For each access token, by name, the rooms it has posted in. */
@@ -1690,6 +1791,24 @@ public final class MainWindow extends JFrame {
 		jobsHolder.revalidate();
 	}
 
+	/**
+	 * The page on screen moved with the layout: show it where it now lives,
+	 * not the empty place it left (the Jobs or Vault screen, or Settings' entry).
+	 * {@code settingsShown}: the Settings section on screen before the move, or null.
+	 */
+	private void followMovedPage(boolean railShell, SettingsScreen.Tab settingsShown) {
+		if (!railShell) {
+			if (jobsHolder.isVisible()) showSettings(SettingsScreen.Tab.JOBS);
+			else if (vaultScreen.isVisible()) showSettings(switch (vaultScreen.selected()) {
+				case SECRETS -> SettingsScreen.Tab.SECRETS;
+				case ACCESS -> SettingsScreen.Tab.ACCESS;
+				case PASSPHRASE -> SettingsScreen.Tab.VAULT;
+			});
+		} else if (settingsShown != null && settingsScreen.isElsewhere(settingsShown)) {
+			showSettings(settingsShown); // its entry opens its own screen now
+		}
+	}
+
 	private void openVault(tau.ui.vault.VaultScreen.Page page) {
 		go(Destination.VAULT);
 		vaultScreen.select(page);
@@ -1729,14 +1848,12 @@ public final class MainWindow extends JFrame {
 			case WAITING -> StatusSlot.State.WAITING;
 			default -> StatusSlot.State.RESTING;
 		};
-		if (waitingCount > 0) state = StatusSlot.State.WAITING;
-		rail.slot().setState(state,
-			waitingCount > 0 ? waitingCount + (waitingCount == 1 ? " decision" : " decisions") : null);
+		rail.slot().setWaiting(waitingCount);
+		rail.slot().setActivity(state);
 	}
 
 	/** The acting identity or the venue changed: the strip, the sidebar's identity menu, and the venue chip follow. */
 	private void identityChanged() {
-		if (inboxScreen != null) inboxScreen.setActing(app.actingPrincipal());
 		if (roomsScreen != null) roomsScreen.follow(rooms());
 		if (rail == null) return;
 		String name = (identity != null) ? (app.actingAsOperator() ? app.operatorName() : identity.name()) : null;
@@ -1770,6 +1887,7 @@ public final class MainWindow extends JFrame {
 	private void applyDensity(boolean compact) {
 		tau.ui.components.Density.set(compact);
 		SwingUtilitiesRepaint.all(this);
+		updateDetachedUI();
 	}
 
 	private String myIdentity() {
@@ -1803,7 +1921,8 @@ public final class MainWindow extends JFrame {
 		return bar;
 	}
 
-	private void saveGeometry() {
+	/** Remembers the window's size, place and maximised state, as it stands. Event thread. */
+	public void saveGeometry() {
 		boolean max = (getExtendedState() & Frame.MAXIMIZED_BOTH) == Frame.MAXIMIZED_BOTH;
 		app.setUiPref("window.maximised", Boolean.toString(max));
 		if (!max) {

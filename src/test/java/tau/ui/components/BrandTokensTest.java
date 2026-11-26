@@ -15,18 +15,17 @@ import java.util.function.Supplier;
 import javax.swing.UIManager;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Isolated;
 
+import tau.ui.ChangesLook;
 import tau.ui.LAF;
 
 /**
  * Tau Dark and Tau Light install their own colour roles over FlatLaf's and
  * Tau's shared defaults, every text role reads at WCAG AA on every
  * ground it sits on, and the pair rules hold: only navy text on amber, never
- * white on Cerulean, Refused never red. Isolated: it swaps the JVM's look and
- * feel.
+ * white on Cerulean, Refused never red.
  */
-@Isolated
+@ChangesLook
 class BrandTokensTest {
 
 	private static final Color NAVY = Color.decode("#1E2642");
@@ -38,7 +37,7 @@ class BrandTokensTest {
 	void tauDarkIsTheDefaultAndHasTheNavyField() {
 		assertEquals(LAF.TAU_DARK, LAF.defaultTheme(LAF.DARK));
 		assertEquals(LAF.TAU_LIGHT, LAF.defaultTheme(LAF.LIGHT));
-		LAF.init(null, LAF.DARK, null, null);
+		LAF.init(null, LAF.DARK, null, false, null);
 		assertEquals(LAF.TAU_DARK, LAF.current().id());
 		assertRgb("#1E2642", Theme.panel());
 		assertRgb("#161C33", Theme.sidebar());
@@ -55,7 +54,7 @@ class BrandTokensTest {
 
 	@Test
 	void tauLightIsTheGoldGroundSystem() {
-		LAF.init(null, LAF.LIGHT, null, null);
+		LAF.init(null, LAF.LIGHT, null, false, null);
 		assertEquals(LAF.TAU_LIGHT, LAF.current().id());
 		assertRgb("#FFFFFF", Theme.panel());
 		assertRgb("#FBEBC9", Theme.sidebar());
@@ -73,7 +72,7 @@ class BrandTokensTest {
 	@Test
 	void everyTextRoleReadsOnEveryGroundInBothTauThemes() {
 		for (String id : List.of(LAF.TAU_DARK, LAF.TAU_LIGHT)) {
-			LAF.init(id, null, null, null);
+			LAF.init(id, null, null, false, null);
 			Map<String, Color> grounds = new LinkedHashMap<>();
 			grounds.put("panel", Theme.panel());
 			grounds.put("sidebar", Theme.sidebar());
@@ -105,7 +104,7 @@ class BrandTokensTest {
 	@Test
 	void pairRulesHold() {
 		for (String id : List.of(LAF.TAU_DARK, LAF.TAU_LIGHT)) {
-			LAF.init(id, null, null, null);
+			LAF.init(id, null, null, false, null);
 			// Only navy text on amber.
 			assertRgb("#F2AE30", Tone.WAITING.tint());
 			assertRgb("#1E2642", Tone.WAITING.text());
@@ -126,7 +125,7 @@ class BrandTokensTest {
 	void everyAccentOnOfferStillGivesAReadablePrimary() {
 		for (String hex : List.of("#6B46C1", "#3B82F6", "#14B8A6", "#3FB950", "#F59E0B", "#EC4899", "#FFFF00")) {
 			for (String id : List.of(LAF.TAU_DARK, LAF.TAU_LIGHT)) {
-				LAF.init(id, null, hex, null);
+				LAF.init(id, null, hex, false, null);
 				assertReads(id + " " + hex, "white on the primary fill", Color.WHITE, Theme.primaryFill());
 			}
 		}
@@ -134,7 +133,7 @@ class BrandTokensTest {
 
 	@Test
 	void otherThemesKeepTheirOwnGroundsButGetEveryRole() {
-		LAF.init(LAF.FLAT_DARK, LAF.DARK, null, null);
+		LAF.init(LAF.FLAT_DARK, LAF.DARK, null, false, null);
 		assertNotEquals(NAVY.getRGB(), Theme.panel().getRGB(), "FlatLaf Dark keeps its own field");
 		List<Supplier<Color>> roles = List.of(Theme::sidebar, Theme::chrome, Theme::card, Theme::warmSurface,
 			Theme::link, Theme::linkUnderline, Theme::countPill, Theme::countPillText, Theme::localNode, Theme::yours);
@@ -147,7 +146,7 @@ class BrandTokensTest {
 
 	@Test
 	void aRefusalMustNameItsCapability() {
-		LAF.init(LAF.TAU_DARK, null, null, null);
+		LAF.init(LAF.TAU_DARK, null, null, false, null);
 		assertEquals("Refused: billing.write", StatusBadge.refused("billing.write").getText());
 		org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> StatusBadge.refused(" "));
 		assertEquals("Waiting on you", StatusBadge.waiting().getText());

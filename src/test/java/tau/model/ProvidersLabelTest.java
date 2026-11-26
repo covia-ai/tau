@@ -18,9 +18,10 @@ class ProvidersLabelTest {
 	}
 
 	@Test
-	void theOfflineModelAndUnknownOnes() {
-		assertEquals("Offline test model", Providers.label("v/test/ops/llm"));
-		assertNull(Providers.marker("v/test/ops/llm"));
+	void theEchoBotAndUnknownOnes() {
+		Providers.Model echo = Providers.byId(Providers.ECHO).model(Providers.ECHO);
+		assertEquals(echo.label(), Providers.label(Providers.ECHO_OPERATION));
+		assertNull(Providers.marker(Providers.ECHO_OPERATION));
 		assertEquals("v/ops/custom", Providers.label("v/ops/custom"));
 		assertEquals("No model", Providers.label(null));
 	}

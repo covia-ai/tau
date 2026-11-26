@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 
 import tau.JobList;
+import tau.ui.ChangesLook;
 import tau.ui.LAF;
-import tau.ui.components.StatusBadge;
 import tau.ui.components.Theme;
 import tau.ui.components.Tone;
 import convex.core.data.Blob;
@@ -26,7 +26,7 @@ import covia.grid.Status;
  * stops. Headless. Isolated: it swaps the JVM's look and feel, which every
  * class reads, between the dark and light themes.
  */
-@Isolated
+@ChangesLook
 class TimedOutStatusTest {
 
 	private static JobList.Job job(String status) {
@@ -59,17 +59,15 @@ class TimedOutStatusTest {
 	@Test
 	void itLooksCalmNeverLikeAnError() {
 		for (String theme : new String[] { LAF.TAU_DARK, LAF.TAU_LIGHT }) {
-			LAF.init(theme, null, null, null);
+			LAF.init(theme, null, null, false, null);
 			JobList.Job t = job("TIMEOUT");
 			assertEquals("Timed out", JobLooks.status(t));
 			assertEquals("clock", JobLooks.icon(t));
 			assertEquals(Tone.TIMED_OUT, JobLooks.tone(t));
 			assertNotEquals(Theme.error(), Tone.TIMED_OUT.colour(), theme);
 			assertNotEquals(Theme.error(), Tone.TIMED_OUT.text(), theme);
-			StatusBadge b = StatusBadge.timedOut();
-			assertEquals("Timed out", b.getText());
 			assertEquals(Tone.ERROR, JobLooks.tone(job("FAILED")), "a failure keeps its colour");
 		}
-		LAF.init(LAF.TAU_DARK, null, null, null);
+		LAF.init(LAF.TAU_DARK, null, null, false, null);
 	}
 }

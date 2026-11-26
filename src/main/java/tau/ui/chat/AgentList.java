@@ -32,8 +32,8 @@ import tau.ui.peers.Colours;
  * The agents pane (left of the sessions list on the Sessions screen): one row per
  * agent the user owns — e.g. Tau and Bob — each with its own conversations.
  * Selecting one switches the chat (and the sessions list) to that agent; a
- * right-click offers its Agent view and deletion. The separate button beneath
- * the scrollable list creates another agent.
+ * mouseover shows its id; a right-click offers its Agent view and deletion.
+ * The separate button beneath the scrollable list creates another agent.
  *
  * <p>Dumb like {@link ConversationList}: it renders what it's given and reports
  * clicks through a {@link Listener}; {@code Tau} owns switching/creating.
@@ -82,7 +82,6 @@ public final class AgentList extends JPanel {
 
 		JLabel header = Labels.small("Agents");
 		add = Buttons.tinted("Agent", Lucide.icon("plus", 16, Theme::accentText));
-		add.setToolTipText("New agent");
 		add.setToolTipText("Create a new agent");
 		add.addActionListener(e -> listener.onNewAgent());
 
@@ -170,9 +169,16 @@ public final class AgentList extends JPanel {
 		row.setAlignmentX(LEFT_ALIGNMENT);
 		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
 		row.setSelected(agent.id().equals(selectedId));
+		row.setToolTipText(details(agent));
 		row.onPress(() -> listener.onSelectAgent(agent.id()));
 		row.onPopup(() -> menuFor(agent));
 		return row;
+	}
+
+	/** A row's mouseover: the agent's id, which never changes whatever name it shows. */
+	private String details(AgentRef agent) {
+		String id = "Agent id: " + agent.id();
+		return agent.id().equals(defaultId) ? id + " (your standard assistant)" : id;
 	}
 
 	/** The right-click menu for one agent. */

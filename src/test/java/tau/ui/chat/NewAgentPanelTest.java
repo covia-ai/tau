@@ -7,8 +7,10 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import tau.model.AgentTemplate;
+import tau.ui.ReadsLook;
 
 /** The instructions follow the name and template until the owner edits them, and are what the agent is given. */
+@ReadsLook
 class NewAgentPanelTest {
 
 	@Test

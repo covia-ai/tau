@@ -24,6 +24,7 @@ import tau.peers.ExamplesSource;
 import tau.peers.MapSettingsStore;
 import tau.peers.PeerGraph;
 import tau.peers.SamplePeerSource;
+import tau.ui.ChangesLook;
 import tau.ui.LAF;
 
 /**
@@ -32,7 +33,7 @@ import tau.ui.LAF;
  * Headless. Isolated: it swaps the JVM's look and feel, which every class
  * reads, between the dark and light themes.
  */
-@Isolated
+@ChangesLook
 class PeersPhaseTest {
 
 	@Test
@@ -69,18 +70,18 @@ class PeersPhaseTest {
 
 	@Test
 	void theMapsInkFollowsTheTheme() {
-		LAF.init(LAF.TAU_DARK, null, null, null);
+		LAF.init(LAF.TAU_DARK, null, null, false, null);
 		Color dark = SolarMap.ink();
-		LAF.init(LAF.TAU_LIGHT, null, null, null);
+		LAF.init(LAF.TAU_LIGHT, null, null, false, null);
 		Color light = SolarMap.ink();
 		assertEquals(Color.WHITE, dark);
 		assertNotEquals(dark, light);
-		LAF.init(LAF.TAU_DARK, null, null, null);
+		LAF.init(LAF.TAU_DARK, null, null, false, null);
 	}
 
 	@Test
 	void theHeaderCarriesWordsOnAWideWindowOnly() throws Exception {
-		LAF.init(LAF.TAU_DARK, null, null, null);
+		LAF.init(LAF.TAU_DARK, null, null, false, null);
 		PeersScreen[] s = new PeersScreen[1];
 		SwingUtilities.invokeAndWait(() -> {
 			s[0] = new PeersScreen(ExamplesSource.with(new ExamplesSource(new SamplePeerSource(), true)),

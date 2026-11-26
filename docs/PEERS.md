@@ -5,7 +5,9 @@ holds about other nodes, where that comes from, and how the map's own settings
 are kept apart from it. The model is `tau.peers`; the map and its
 screen are `ui/peers`. The home venue and its agents are live; remote nodes
 are samples. Local service and P2P sources remain proposed. The networked product it serves is in
-[NETWORK.md](NETWORK.md).
+[NETWORK.md](NETWORK.md). *Settings → Peers* opens the map, copies the owner's
+identity for someone who wants to reach them, and says whether the venue
+listens beyond this computer; finding and following others it marks as coming.
 
 - **Two structures, never mixed.** *Peer data* is what is known about other
   nodes, as a source reports it. *Map settings* are how this installation

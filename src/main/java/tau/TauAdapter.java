@@ -107,6 +107,7 @@ public class TauAdapter extends AAdapter {
 	private static final AString K_STORE = Strings.intern("store");
 	private static final AString K_PID = Strings.intern("pid");
 	private static final AString K_STARTED = Strings.intern("started");
+	private static final AString K_STORE_VERSION = Strings.intern("storeVersion");
 	private static final AString K_JAR = Strings.intern("jar");
 	private static final AString K_ACCEPTED = Strings.intern("accepted");
 	private static final AString K_NAME = Strings.intern("name");
@@ -253,7 +254,7 @@ public class TauAdapter extends AAdapter {
 	/** Where the chosen model sits in this adapter's state: one for the installation. */
 	static final String MODEL = "model";
 
-	/** The model operation chosen in onboarding or Settings → Model, or null if none was. */
+	/** The model operation chosen in Settings → Models, or null if none was. */
 	public String model() {
 		ACell model = adapterState().read(MODEL);
 		return (model instanceof AString s && !s.isEmpty()) ? s.toString() : null;
@@ -452,7 +453,7 @@ public class TauAdapter extends AAdapter {
 		}
 		if ("jobs".equals(op)) {
 			try {
-				return CompletableFuture.completedFuture(new JobsOperation(engine).invoke(ctx, input));
+				return CompletableFuture.completedFuture(new JobsOperation(engine, java.time.ZoneId.systemDefault()).invoke(ctx, input));
 			} catch (Exception e) {
 				return CompletableFuture.failedFuture(e);
 			}
@@ -496,7 +497,7 @@ public class TauAdapter extends AAdapter {
 				text.append('\n');
 			}
 			appendProcessingContext(text, modelOperation);
-			appendClock(text);
+			appendClock(text, java.time.ZonedDateTime.now());
 			text.append("- ").append(REQUEST_PROVENANCE);
 			text.append("- Conversation history, memory and skills are stored in the owner's local encrypted " + APP_NAME + " vault. Do not imply that model processing is local unless the configured model route is local.\n")
 				.append("- Follow the configured assistant name, role and working style. Keep Covia and venue plumbing out of everyday conversation unless the owner asks how " + APP_NAME + " works.\n")
@@ -519,8 +520,7 @@ public class TauAdapter extends AAdapter {
 	 * invisible. Assembled when the context is built, so it dates the session
 	 * rather than the turn.
 	 */
-	static void appendClock(StringBuilder text) {
-		java.time.ZonedDateTime now = java.time.ZonedDateTime.now();
+	static void appendClock(StringBuilder text, java.time.ZonedDateTime now) {
 		text.append("- Today is ").append(now.toLocalDate()).append(" (").append(now.getZone().getId())
 			.append("). Timestamp ").append(now.toInstant().toEpochMilli()).append(".\n");
 	}
@@ -1156,6 +1156,8 @@ public class TauAdapter extends AAdapter {
 			// it. A newcomer taking over waits on both (Takeover); when the process
 			// started shows a caller that a relaunch happened.
 			K_STORE, storeName(),
+			// The store's format, so a newcomer that cannot read it leaves this one running.
+			K_STORE_VERSION, CVMLong.create(engine.getVenueState().version()),
 			K_PID, CVMLong.create(ProcessHandle.current().pid()),
 			K_STARTED, ProcessHandle.current().info().startInstant().map(Object::toString).orElse(null));
 	}

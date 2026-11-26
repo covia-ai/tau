@@ -57,7 +57,18 @@ public final class AccessPanel extends SettingsPage {
 
 	/** One of the owner's tokens, as the list shows it; {@code unrestricted} when it can do all the owner can. */
 	/** A named token as listed; {@code expires} is in milliseconds since the epoch, or null for until revoked. */
-	public record Row(String name, String scope, long created, String madeBy, boolean unrestricted, Long expires) {}
+	public record Row(String name, String scope, long created, String madeBy, boolean unrestricted, Long expires) {
+		/** Whether it has stopped working by {@code now}, as the venue judges a key ({@code expires} is when it stops). */
+		public boolean expired(long now) {
+			return expires != null && now >= expires;
+		}
+
+		/** The lifetime it was made with, in milliseconds, which a new key starts again; null for until revoked. */
+		public Long lifetime() {
+			Long seconds = Tokens.lifetimeSeconds(expires, created);
+			return (seconds == null) ? null : seconds * 1000;
+		}
+	}
 
 	/** What the page can do; calls that may fail throw with a message fit to show. */
 	public interface Host {
@@ -79,11 +90,10 @@ public final class AccessPanel extends SettingsPage {
 		/** The owner's chat agent, which the presets name. */
 		String chatAgentId();
 
-		/** Makes a named token and returns its key. */
 		/** Makes a named token lasting {@code lifetimeSeconds}, or until revoked when null; returns its key. */
 		String createToken(String name, Tokens.Scope scope, Long lifetimeSeconds) throws Exception;
 
-		/** Gives a token a new key and returns it. */
+		/** Gives a token a new key, starting its lifetime again, and returns the key. */
 		String newTokenKey(String name) throws Exception;
 
 		void revokeToken(String name) throws Exception;
@@ -223,7 +233,7 @@ public final class AccessPanel extends SettingsPage {
 			addField("Name", "Lower-case letters, digits, and hyphens, such as claude-code: the name its turns show", name);
 			addField("Access", "What the token's tools are, and what they may reach", preset);
 			addSpan(presetHint);
-			addField("Expires in", "How long the token works before you make a new one; revoking ends it sooner", tokenExpiry);
+			addField("Expires in", "How long the token works; a new key starts it again, and revoking ends it sooner", tokenExpiry);
 		});
 		JScrollPane toolsScroll = new JScrollPane(tools);
 		JScrollPane capsScroll = new JScrollPane(caps);
@@ -583,7 +593,7 @@ public final class AccessPanel extends SettingsPage {
 
 	private void addRow(Row row) {
 		JLabel label = Styles.classes(new JLabel(row.name()), Styles.MONOSPACED);
-		boolean expired = row.expires() != null && row.expires() <= System.currentTimeMillis();
+		boolean expired = row.expired(System.currentTimeMillis());
 		JLabel details = Labels.small(row.scope() + " · made " + Times.absolute(row.created()) + " by " + row.madeBy()
 			+ " · " + (row.expires() == null ? "until revoked"
 				: (expired ? "expired " : "expires ") + Times.absolute(row.expires())));
@@ -596,8 +606,11 @@ public final class AccessPanel extends SettingsPage {
 		EyeButton eye = new EyeButton("Show the key (behind your passphrase)", "Hide the key", 16);
 		JButton copyKey = Buttons.icon(Lucide.icon("copy", 16, Theme::muted),
 			"Copy the key (behind your passphrase while it is hidden)");
+		// A new key makes the token afresh: its lifetime starts again, expired or not.
+		String lasts = (row.lifetime() == null) ? "lasting until you revoke it"
+			: "working for " + Times.elapsed(row.lifetime()) + " from now";
 		JButton renew = Buttons.small("New key");
-		renew.setToolTipText("Give this token a new key; the old one stops working");
+		renew.setToolTipText("A new key for this token, " + lasts + ". The old key, and work it started, stop at once, so the tool needs the new one.");
 		JButton revoke = Buttons.small("Revoke");
 		revoke.setToolTipText("Stop this token working, on work it already started too");
 		final String[] shown = { null };
@@ -628,10 +641,10 @@ public final class AccessPanel extends SettingsPage {
 			});
 		});
 		renew.addActionListener(e -> {
-			if (!Dialogs.confirmDanger(this, "New key", "Give \"" + row.name() + "\" a new key? "
-				+ "The tool using it stops working until you paste the new key into it.")) return;
+			if (!Dialogs.confirmDanger(this, "New key", "Give \"" + row.name() + "\" a new key, " + lasts + "? "
+				+ "The old key stops working at once, and so does work it started: paste the new one into the tool using it.")) return;
 			act(() -> host.newTokenKey(row.name()), k -> showIssued(k,
-				"New key for " + row.name() + ". Paste it into the tool in place of the old one."));
+				"New key for " + row.name() + ", " + lasts + ". Paste it into the tool in place of the old one."));
 		});
 		revoke.addActionListener(e -> {
 			if (!Dialogs.confirmDanger(this, "Revoke token", "Revoke \"" + row.name() + "\"? "

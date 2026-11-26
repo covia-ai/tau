@@ -15,6 +15,7 @@ import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 
 import tau.JobList;
+import tau.ui.ChangesLook;
 import tau.ui.LAF;
 import convex.core.data.Blob;
 import convex.core.data.Maps;
@@ -25,10 +26,11 @@ import covia.api.Fields;
  * bar buttons that are unavailable, and say why, until a job that can take
  * them is selected. Headless.
  */
+@ChangesLook
 class JobsBarTest {
 
 	private static JobsScreen screen() throws Exception {
-		LAF.init(LAF.TAU_DARK, null, null, null);
+		LAF.init(LAF.TAU_DARK, null, null, false, null);
 		JobsScreen[] s = new JobsScreen[1];
 		SwingUtilities.invokeAndWait(() -> s[0] = new JobsScreen(new JobsScreen.Host() {
 			@Override

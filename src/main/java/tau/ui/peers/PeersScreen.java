@@ -453,7 +453,7 @@ public final class PeersScreen extends JPanel {
 			what = Node.MAIN.equals(n.relation()) ? "Main assistant" : "Agent";
 		} else {
 			String k = (n.kind() == null) ? "Body" : n.kind();
-			what = k.substring(0, 1).toUpperCase() + k.substring(1).replace('-', ' ');
+			what = k.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + k.substring(1).replace('-', ' ');
 		}
 		return (owner == null) ? what : what + " · " + SolarMap.labelOf(owner);
 	}

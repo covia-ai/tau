@@ -78,6 +78,7 @@ public final class Tau {
 	private static final String PREF_THEME_DARK = "ui.theme.dark";
 	private static final String PREF_THEME_LIGHT = "ui.theme.light";
 	private static final String PREF_ACCENT = "ui.accent";
+	private static final String PREF_HIGHER_CONTRAST = "ui.higherContrast";
 	/**
 	 * Preference keys for Settings → General → Startup: take over a Tau
 	 * found running without asking, and unlock at launch with the remembered
@@ -161,6 +162,7 @@ public final class Tau {
 	/** A recovery withdrew the tool token before the store was open; recorded there once it is. */
 	private volatile boolean toolTokenWithdrawn;
 	private volatile String llmOverride; // the chosen model op, kept in Tau's adapter state
+	private volatile boolean chooseModel; // first run: open Settings → Models once the chat is up
 
 	private enum Mode {
 		ONBOARD, UNLOCK
@@ -246,7 +248,7 @@ public final class Tau {
 			log.info("Configuration loaded from {}", path);
 		} catch (Exception e) {
 			log.error("Could not load configuration from {}", path, e);
-			LAF.init(null, AppConfig.DEFAULT_THEME, null, null);
+			LAF.init(null, AppConfig.DEFAULT_THEME, null, false, null);
 			JOptionPane.showMessageDialog(null,
 				"Could not load the configuration file\n" + path + "\n\n" + e.getMessage(),
 				APP_NAME, JOptionPane.ERROR_MESSAGE);
@@ -258,7 +260,8 @@ public final class Tau {
 		// The look chosen in Settings → Theme (remembered in prefs) wins over config.json's light/dark.
 		Prefs prefs = Prefs.load(config.home());
 		String mode = LAF.effective(prefs.getString(PREF_MODE, config.theme()));
-		LAF.init(prefs.getString(themeKey(mode), null), mode, prefs.getString(PREF_ACCENT, null), themesDir(config));
+		LAF.init(prefs.getString(themeKey(mode), null), mode, prefs.getString(PREF_ACCENT, null),
+			prefs.getBool(PREF_HIGHER_CONTRAST, false), themesDir(config));
 		new Tau(config, path, prefs).start(launch);
 	}
 
@@ -591,29 +594,25 @@ public final class Tau {
 			startToolTokens();
 			if (prefs.getBool(PREF_AT_SIGN_IN, false)) applyStartAtSignIn(); // now that this build has started, name it
 			if (clearToShow != null) SwingUtilities.invokeLater(clearToShow);
+			boolean firstRun = chooseModel; // read before the chat bind clears it
 			if (bound != null) startChatOnce(v, bound);
-			if (bound != null) {
-				// The same guard Settings → Model applies: a model whose provider has
-				// no key would otherwise fail the first message with a raw error.
+			// What the owner should know from this start, in one dialog once the
+			// window is in front: never written into a conversation.
+			List<String> notices = new ArrayList<>();
+			if (bound != null && !firstRun) {
+				// A model whose provider has no key fails every message until one is
+				// added; on first run Settings → Models is about to open instead.
 				String op = currentModelOp();
 				Providers.Provider keyless = keylessProvider(op, this::keyResolves);
 				if (keyless != null) {
-					String notice = "No " + keyless.label() + " API key is set, so " + op
-						+ " can't answer yet. Add the key in Settings → Models and it takes effect straight away.";
-					SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
+					notices.add("No " + keyless.label() + " API key is set, so " + op
+						+ " can't answer yet. Add the key in Settings → Models and it takes effect straight away.");
 				}
 			}
-			for (String problem : v.startup().problems()) {
-				SwingUtilities.invokeLater(() -> window.showSystemMessage(problem));
-			}
-			if (repaired != null) {
-				String notice = repaired.notice();
-				SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
-			}
-			if (compacted != null) {
-				String notice = compacted.notice();
-				SwingUtilities.invokeLater(() -> window.showSystemMessage(notice));
-			}
+			notices.addAll(v.startup().problems());
+			if (repaired != null) notices.add(repaired.notice());
+			if (compacted != null) notices.add(compacted.notice());
+			if (!notices.isEmpty()) SwingUtilities.invokeLater(() -> window.showNotices(notices));
 		} catch (Throwable t) {
 			log.error("Venue failed to start", t);
 			closeVenue();
@@ -784,8 +783,8 @@ public final class Tau {
 
 	/**
 	 * First-run onboarding is done: derive the vault, store the encrypted seed,
-	 * remember the name and model, and bring up the encrypted venue. Called on the
-	 * event thread; the work runs off it.
+	 * remember the name, and bring up the encrypted venue, then Settings → Models
+	 * for the model and its key. Called on the event thread; the work runs off it.
 	 */
 	public void onOnboardingComplete(OnboardingWizard.Setup setup) {
 		Thread t = new Thread(() -> {
@@ -800,16 +799,10 @@ public final class Tau {
 				identity = Identity.of(setup.name());
 				persistIdentity(identity);
 
-				// The API key is staged encrypted in the vault only until the venue
-				// is up; onVenueReady moves it into the encrypted secret stores.
-				if (setup.apiKey() != null && setup.providerId() != null) {
-					String secretName = Providers.byId(setup.providerId()).secretName();
-					if (secretName != null) v.storeApiKey(secretName, setup.apiKey());
-				}
+				// The model and its key are chosen with the venue up, where Test can
+				// try them: Settings → Models opens once the chat is.
+				chooseModel = true;
 				AMap<AString, ACell> venueConfig = Vault.secure(config.venueConfig(), setup.seedHex());
-				llmOverride = (setup.providerId() == null)
-					? AppConfig.ECHO_LLM_OPERATION
-					: Providers.modelOp(setup.providerId(), setup.modelId());
 
 				// The wizard is already on screen in the main window; nothing to reveal.
 				launchVenueWith(venueConfig, null);
@@ -1082,7 +1075,7 @@ public final class Tau {
 		if (keyless != null) {
 			// Saved, but no key resolves for this provider yet — switching the
 			// running agent to it now would fail at the model call. A key added
-			// in Settings → Model takes effect immediately, so no restart needed.
+			// in Settings → Models takes effect immediately, so no restart needed.
 			String label = keyless.label();
 			SwingUtilities.invokeLater(() -> window.showSystemMessage(
 				"Saved. Add the " + label + " API key (Settings → Models) and it takes effect straight away."));
@@ -1153,6 +1146,29 @@ public final class Tau {
 			log.warn("Could not store the API key", e);
 			return false;
 		}
+	}
+
+	/**
+	 * Settings → Models's Test: one short request to the chosen model as the
+	 * owner, with {@code apiKey} if typed, else the owner's stored key. No key
+	 * or setting is saved. A provider that takes no key is never sent one: a
+	 * key left in the field from another provider stays here. Blocks: call off
+	 * the event thread.
+	 */
+	public KeyCheck.Result testModel(String providerId, String modelId, String apiKey) {
+		EmbeddedVenue v = venue;
+		Identity id = identity;
+		if (v == null || id == null) {
+			return new KeyCheck.Result(KeyCheck.Outcome.UNAVAILABLE, APP_NAME + " is still starting", 0);
+		}
+		return new KeyCheck(ownerClient(v, id)).check(Providers.modelOp(providerId, modelId),
+			keyToSend(providerId, apiKey));
+	}
+
+	/** The typed key, for a provider that takes one; null for any other. */
+	static String keyToSend(String providerId, String apiKey) {
+		Providers.Provider p = Providers.byId(providerId);
+		return (p != null && p.secretName() != null) ? apiKey : null;
 	}
 
 	// ------------------------------------------------------------------
@@ -1697,7 +1713,7 @@ public final class Tau {
 				: (preset != null) ? preset.label() : "Custom: " + scope.tools().count() + " tools";
 			String issuer = String.valueOf(token.issuer());
 			String madeBy = issuer.equals(owner) ? "you" : issuer.substring(issuer.lastIndexOf(':') + 1);
-			long created = convex.core.lang.RT.ensureLong(token.record().get(covia.api.Fields.CREATED)).longValue();
+			long created = Tokens.created(token);
 			boolean unrestricted = scope != null && covia.lattice.Caps.UNRESTRICTED.equals(scope.caps());
 			rows.add(new tau.ui.settings.AccessPanel.Row(token.name().toString(), shown, created, madeBy,
 				unrestricted, token.expires()));
@@ -1746,8 +1762,8 @@ public final class Tau {
 
 
 	/**
-	 * The chosen model, kept in Tau's adapter state: onboarding's choice
-	 * is saved there on its first launch, and a later launch reads it back.
+	 * The chosen model, kept in Tau's adapter state: each launch reads it
+	 * back, and a choice made before a restart is saved there.
 	 */
 	private void adoptModel(EmbeddedVenue v) {
 		TauAdapter app = v.tau();
@@ -1781,11 +1797,15 @@ public final class Tau {
 		}
 	}
 
-	/** The chat config with the chosen model applied, else config.json's. */
+	/**
+	 * The owner's standard assistant's chat config: the chosen model, else
+	 * config.json's, and its system prompt under the name the app shows for it.
+	 */
 	private AppConfig.Chat effectiveChat() {
 		AppConfig.Chat c = config.chat();
-		if (llmOverride == null || llmOverride.equals(c.llmOperation())) return c;
-		return new AppConfig.Chat(c.agentId(), c.operation(), llmOverride, c.systemPrompt());
+		String llm = (llmOverride != null) ? llmOverride : c.llmOperation();
+		return new AppConfig.Chat(c.agentId(), c.operation(), llm,
+			config.systemPromptFor(assistantName(venue, identity, c.agentId())));
 	}
 
 	/**
@@ -1803,6 +1823,7 @@ public final class Tau {
 		// Who is it? A Tau holding our identity answers brightside:info
 		// to our key and names its store and process; anything else is refused.
 		Takeover.Instance other = Takeover.identify(port, venueSeedHex);
+		other.requireReadableBy(covia.venue.migration.VenueMigrations.VERSION);
 		log.info("Taking over from {} on port {}", other.describe(), port);
 		Path theirs = other.storePath();
 		if (theirs != null && store != null && !theirs.equals(store)) {
@@ -2082,6 +2103,13 @@ public final class Tau {
 		return (v == null || id == null) ? null : actingDID(id, v);
 	}
 
+	/** The acting principal's agents' run states by id, as Covia observes them; empty before the venue is up. */
+	public Map<String, String> agentStatuses() {
+		EmbeddedVenue v = venue;
+		String did = actingPrincipal();
+		return (v == null || did == null) ? Map.of() : v.agentStatuses(did);
+	}
+
 	/** The named user's main assistant: the chat agent the configuration names. */
 	public String mainAgentId() {
 		return config.chat().agentId();
@@ -2212,7 +2240,13 @@ public final class Tau {
 			agentId = aid;
 			userDID = did;
 			switch (bind) {
-				case FIRST -> window.showChat(v, session, id, turns);
+				case FIRST -> {
+					window.showChat(v, session, id, turns);
+					if (chooseModel) {
+						chooseModel = false;
+						window.showModelSettings();
+					}
+				}
 				case NAME_CHANGE -> window.userChanged(session, id, turns);
 				case AGENT_SWITCH -> window.showAgentChat(session, turns, displayNameFor(aid));
 				case PRINCIPAL_SWITCH -> {
@@ -2408,6 +2442,38 @@ public final class Tau {
 	}
 
 	/**
+	 * Stops what the agent is doing now, from its Agent tab: unlike ✕ on a
+	 * reply, which only stops waiting, this ends the agent's running step.
+	 */
+	public void stopAgent(String agentId) {
+		Venue c = client;
+		if (c == null) return;
+		String name = displayNameFor(agentId);
+		Thread t = new Thread(() -> {
+			String note;
+			try {
+				stopAgent(c, agentId);
+				log.info("Stopped agent '{}' at the owner's request", agentId);
+				// Covia leaves the chat of a stopped turn unsettled (covia-ai/covia#728),
+				// so the chat window stops waiting for it here.
+				ChatSession s = chat;
+				if (s != null && agentId.equals(s.config().agentId())) s.cancel();
+				note = "Stopped " + name + ". It is free for the next message.";
+			} catch (Exception e) {
+				log.warn("Could not stop agent {}: {}", agentId, e.toString());
+				note = "Couldn't stop " + name + " (" + rootMessage(e) + ").";
+			}
+			String text = note;
+			SwingUtilities.invokeLater(() -> {
+				window.agentChanged();
+				window.showSystemMessage(text);
+			});
+		}, "tau-agent-stop");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/**
 	 * Switches the main assistant between the scoped assistant set and
 	 * Unrestricted, on the owner's word from its page: {@code agent:update}
 	 * of its caps, as the owner. Other agents are left as they are.
@@ -2449,6 +2515,16 @@ public final class Tau {
 	static void setAgentInstructions(Venue client, String agentId, String instructions) throws Exception {
 		invokeOp(client, "v/ops/agent/update",
 			Maps.of("agentId", agentId, "config", Maps.of("systemPrompt", instructions)));
+	}
+
+	/**
+	 * Stops what an agent is doing now: {@code agent:suspend} ends its running
+	 * step, a tool call that will not return among them, and
+	 * {@code agent:resume} leaves it free for the next message.
+	 */
+	static void stopAgent(Venue client, String agentId) throws Exception {
+		invokeOp(client, "v/ops/agent/suspend", Maps.of("agentId", agentId, "reason", "Stopped by the owner"));
+		invokeOp(client, "v/ops/agent/resume", Maps.of("agentId", agentId));
 	}
 
 	/** Removes an agent's record ({@code agent:delete} with {@code remove}), not merely marking it terminated. */
@@ -2504,7 +2580,7 @@ public final class Tau {
 				};
 			} catch (Exception e) {
 				log.warn("Could not {} job {}: {}", control, job.id(), e.toString());
-				note = "Couldn't " + control.name().toLowerCase() + " it: " + rootMessage(e);
+				note = "Couldn't " + control.name().toLowerCase(java.util.Locale.ROOT) + " it: " + rootMessage(e);
 				error = true;
 			}
 			String shown = note;
@@ -2584,8 +2660,8 @@ public final class Tau {
 		if (aid.equals(config.chat().agentId())) {
 			return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), config.systemPromptFor(displayNameFor(aid)));
 		}
-		String persona = "You are " + displayNameFor(aid) + ", your own agent, running on this computer under an "
-			+ "identity you own. Be genuinely helpful, warm, and concise.";
+		String persona = "You are " + displayNameFor(aid) + ", a private personal AI assistant running on the user's "
+			+ "own computer. Be genuinely helpful, warm, and concise.";
 		return new AppConfig.Chat(aid, base.operation(), base.llmOperation(), persona);
 	}
 
@@ -2631,6 +2707,17 @@ public final class Tau {
 	private String displayNameFor(EmbeddedVenue v, String did, String agentId) {
 		ACell record = (v != null && did != null && agentId != null) ? v.agentRecord(did, agentId) : null;
 		return AgentRef.displayName(record, agentId, standardAssistantId());
+	}
+
+	/**
+	 * The owner's standard assistant's name as the app shows it: its record's
+	 * {@code config.name} under the owner's own DID, else the app's name. Read
+	 * from the identity, so it holds before a chat is bound and while acting
+	 * as the operator.
+	 */
+	static String assistantName(EmbeddedVenue v, Identity id, String agentId) {
+		ACell record = (v != null && id != null) ? v.agentRecord(id.userDID(v.did()), agentId) : null;
+		return AgentRef.displayName(record, agentId, agentId);
 	}
 
 	/** The owner's standard assistant, shown by the app's name until it is given one; null while acting as the operator. */
@@ -3043,8 +3130,23 @@ public final class Tau {
 	/** Switches to light or dark — each mode keeps its own chosen theme — and remembers it. */
 	public void setMode(String mode) {
 		prefs.setString(PREF_MODE, mode);
-		String shown = LAF.effective(mode);
-		applyLook(prefs.getString(themeKey(shown), LAF.defaultTheme(shown)), accent());
+		if (!LAF.SYSTEM.equalsIgnoreCase(mode)) {
+			showMode(mode);
+			return;
+		}
+		// Asking the system runs a short command, so it is asked off the event thread; a
+		// mode chosen meanwhile, on the event thread, wins.
+		Thread.ofVirtual().name("tau-system-appearance").start(() -> {
+			String shown = LAF.effective(mode);
+			SwingUtilities.invokeLater(() -> {
+				if (LAF.SYSTEM.equalsIgnoreCase(prefs.getString(PREF_MODE, null))) showMode(shown);
+			});
+		});
+	}
+
+	/** Switches every window to {@code mode}'s chosen theme ({@link LAF#LIGHT} or {@link LAF#DARK}). */
+	private void showMode(String mode) {
+		applyLook(prefs.getString(themeKey(mode), LAF.defaultTheme(mode)), accent());
 	}
 
 	/** Remembers the theme as its mode's choice, switches to that mode, and switches every window to it. */
@@ -3058,10 +3160,22 @@ public final class Tau {
 		applyLook(id, accent());
 	}
 
-	/** Switches every window to the theme and accent, then lets the Theme page reflect what is now in use. */
+	/** Whether higher contrast, chosen in Settings → Theme, is in use. */
+	public boolean higherContrast() {
+		return LAF.higherContrast();
+	}
+
+	/** Remembers whether higher contrast is wanted and switches every window to it. */
+	public void setHigherContrast(boolean on) {
+		prefs.setBool(PREF_HIGHER_CONTRAST, on);
+		applyLook(theme(), accent());
+	}
+
+	/** Switches every window to the theme and accent, at the remembered contrast, then lets the Theme page reflect what is now in use. */
 	private void applyLook(String themeId, String accent) {
+		boolean higher = prefs.getBool(PREF_HIGHER_CONTRAST, false);
 		SwingUtilities.invokeLater(() -> {
-			LAF.apply(themeId, accent);
+			LAF.apply(themeId, accent, higher);
 			if (window != null) window.refreshTheme();
 		});
 	}
@@ -3294,6 +3408,8 @@ public final class Tau {
 				InboxBinding i = inboxBinding;
 				if (i != null) i.close();
 				if (window != null) window.clearJobs();
+				// Quitting from the menu, a shortcut or the tray never closes the window itself.
+				if (window != null && window.isShowing()) window.saveGeometry();
 				if (window != null) window.setVisible(false);
 				if (unlockDialog != null) unlockDialog.dispose();
 				if (tray != null) tray.remove();

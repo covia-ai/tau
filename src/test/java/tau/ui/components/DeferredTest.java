@@ -8,7 +8,10 @@ import javax.swing.JLabel;
 
 import org.junit.jupiter.api.Test;
 
+import tau.ui.ReadsLook;
+
 /** A deferred view costs nothing until it is wanted, and is built once. */
+@ReadsLook
 class DeferredTest {
 
 	@Test

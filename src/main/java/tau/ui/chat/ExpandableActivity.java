@@ -153,27 +153,42 @@ final class ExpandableActivity extends JPanel {
 	/** A step's status as a badge. */
 	static tau.ui.components.StatusBadge statusBadge(SessionHistory.Step s) {
 		if (running(s)) return tau.ui.components.StatusBadge.running();
-		if (s.error()) {
-			// Covia answers a call that outran its time in words: given up, or still running as a job.
-			if (stillRunning(s.detail())) return tau.ui.components.StatusBadge.running();
-			if (timedOut(s.detail())) return tau.ui.components.StatusBadge.timedOut();
-		}
+		// A call still running past its time limit carries on as a job, its outcome to come.
+		if (s.error() && stillRunning(s.detail())) return tau.ui.components.StatusBadge.running();
 		return s.error() ? new tau.ui.components.StatusBadge("Failed", "circle-alert", tau.ui.components.Tone.ERROR)
 			: new tau.ui.components.StatusBadge("Done", "circle-check", tau.ui.components.Tone.SUCCESS);
 	}
 
-	/** Covia's result for a tool call that outran its time and was given up. */
-	static boolean timedOut(String result) {
-		return result != null && result.startsWith("Error: tool call timed out after ");
+	/**
+	 * Covia's result for a tool call still running at its time limit, as its
+	 * own wording reads with the call, the limit and the job filled in.
+	 * Covia says so only in that result's words, so they are matched from its
+	 * published templates rather than copied.
+	 */
+	private static final List<java.util.regex.Pattern> STILL_RUNNING = List.of(
+		template(covia.adapter.agent.AbstractLLMAdapter.TOOL_STILL_RUNNING),
+		template(covia.adapter.agent.AbstractLLMAdapter.TOOL_STILL_RUNNING_UNTRACKED));
+
+	static boolean stillRunning(String result) {
+		if (result == null) return false;
+		for (java.util.regex.Pattern p : STILL_RUNNING) {
+			if (p.matcher(result).matches()) return true;
+		}
+		return false;
 	}
 
-	/**
-	 * Covia's result for a tool call still running at its time limit: its job
-	 * carries on, and the outcome arrives later in the conversation.
-	 */
-	static boolean stillRunning(String result) {
-		return result != null && result.startsWith("Error: ")
-			&& result.matches("(?s)Error: .+ did not complete within \\d+ms and is still running as job .*");
+	/** A pattern matching {@code format} filled in: any text for each {@code %s}, digits for each {@code %d}. */
+	private static java.util.regex.Pattern template(String format) {
+		StringBuilder regex = new StringBuilder();
+		java.util.regex.Matcher m = java.util.regex.Pattern.compile("%[sd]").matcher(format);
+		int at = 0;
+		while (m.find()) {
+			regex.append(java.util.regex.Pattern.quote(format.substring(at, m.start())));
+			regex.append(m.group().equals("%d") ? "\\d+" : ".+?");
+			at = m.end();
+		}
+		regex.append(java.util.regex.Pattern.quote(format.substring(at)));
+		return java.util.regex.Pattern.compile(regex.toString(), java.util.regex.Pattern.DOTALL);
 	}
 
 	/** The body of a tool step: its input arguments and its result, each under a caption. */

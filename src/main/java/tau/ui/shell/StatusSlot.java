@@ -23,34 +23,32 @@ import tau.ui.components.Styles;
 import tau.ui.components.Theme;
 
 /**
- * The status slot at the foot of the sidebar: what Tau is doing, in plain
- * words with a count where one helps ("Resting", "Waiting on you · 1
- * decision"), beside the τ glyph on a card. It shows the glyph alone whenever
- * a quiet screen is open ({@link #setQuietScreenOpen}): the Record, the
+ * The status slot at the foot of the sidebar: the τ glyph on a card, saying
+ * "Waiting on you" beside it, with an amber dot, while decisions wait, and
+ * the glyph alone otherwise. The count rides in the tooltip and the
+ * accessible name ("Waiting on you · 1 decision"); collapsed, the words move
+ * there too. With character art, the 32 px character stands in for the glyph
+ * and plays the beat for what Tau is doing ({@link #setActivity}), except
+ * while a quiet screen is open ({@link #setQuietScreenOpen}): the Record, the
  * Vault, the Constellation, an agent's profile, a refusal, or an error.
- * Collapsed, the label moves to the tooltip and the accessible name.
  */
 @SuppressWarnings("serial")
 public final class StatusSlot extends JPanel {
 
-	/** What the slot can say. Stopped and failed are status badges, not slot states. */
+	/** What Tau is doing, for the character's beat. The slot's words name only waiting decisions. */
 	public enum State {
-		RESTING("Resting"), THINKING("Thinking"), AT_WORK("At work"), WAITING("Waiting on you"), DONE("Done");
-
-		public final String word;
-
-		State(String word) {
-			this.word = word;
-		}
+		RESTING, THINKING, AT_WORK, WAITING, DONE
 	}
+
+	private static final String WAITING_WORDS = "Waiting on you";
 
 	private final Glyph glyph = new Glyph();
 	/** The character at 32 px, when there is art for it: it only crossfades and blinks. */
 	private final tau.ui.character.CharacterView figure;
 	private boolean showingFigure;
 	private final JLabel label = Labels.small("");
-	private State state = State.RESTING;
-	private String detail;
+	private State activity = State.RESTING;
+	private int waiting;
 	private boolean collapsed;
 	private boolean quietScreenOpen;
 
@@ -70,20 +68,26 @@ public final class StatusSlot extends JPanel {
 		update();
 	}
 
-	/** {@code detail}: the count, in words ("1 decision"), or null. */
-	public void setState(State state, String detail) {
-		this.state = state;
-		this.detail = detail;
+	/** How many decisions wait for the owner; none leaves the glyph (or character) without words. */
+	public void setWaiting(int count) {
+		waiting = Math.max(0, count);
 		update();
 	}
 
-	public State state() {
-		return state;
+	/** What Tau is doing, which sets the character's beat; waiting decisions win over it. */
+	public void setActivity(State activity) {
+		this.activity = (activity != null) ? activity : State.RESTING;
+		update();
 	}
 
-	/** The words the slot shows, or carries as its tooltip when collapsed. */
+	/** The beat in force: waiting while decisions wait, else the activity. */
+	public State state() {
+		return (waiting > 0) ? State.WAITING : activity;
+	}
+
+	/** The words the slot shows, or carries as its tooltip when collapsed; null while nothing waits. */
 	public String text() {
-		return (detail != null) ? state.word + " · " + detail : state.word;
+		return (waiting > 0) ? WAITING_WORDS + " · " + waiting + (waiting == 1 ? " decision" : " decisions") : null;
 	}
 
 	public void setCollapsed(boolean collapsed) {
@@ -123,9 +127,10 @@ public final class StatusSlot extends JPanel {
 
 	private void update() {
 		String t = text();
-		// The word on the card; the count rides in the tooltip and the accessible name.
-		label.setText(collapsed ? null : state.word);
-		label.setVisible(!collapsed);
+		// The words on the card; the count rides in the tooltip and the accessible name.
+		boolean words = t != null && !collapsed;
+		label.setText(words ? WAITING_WORDS : null);
+		label.setVisible(words);
 		boolean show = figure != null && !collapsed && !quietScreenOpen;
 		java.awt.Component want = show ? figure : glyph;
 		java.awt.Component now = ((BorderLayout) getLayout()).getLayoutComponent(BorderLayout.WEST);
@@ -134,9 +139,9 @@ public final class StatusSlot extends JPanel {
 			add(want, BorderLayout.WEST);
 		}
 		showingFigure = show;
-		if (figure != null) figure.setBeat(beat(state));
-		setToolTipText(APP_NAME + ": " + t);
-		getAccessibleContext().setAccessibleName(APP_NAME + " is " + t.toLowerCase());
+		if (figure != null) figure.setBeat(beat(state()));
+		setToolTipText(APP_NAME + ": " + (t != null ? t : "nothing is waiting for you"));
+		getAccessibleContext().setAccessibleName((t != null) ? APP_NAME + " is " + t.toLowerCase(java.util.Locale.ROOT) : APP_NAME);
 		revalidate();
 		repaint();
 	}
@@ -185,7 +190,7 @@ public final class StatusSlot extends JPanel {
 				g2.setFont(getFont().deriveFont(Font.BOLD, s * 0.62f));
 				FontMetrics fm = g2.getFontMetrics();
 				g2.drawString("τ", (s - fm.stringWidth("τ")) / 2f, y0 + (s + fm.getAscent() - fm.getDescent()) / 2f);
-				if (state == State.WAITING) {
+				if (waiting > 0) {
 					int d = UIScale.scale(8);
 					g2.setColor(Theme.yours());
 					g2.fillOval(s - d, y0, d, d);

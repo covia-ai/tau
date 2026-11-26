@@ -16,6 +16,7 @@ import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 
+import tau.ui.ChangesLook;
 import tau.ui.LAF;
 import tau.ui.components.Badge;
 import tau.ui.components.EmptyState;
@@ -29,18 +30,18 @@ import tau.ui.components.Tone;
  * Headless. Isolated: it swaps the JVM's look and feel, which every class
  * reads, between the dark and light themes.
  */
-@Isolated
+@ChangesLook
 class OnboardingPhaseTest {
 
 	@Test
 	void theMarkGreetsOnWelcomeOnly() throws Exception {
-		LAF.init(LAF.TAU_DARK, null, null, null);
+		LAF.init(LAF.TAU_DARK, null, null, false, null);
 		OnboardingWizard[] w = new OnboardingWizard[1];
 		SwingUtilities.invokeAndWait(() -> w[0] = new OnboardingWizard(setup -> {
 		}));
 		assertTrue(w[0].greeting(), "Welcome greets");
 		assertTrue(OnboardingWizard.GREETING >= 160 && OnboardingWizard.GREETING <= 240);
-		for (String step : new String[] { "PASSPHRASE", "IDENTITY", "RECOVERY", "CONFIRM", "NAME", "PROVIDER" }) {
+		for (String step : new String[] { "PASSPHRASE", "IDENTITY", "RECOVERY", "CONFIRM", "NAME" }) {
 			show(w[0], step);
 			assertFalse(w[0].greeting(), step + " shows the small mark");
 		}
@@ -50,7 +51,7 @@ class OnboardingPhaseTest {
 
 	@Test
 	void enterPressesThePrimaryButton() throws Exception {
-		LAF.init(LAF.TAU_DARK, null, null, null);
+		LAF.init(LAF.TAU_DARK, null, null, false, null);
 		OnboardingWizard[] w = new OnboardingWizard[1];
 		SwingUtilities.invokeAndWait(() -> w[0] = new OnboardingWizard(setup -> {
 		}));
@@ -62,7 +63,7 @@ class OnboardingPhaseTest {
 
 	@Test
 	void theNameCardShowsTheIdentityJustMade() throws Exception {
-		LAF.init(LAF.TAU_LIGHT, null, null, null);
+		LAF.init(LAF.TAU_LIGHT, null, null, false, null);
 		OnboardingWizard[] w = new OnboardingWizard[1];
 		SwingUtilities.invokeAndWait(() -> w[0] = new OnboardingWizard(setup -> {
 		}));
@@ -71,12 +72,12 @@ class OnboardingPhaseTest {
 		String shown = w[0].identityShown();
 		assertNotNull(shown);
 		assertTrue(shown.matches("[0-9a-f]{4}…[0-9a-f]{3}"), shown);
-		LAF.init(LAF.TAU_DARK, null, null, null);
+		LAF.init(LAF.TAU_DARK, null, null, false, null);
 	}
 
 	@Test
 	void anEmptyStateCanCarryTheMark() {
-		LAF.init(LAF.TAU_DARK, null, null, null);
+		LAF.init(LAF.TAU_DARK, null, null, false, null);
 		EmptyState plain = new EmptyState("inbox", Tone.MUTED, "Nothing", null);
 		assertNotNull(find(plain, Badge.class));
 		EmptyState greeted = new EmptyState("inbox", Tone.MUTED, "Nothing", null).withMark(104);

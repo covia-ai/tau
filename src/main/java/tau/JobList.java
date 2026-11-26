@@ -185,13 +185,13 @@ public final class JobList {
 		}
 
 		/**
-		 * Its title on screen: its operation's name and the agent it ran for,
-		 * never the words it was handed. A chat's first line can hold anything,
-		 * a pasted key among it, and titles are what screenshots and
-		 * notifications show; what it was for is in the detail view.
+		 * Its title on screen: the first line of what it is for when it says,
+		 * else its operation's name. Key-like text is masked ({@link KeyMask}).
 		 */
 		public String title() {
-			return (agent != null && !agent.isBlank()) ? name + " · " + agent : name;
+			if (purpose == null) return name;
+			int nl = purpose.indexOf('\n');
+			return KeyMask.mask((nl < 0) ? purpose : purpose.substring(0, nl));
 		}
 
 		/** Whether it is still going: queued, running or paused. */

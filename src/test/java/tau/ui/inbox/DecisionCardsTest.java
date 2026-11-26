@@ -17,12 +17,14 @@ import org.junit.jupiter.api.Test;
 import com.formdev.flatlaf.FlatClientProperties;
 
 import tau.Inbox;
+import tau.ui.ReadsLook;
 
 /**
  * The Inbox's decision cards: one filled primary in the whole view, verb
  * buttons for a single approval, the self-approval reason in plain words,
  * and the summary of what is waiting. Headless.
  */
+@ReadsLook
 class DecisionCardsTest {
 
 	private static final long NOW = System.currentTimeMillis();
@@ -80,19 +82,16 @@ class DecisionCardsTest {
 	}
 
 	@Test
-	void anAgentCannotApproveItsOwnRequestAndTheCardSaysWhy() {
-		screen.setActing("did:agent");
-		screen.setRequests(List.of(approval("r1", "did:agent", 0), approval("r2", "did:someone-else", 0)));
+	void aRenderWhileAnAnswerIsSendingLeavesItsButtonsOff() {
+		screen.setRequests(List.of(approval("r1", "did:a", 0)));
 		screen.renderNow();
-		RequestForm own = screen.cardsShown().get(0).form();
-		RequestForm other = screen.cardsShown().get(1).form();
-		assertTrue(own.selfRequest());
-		assertFalse(own.answerButton.isEnabled());
-		assertTrue(own.selfNote.isVisible());
-		assertTrue(own.selfNote.getText().contains("Switch to the owner"));
-		assertTrue(own.declineButton.isEnabled() || own.rejectButton.isEnabled(), "it can still be turned down");
-		assertFalse(other.selfRequest());
-		assertTrue(other.answerButton.isEnabled());
+		RequestForm form = screen.cardsShown().get(0).form();
+		form.setBusy(true);
+		screen.setRequests(List.of(approval("r1", "did:a", 0), approval("r2", "did:a", 0)));
+		screen.renderNow();
+		assertFalse(form.answerButton.isEnabled(), "still sending");
+		form.setBusy(false);
+		assertTrue(form.answerButton.isEnabled());
 	}
 
 	@Test

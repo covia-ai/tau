@@ -19,8 +19,10 @@ named principal, with an agent on that venue. It is a product, not a demo
 - Classes run in parallel in one JVM. A class that only needs a venue takes
   one from `SharedVenue` as a user principal of its own; persistent Etch tests
   use `StoreTestDirectory`; an expected failure hides its logs with
-  `ExpectedLogs`. A negative check follows the asynchronous step's future or
-  latch, never a pause. Keep the run under ten seconds.
+  `ExpectedLogs`. A class that installs a look and feel wears `@ChangesLook`,
+  not `@Isolated`, and one that builds Swing components or reads the look
+  wears `@ReadsLook`. A negative check follows the asynchronous step's future
+  or latch, never a pause. Keep the run under ten seconds.
 
 ## Where the detail lives
 
@@ -56,10 +58,14 @@ commit.
 
 - British English in code and UI text as well as docs. Tabs in Java and XML.
 - Covia's names for venue concepts: venue, engine, adapter, operation, agent,
-  session, job.
+  session, job. On screen a session is a chat and the owner's venue is their
+  Home; code and docs keep Covia's names, using those words only to name what
+  the screen shows.
 - Screens are composed from `ui/components`; a new look is a style class in
   `tau/ui/FlatLaf.properties` worn through `Styles`, and colours come
   from `Theme`.
+- Change case with `toLowerCase(Locale.ROOT)` and `toUpperCase(Locale.ROOT)`,
+  never the bare forms, which follow the computer's language.
 
 ## Git
 

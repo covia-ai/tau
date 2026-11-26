@@ -222,7 +222,7 @@ class OdinTest {
 			.ask(Hitl.approval("ok", "Allow?")).build());
 		String id = job.getID().toHexString();
 
-		Inbox.Request r = awaitVenueRequest(id);
+		Inbox.Request r = awaitVenueRequest(job);
 		assertEquals(venue.did(), r.owner(), "it is the venue's request");
 		assertEquals(Odin.AGENT_ID, r.agent(), "asked by Odin");
 		assertTrue(Inbox.merge(Inbox.parse(venue.inbox(userDID), userDID),
@@ -242,7 +242,7 @@ class OdinTest {
 		Job asked = odinJob("v/ops/hitl/request", Hitl.request("Relaunch into the new build?")
 			.ask(Hitl.approval("ok", "Allow?")).build());
 		String id = asked.getID().toHexString();
-		awaitVenueRequest(id);
+		awaitVenueRequest(asked);
 		AMap<AString, ACell> withdraw = Maps.of("operation", TauAdapter.OP_WITHDRAW, "input", Maps.of("id", id),
 			"reason", "The relaunch it asked about has happened.");
 
@@ -282,12 +282,8 @@ class OdinTest {
 		return venue.engine().jobs().invokeOperation(op, input, context);
 	}
 
-	private static Inbox.Request awaitVenueRequest(String id) throws Exception {
-		long deadline = System.currentTimeMillis() + 5_000;
-		while (System.currentTimeMillis() < deadline) {
-			for (Inbox.Request r : Inbox.parse(venue.inbox(venue.did()), venue.did())) if (id.equals(r.id())) return r;
-			Thread.sleep(50);
-		}
-		throw new AssertionError("request " + id + " never reached the venue's inbox");
+	/** The request {@code job} opened, as the venue's inbox shows it. */
+	private static Inbox.Request awaitVenueRequest(Job job) throws Exception {
+		return InboxRequests.await(venue, venue.did(), job, TIMEOUT_SECONDS);
 	}
 }

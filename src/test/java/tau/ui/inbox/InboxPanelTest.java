@@ -8,8 +8,10 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import tau.Inbox;
+import tau.ui.ReadsLook;
 
 /** The docked Inbox panel lists only the requests still waiting, and opens each in the Inbox. Headless. */
+@ReadsLook
 class InboxPanelTest {
 
 	private static Inbox.Request request(String id, String status) {

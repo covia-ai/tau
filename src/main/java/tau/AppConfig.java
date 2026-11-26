@@ -61,12 +61,12 @@ public final class AppConfig {
 	public static final String DEFAULT_OPERATION = "v/ops/llmagent/chat";
 	/** The venue's own default model operation (see AbstractLLMAdapter). */
 	public static final String DEFAULT_LLM_OPERATION = "v/models/anthropic/claude-sonnet-5-5";
-	/** Test LLM that echoes the last user message — an offline chat backend. */
-	public static final String ECHO_LLM_OPERATION = "v/test/ops/llm";
+	/** The echo bot, {@link tau.model.Providers#ECHO_OPERATION}. */
+	public static final String ECHO_LLM_OPERATION = tau.model.Providers.ECHO_OPERATION;
 	public static final String DEFAULT_SYSTEM_PROMPT = defaultSystemPrompt(DEFAULT_AGENT_ID);
 
 	private static String defaultSystemPrompt(String name) {
-		return "You are " + name + ", your own agent, running on this computer under an identity you own, "
+		return "You are " + name + ", a private personal AI assistant running on the user's own computer, "
 		+ "powered by the Covia Grid (keep that under the hood unless they ask). Be warm, concise and "
 		+ "genuinely helpful, and use the user's name naturally rather than in every message. Follow "
 		+ "your loaded skills, and quietly keep your memory of what the user is like and prefers, so it "
@@ -119,7 +119,7 @@ public final class AppConfig {
 				"name": "Tau",
 				"port": 8085
 				// Model API keys do NOT belong in this file. Enter them in the app
-				// (Settings → Model) — they are stored encrypted in the vault
+				// (Settings → Models) — they are stored encrypted in the vault
 				// and provisioned into the encrypted venue store at launch. Exporting
 				// e.g. ANTHROPIC_API_KEY before launching also works.
 			},
@@ -130,7 +130,7 @@ public final class AppConfig {
 				"agentId": "Tau",
 				"operation": "v/ops/llmagent/chat",
 				// Model operation used for replies. The model chosen in the app
-				// (onboarding or Settings → Model) is kept in the venue store
+				// (Settings → Models) is kept in the venue store
 				// and takes precedence over this key.
 				// Use "v/test/ops/llm" for an offline echo bot.
 				"llmOperation": "v/models/anthropic/claude-sonnet-5-5"
@@ -332,6 +332,22 @@ public final class AppConfig {
 	/** The complete venue config to launch: defaults with the user's keys applied. */
 	public AMap<AString, ACell> venueConfig() {
 		return venue;
+	}
+
+	/**
+	 * Whether the venue listens on this computer alone: bound to a loopback
+	 * address. Unset, Covia binds every interface; a host name other than
+	 * {@code localhost} is not known to be this computer without looking it up.
+	 */
+	public boolean listensLocallyOnly() {
+		AString bind = RT.ensureString(venue.get(Config.BIND_ADDRESS));
+		if (bind == null) return false;
+		if (bind.toString().equalsIgnoreCase("localhost")) return true;
+		try {
+			return java.net.InetAddress.ofLiteral(bind.toString()).isLoopbackAddress();
+		} catch (IllegalArgumentException notALiteral) {
+			return false;
+		}
 	}
 
 	/** HTTP port the venue will listen on. */

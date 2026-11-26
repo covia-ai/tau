@@ -12,6 +12,9 @@ import org.junit.jupiter.api.Test;
 
 import com.formdev.flatlaf.FlatClientProperties;
 
+import tau.ui.ReadsLook;
+
+@ReadsLook
 class FieldsTest {
 
 	@Test

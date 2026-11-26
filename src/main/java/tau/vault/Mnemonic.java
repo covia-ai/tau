@@ -51,6 +51,6 @@ public final class Mnemonic {
 
 	/** Lower-cased, single-spaced, trimmed — how BIP39 wants the words. */
 	static String normalise(String phrase) {
-		return (phrase == null) ? "" : phrase.strip().replaceAll("\\s+", " ").toLowerCase();
+		return (phrase == null) ? "" : phrase.strip().replaceAll("\\s+", " ").toLowerCase(java.util.Locale.ROOT);
 	}
 }

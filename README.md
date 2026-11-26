@@ -55,7 +55,9 @@ Ideas and disagreement are welcome in issues.
 
 ## Try it
 
-You need **Java 25+** and **Maven 3.9+**.
+You need **Java 25+** and **Maven 3.9+**. When `covia.version` in `pom.xml` is
+a SNAPSHOT, install Covia first, as *Building against a local Covia checkout*
+below describes.
 
 ```bash
 git clone https://github.com/covia-ai/tau.git
@@ -71,9 +73,10 @@ below, or `mvn package` cannot resolve `ai.covia:venue`.
 
 For an existing installation, see [data directories and manual setup](docs/CONFIGURATION.md#selecting-an-existing-installation).
 
-On first launch, choose a passphrase, save the recovery phrase, choose a
-model and enter its key, then choose what it should call you. Without a key,
-choose the offline echo bot; the app works end to end, with echoed replies.
+On first launch, choose a passphrase, save the recovery phrase and choose what
+it should call you. *Settings → Models* then opens: choose a model, enter its
+key and press *Test*. Without a key, choose the echo bot; the app works end to
+end, with echoed replies.
 
 **Enter** sends and **Shift+Enter** starts a new line. Right-click a message, a
 conversation or an agent for what you can do with it; everything else is under
@@ -116,7 +119,7 @@ installed, and how to point other tools at an installed copy, is in
 ### Building against a local Covia checkout
 
 `covia.version` in `pom.xml` names the Covia line. A release resolves from
-Maven Central; a SNAPSHOT needs the Covia checkout installed locally:
+Maven Central; a SNAPSHOT needs Covia cloned beside Tau and installed locally:
 
 ```bash
 git clone https://github.com/covia-ai/covia.git ../covia   # once, beside tau

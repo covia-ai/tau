@@ -35,6 +35,8 @@ import covia.venue.RequestContext;
 class JobsOperationTest {
 
 	private static final long TIMEOUT_SECONDS = 30;
+	/** Local times are in a zone of the test's own, one that never changes its clocks, so no local time is ambiguous. */
+	private static final ZoneId ZONE = ZoneId.of("Asia/Kolkata");
 	private static final String MARKER = "a value no listing shows";
 	/** The last write's value: too large for the budget, so shown only as inspect renders it. */
 	private static final String LARGE = MARKER + " " + "x".repeat(4000);
@@ -79,7 +81,7 @@ class JobsOperationTest {
 		assertEquals(Strings.create("v/ops/covia/write"), write.get(Fields.OP), "the record's own names");
 		assertNotNull(write.get(Fields.ADAPTER));
 		OffsetDateTime created = OffsetDateTime.parse(RT.ensureString(write.get(Fields.CREATED)).toString());
-		assertEquals(ZoneId.systemDefault().getRules().getOffset(created.toInstant()), created.getOffset(),
+		assertEquals(ZONE.getRules().getOffset(created.toInstant()), created.getOffset(),
 			"a local time");
 		assertFalse(all.toString().contains(MARKER), "no input or result unless asked for");
 		assertNull(failure.get(Fields.INPUT));
@@ -113,7 +115,7 @@ class JobsOperationTest {
 		assertEquals(made.get(0), two.get(0), "the first jobs from the start, not the latest");
 		assertEquals(from, ids(list(RequestContext.of(user),
 			Maps.of("start", Strings.create(Instant.ofEpochMilli(third).toString())))), "an ISO-8601 start");
-		String local = LocalDateTime.ofInstant(Instant.ofEpochMilli(third), ZoneId.systemDefault()).toString();
+		String local = LocalDateTime.ofInstant(Instant.ofEpochMilli(third), ZONE).toString();
 		assertEquals(from, ids(list(RequestContext.of(user), Maps.of("start", local))), "a local time, without an offset");
 	}
 
@@ -148,7 +150,7 @@ class JobsOperationTest {
 	}
 
 	private static AMap<AString, ACell> list(RequestContext ctx, AMap<AString, ACell> input) {
-		return new JobsOperation(venue.engine()).invoke(ctx, input);
+		return new JobsOperation(venue.engine(), ZONE).invoke(ctx, input);
 	}
 
 	private static AVector<ACell> jobs(AMap<AString, ACell> page) {

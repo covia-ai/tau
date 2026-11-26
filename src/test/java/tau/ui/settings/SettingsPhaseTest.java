@@ -16,6 +16,7 @@ import javax.swing.text.JTextComponent;
 import org.junit.jupiter.api.Test;
 
 import tau.ui.LAF;
+import tau.ui.ReadsLook;
 import tau.ui.settings.SettingsScreen.Tab;
 
 /**
@@ -23,6 +24,7 @@ import tau.ui.settings.SettingsScreen.Tab;
  * page, the plan's free and paid states, and Match the system resolving to a
  * mode. Headless.
  */
+@ReadsLook
 class SettingsPhaseTest {
 
 	@Test
@@ -57,11 +59,11 @@ class SettingsPhaseTest {
 		assertEquals(TreasuryPanel.Plan.FREE, TreasuryPanel.Plan.stub(), "free unless asked for");
 	}
 
+	/** Match the system asks the operating system, which no test controls, so only a chosen mode is checked. */
 	@Test
-	void matchTheSystemResolvesToAMode() {
-		String m = LAF.effective(LAF.SYSTEM);
-		assertTrue(m.equals(LAF.DARK) || m.equals(LAF.LIGHT));
+	void aChosenModeIsTheModeInEffect() {
 		assertEquals(LAF.LIGHT, LAF.effective(LAF.LIGHT));
+		assertEquals(LAF.DARK, LAF.effective(LAF.DARK));
 	}
 
 	private static String text(Component c) {

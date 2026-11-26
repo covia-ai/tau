@@ -2,7 +2,7 @@
 # Machine checks that the running Tau is healthy, without asking a model:
 # it answers, its last start reported no problems, its agents are not stuck,
 # and the workspace, skills and memory read and write. Prints one line per
-# check and exits 1 if any fails.
+# check, and a note when Tau runs from source, and exits 1 if any check fails.
 here=$(dirname "$0")
 home="${TAU_HOME:-$HOME/.tau}"
 fail=0
@@ -10,16 +10,26 @@ check() { if [ "$2" = 0 ]; then echo "ok    $1"; else echo "FAIL  $1: $3"; fail=
 
 info=$("$here/mcp.sh" grid_run '{"operation":"v/ops/tau/info"}' 2>&1); check "Tau answers" $? "$info"
 
+# A build run from source is the owner's IDE launch: its classes are rebuilt
+# under it as he works, and a relaunch would end his session.
+source=$(printf '%s' "$info" | python -I -c "import json,sys
+try:
+	d = json.loads(sys.stdin.read())
+	if d.get('version') == 'dev': print('started ' + str(d.get('started')))
+except Exception: pass")
+[ -z "$source" ] || echo "note  Tau runs from source ($source): an ERROR below may be classes rebuilt under it; a relaunch takes it over"
+
 since=$(grep -n "ready at" "$home/logs/tau.log" | tail -1 | cut -d: -f1)
 problems=$(tail -n "+${since:-1}" "$home/logs/tau.log" | grep -E "Startup check|ERROR" | grep -v "^\s*at " | head -5)
 [ -z "$problems" ]; check "last start reported no problems" $? "$problems"
 
-for agent in "${MAIN_AGENT:-Tau}" "${LOOP_AGENT:-Improver}"; do
+for agent in "${MAIN_AGENT:-$("$here/main-agent.sh")}" "${LOOP_AGENT:-Improver}"; do
 	args=$(python -I -c 'import json,sys; print(json.dumps({"agentId": sys.argv[1]}))' "$agent")
 	status=$("$here/mcp.sh" agent_info "$args" 2>&1 | python -I -c "import json,sys
 try: print(json.loads(sys.stdin.read()).get('status'))
 except Exception: print('unreadable')")
-	case "$status" in SUSPENDED|unreadable) false;; *) true;; esac; check "$agent is not stuck ($status)" $? "$status"
+	# None: no such agent (MAIN_AGENT unset or wrong), which is no pass.
+	case "$status" in SUSPENDED|unreadable|None) false;; *) true;; esac; check "$agent is there and not stuck ($status)" $? "$status"
 done
 
 stamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)

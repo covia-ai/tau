@@ -38,14 +38,13 @@ class KeyShapesAndTitlesTest {
 	}
 
 	@Test
-	void aJobsTitleIsItsOperationAndAgentNeverItsWords() {
+	void aJobsTitleNeverShowsAKeyItWasHanded() {
 		convex.core.data.AMap<convex.core.data.AString, convex.core.data.ACell> record = Maps.of(Strings.create("op"), Strings.create("v/ops/agent/request"), Strings.create("name"),
 			Strings.create("Request Agent Task"), Strings.create("agentId"), Strings.create("Tau"), Strings.create("status"),
 			Strings.create("COMPLETE"), Strings.create("input"),
 			Maps.of("agentId", "Tau", "input", "use my key sk-ant-api03-AbCdEfGhIjKlMnOpQrStUvWx to call it"));
 		JobList.Job job = JobList.project(Blob.fromHex("01"), record, "did:key:z6Mk:u:sam");
-		assertEquals("Request Agent Task · Tau", job.title());
-		assertFalse(job.title().contains("sk-ant"), "the handed words are not the title");
+		assertFalse(job.title().contains("AbCdEf"), "a key in the handed words is masked in the title");
 		assertNotNull(job.purpose(), "still there for the detail view, which masks keys");
 		convex.core.data.AMap<convex.core.data.AString, convex.core.data.ACell> plain = Maps.of(Strings.create("op"), Strings.create("v/ops/http/get"), Strings.create("status"),
 			Strings.create("COMPLETE"));

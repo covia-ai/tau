@@ -24,7 +24,8 @@
 	</appender>
 
 	<!-- Covia's security audit trail and per-request access lines, switched on
-	     by Tau's venue defaults (AppConfig), each kept in a file of its own. -->
+	     by Tau's venue defaults (AppConfig), each kept in a file of its own.
+	     The message is only the event's name: its details are key-values (%kvp). -->
 	<appender name="AUDIT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
 		<file>${tau.home}/logs/audit.log</file>
 		<rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
@@ -34,7 +35,7 @@
 			<totalSizeCap>100MB</totalSizeCap>
 		</rollingPolicy>
 		<encoder>
-			<pattern>%date{yyyy-MM-dd'T'HH:mm:ss.SSSX, UTC} %msg%n</pattern>
+			<pattern>%date{yyyy-MM-dd'T'HH:mm:ss.SSSX, UTC} %msg %kvp%n</pattern>
 		</encoder>
 	</appender>
 
@@ -47,7 +48,7 @@
 			<totalSizeCap>50MB</totalSizeCap>
 		</rollingPolicy>
 		<encoder>
-			<pattern>%date{yyyy-MM-dd'T'HH:mm:ss.SSSX, UTC} %msg%n</pattern>
+			<pattern>%date{yyyy-MM-dd'T'HH:mm:ss.SSSX, UTC} %msg %kvp%n</pattern>
 		</encoder>
 	</appender>
 

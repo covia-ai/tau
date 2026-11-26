@@ -64,7 +64,7 @@ class InboxTest {
 			.ask(Hitl.checkboxes("notify", "Notify by").option("email", "Email").option("sms", "SMS"))
 			.timeout(600));
 		String id = job.getID().toHexString();
-		Inbox.Request r = awaitRequest(id);
+		Inbox.Request r = awaitRequest(job);
 
 		assertTrue(r.open());
 		assertEquals("Pay invoice INV-4711", r.title());
@@ -120,7 +120,7 @@ class InboxTest {
 		Job job = request(Hitl.request("Read my reports")
 			.ask(Hitl.approval("ok", "Allow?").grant("w/reports/", "crud/read")));
 		String id = job.getID().toHexString();
-		awaitRequest(id);
+		awaitRequest(job);
 
 		Inbox.Grant offered = new Inbox.Grant("w/reports/", "crud/read", null);
 		Inbox.answer(client, id, new Inbox.Answer(Map.of("ok", true), Map.of(), List.of(offered), null));
@@ -148,7 +148,7 @@ class InboxTest {
 	void rejectionFailsTheRequestersJobWithTheReason() throws Exception {
 		Job job = request(Hitl.request("Delete everything").ask(Hitl.approval("ok", "Sure?").required()));
 		String id = job.getID().toHexString();
-		awaitRequest(id);
+		awaitRequest(job);
 
 		Inbox.reject(client, id, "Not now");
 
@@ -163,14 +163,9 @@ class InboxTest {
 		return client.invoke("v/ops/hitl/request", request.build()).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 	}
 
-	/** The request as the inbox shows it, once the venue has delivered it. */
-	private static Inbox.Request awaitRequest(String id) throws Exception {
-		long deadline = System.currentTimeMillis() + 5_000;
-		while (System.currentTimeMillis() < deadline) {
-			for (Inbox.Request r : Inbox.parse(venue.inbox(userDID), userDID)) if (id.equals(r.id())) return r;
-			Thread.sleep(50);
-		}
-		throw new AssertionError("request " + id + " never reached the inbox");
+	/** The request {@code job} opened, as the inbox shows it. */
+	private static Inbox.Request awaitRequest(Job job) throws Exception {
+		return InboxRequests.await(venue, userDID, job, TIMEOUT_SECONDS);
 	}
 
 	private static Inbox.Request find(String id) {

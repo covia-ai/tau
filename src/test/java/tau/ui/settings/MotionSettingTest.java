@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import tau.ui.character.Motion;
 
 /** Settings → Theme's Motion list reports the owner's choice, and shows a saved one without reporting it back. */
+@tau.ui.ReadsLook
 class MotionSettingTest {
 
 	@Test
@@ -30,6 +31,9 @@ class MotionSettingTest {
 				}
 
 				public void openThemesFolder() {
+				}
+
+				public void setHigherContrast(boolean on) {
 				}
 
 				@Override

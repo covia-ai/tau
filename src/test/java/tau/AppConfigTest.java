@@ -114,6 +114,17 @@ class AppConfigTest {
 	}
 
 	@Test
+	void listeningLocallyFollowsTheBind() {
+		assertTrue(AppConfig.parse("{}", home).listensLocallyOnly(), "loopback by default");
+		for (String local : new String[] {"127.0.0.1", "::1", "localhost"}) {
+			assertTrue(AppConfig.parse("{venue:{bindAddress:\"" + local + "\"}}", home).listensLocallyOnly(), local);
+		}
+		for (String wider : new String[] {"0.0.0.0", "192.0.2.7", "venue.example"}) {
+			assertFalse(AppConfig.parse("{venue:{bindAddress:\"" + wider + "\"}}", home).listensLocallyOnly(), wider);
+		}
+	}
+
+	@Test
 	void anonymousAccessStillRequiresAnExplicitOptIn() {
 		Config venue = new Config(AppConfig.parse("{venue:{auth:{public:{enabled:true}}}}", home).venueConfig());
 		assertTrue(venue.isPublicAccess());

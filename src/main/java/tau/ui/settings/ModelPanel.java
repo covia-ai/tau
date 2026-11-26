@@ -3,36 +3,50 @@ package tau.ui.settings;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 import javax.swing.JPasswordField;
 
 import com.formdev.flatlaf.FlatClientProperties;
 
+import tau.KeyCheck;
 import tau.model.Providers;
+import tau.ui.components.Buttons;
 import tau.ui.components.Documents;
 import tau.ui.components.Fields;
+import tau.ui.components.KeyTest;
+import tau.ui.components.Links;
 import tau.ui.components.ModelSelector;
+import tau.ui.components.PressButton;
 import tau.ui.components.Styles;
 
 /**
  * The <b>Model</b> settings page: pick the provider and model, and replace the API
- * key. Both apply live: a new key is stored encrypted in the venue's secret
- * stores, which model calls read each time. The <b>Save</b> action stays
- * disabled until something changes.
+ * key, with a link to where the provider hands one out. Both apply live: a new
+ * key is stored encrypted in the venue's secret stores, which model calls read
+ * each time. On first run it opens once the chat is up. The <b>Save</b> action stays
+ * disabled until something changes. <b>Test</b> sends the selected model one
+ * short request with the key in the field, or the stored key when the field is
+ * blank, and saves no key or setting.
  */
 @SuppressWarnings("serial")
 public final class ModelPanel extends SettingsPage {
 
-	/** What Save does; {@code apiKey} is null when left blank. */
+	/** What Save and Test do; {@code apiKey} is null when left blank. */
 	public interface Handler {
 		void applyModel(String providerId, String modelId);
 
 		boolean storeApiKey(String providerId, String apiKey);
+
+		/** One short request to the model, with {@code apiKey} or else the stored key. Blocks: call off the event thread. */
+		KeyCheck.Result testModel(String providerId, String modelId, String apiKey);
 	}
 
 	private final Handler handler;
 	private final ModelSelector modelSelector = new ModelSelector();
 	private final JPasswordField keyField = Fields.secret(new JPasswordField(24));
+	private final PressButton keyLink = Buttons.link("Get an API key →", this::openKeyPage);
+	private final KeyTest keyTest = new KeyTest(this::keyTestCall);
 
 	private String baselineProvider;
 	private String baselineModel;
@@ -51,6 +65,7 @@ public final class ModelPanel extends SettingsPage {
 		modelSelector.addSelectionListener(this::onModelSelection);
 		keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Paste a new key to replace it (leave blank to keep)");
 		Documents.onChange(keyField, this::updateDirty);
+		Documents.onChange(keyField, keyTest::reset);
 
 		primary.setEnabled(false);
 		primary.setToolTipText("Apply the selected model and store any new key");
@@ -67,6 +82,23 @@ public final class ModelPanel extends SettingsPage {
 		addField("Provider", modelSelector.providerField());
 		addField("Model", modelSelector.modelField());
 		addField("API key", keyField);
+		addField("", keyLink);
+		addField("", keyTest);
+	}
+
+	/** Read on the event thread when Test is pressed: the selection and any typed key. */
+	private Supplier<KeyCheck.Result> keyTestCall() {
+		String providerId = currentProviderId();
+		String modelId = currentModelId();
+		char[] typed = keyField.getPassword();
+		String key = (typed.length > 0) ? new String(typed) : null;
+		return () -> handler.testModel(providerId, modelId, key);
+	}
+
+	/** Where the selected provider hands out API keys, in the browser. */
+	private void openKeyPage() {
+		Providers.Provider p = modelSelector.selectedProvider();
+		if (p != null && p.consoleUrl() != null) Links.open(p.consoleUrl());
 	}
 
 	private void onModelSelection() {
@@ -74,8 +106,11 @@ public final class ModelPanel extends SettingsPage {
 		if (p == null) return;
 		boolean needsKey = p.secretName() != null;
 		keyField.setEnabled(needsKey);
+		keyLink.setText("Get a " + p.label() + " key →");
+		keyLink.setVisible(needsKey && p.consoleUrl() != null);
 		keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT,
 			needsKey ? "Paste a new key to replace it (leave blank to keep)" : "No key needed for this provider");
+		keyTest.reset();
 		updateDirty();
 	}
 
@@ -101,8 +136,9 @@ public final class ModelPanel extends SettingsPage {
 		boolean changed = !Objects.equals(currentProviderId(), baselineProvider)
 			|| !Objects.equals(currentModelId(), baselineModel)
 			|| keyField.getPassword().length > 0;
-		// Nothing to save while a typed model id is still empty.
+		// Nothing to save or test while a typed model id is still empty.
 		primary.setEnabled(changed && currentModelId() != null);
+		keyTest.setTestEnabled(currentModelId() != null);
 	}
 
 	private String currentProviderId() {
@@ -119,19 +155,20 @@ public final class ModelPanel extends SettingsPage {
 		Providers.Provider p = modelSelector.selectedProvider();
 		Providers.Model m = modelSelector.selectedModel();
 		if (p == null || m == null) return;
-		handler.applyModel(p.id(), m.id());
+		// The key first: applying a model whose provider has no key yet only saves it.
 		char[] key = keyField.getPassword();
 		boolean keyStored = false;
 		boolean keyOk = true;
-		if (key.length > 0) {
+		if (key.length > 0 && p.needsApiKey()) {
 			keyOk = handler.storeApiKey(p.id(), new String(key));
 			keyStored = keyOk;
 		}
+		handler.applyModel(p.id(), m.id());
 		keyField.setText("");
 		baselineProvider = p.id();
 		baselineModel = m.id();
 		setNote(!keyOk ? "Couldn't store the key."
-			: keyStored ? "Saved. The new key applies after a restart." : "Saved.", !keyOk);
+			: keyStored ? "Saved. The new key applies from the next message." : "Saved.", !keyOk);
 		if (!keyOk) Fields.flag(keyField);
 		updateDirty();
 	}

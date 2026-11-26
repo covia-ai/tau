@@ -17,6 +17,8 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.VarHandle;
 import java.lang.ref.Cleaner;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -30,12 +32,16 @@ import java.util.concurrent.TimeUnit;
  * {@link ProcessBuilder} child stays in the job, so a {@code brightside:relaunch}
  * successor, or an app the MCP bridge started, would die with the session that
  * started its first ancestor. {@link #start} asks {@code CreateProcessW} to
- * break the child away from the job, which works when the job allows it; when
- * it doesn't, the child is started in the job as before and {@link #brokeAway}
- * says so.
+ * break the child away from the job, which works when the job allows it. The
+ * Claude desktop app's job does not, and holds every session's job, so then
+ * WMI's {@code Win32_Process.Create} starts it instead: as a child of WMI's
+ * provider host, in no job of this process's, as an app started from the
+ * desktop is. Only when that fails too is the child started in the job, and
+ * {@link #brokeAway} says so.
  *
  * <p>The child has no console and no standard streams, as {@link Relaunch}
- * wants: it writes its own log.
+ * wants: it writes its own log. One that WMI started gets the user's own
+ * environment rather than this process's.
  */
 final class WindowsProcess extends Process {
 
@@ -43,6 +49,11 @@ final class WindowsProcess extends Process {
 	private static final int CREATE_NEW_PROCESS_GROUP = 0x0000_0200;
 	private static final int DETACHED_PROCESS = 0x0000_0008;
 	private static final int ERROR_ACCESS_DENIED = 5;
+	private static final int SYNCHRONIZE = 0x0010_0000;
+	private static final int PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+	private static final int PROCESS_TERMINATE = 0x0001;
+	/** How long PowerShell may take to have WMI start a process. */
+	private static final long WMI_SECONDS = 60;
 	private static final int WAIT_OBJECT_0 = 0;
 	private static final int WAIT_TIMEOUT = 0x102;
 	private static final int INFINITE = -1;
@@ -52,9 +63,6 @@ final class WindowsProcess extends Process {
 	/** {@code PROCESS_INFORMATION}: hProcess, hThread, dwProcessId, dwThreadId. */
 	private static final int PROCESS_INFORMATION_SIZE = 24;
 	private static final int PI_PROCESS = 0, PI_THREAD = 8, PI_PID = 16;
-	private static final int JOB_OBJECT_BASIC_PROCESS_ID_LIST = 3;
-	/** Room for the ids of this many processes in one job. */
-	private static final int JOB_IDS = 65536;
 
 	private static final Cleaner CLEANER = Cleaner.create();
 
@@ -69,14 +77,14 @@ final class WindowsProcess extends Process {
 				ADDRESS, ADDRESS),
 			Linker.Option.captureCallState("GetLastError"));
 		static final MethodHandle CLOSE_HANDLE = function("CloseHandle", FunctionDescriptor.of(JAVA_INT, ADDRESS));
+		static final MethodHandle OPEN_PROCESS = function("OpenProcess",
+			FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT, JAVA_INT));
 		static final MethodHandle WAIT = function("WaitForSingleObject",
 			FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_INT));
 		static final MethodHandle EXIT_CODE = function("GetExitCodeProcess",
 			FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS));
 		static final MethodHandle TERMINATE = function("TerminateProcess",
 			FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_INT));
-		static final MethodHandle QUERY_JOB = function("QueryInformationJobObject",
-			FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_INT, ADDRESS, JAVA_INT, ADDRESS));
 
 		private static MethodHandle function(String name, FunctionDescriptor descriptor) {
 			return LINKER.downcallHandle(LIB.findOrThrow(name), descriptor);
@@ -100,13 +108,75 @@ final class WindowsProcess extends Process {
 
 	/**
 	 * Starts {@code command} (the program, then its arguments) outside this
-	 * process's job if the job allows it, and in it otherwise.
+	 * process's job: by breaking away if the job allows it, else through WMI,
+	 * and only if both fail, in the job.
 	 */
 	static WindowsProcess start(List<String> command) throws IOException {
 		String line = commandLine(command);
 		WindowsProcess child = create(line, true);
-		// Null when the job forbids breaking away: the child then shares this process's fate.
-		return (child != null) ? child : create(line, false);
+		if (child != null) return child;
+		// The job forbids breaking away.
+		try {
+			return createThroughWmi(line);
+		} catch (IOException e) {
+			// The child then shares this process's fate; Relaunch says so.
+			return create(line, false);
+		}
+	}
+
+	/**
+	 * Has WMI start {@code line}, through PowerShell's {@code Invoke-CimMethod},
+	 * in this process's working directory. The command line goes as Base64, so
+	 * no quoting or console code page can change it.
+	 */
+	private static WindowsProcess createThroughWmi(String line) throws IOException {
+		Base64.Encoder b64 = Base64.getEncoder();
+		String script = "$line = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('"
+			+ b64.encodeToString(line.getBytes(StandardCharsets.UTF_8)) + "'))\n"
+			+ "$dir = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('"
+			+ b64.encodeToString(Path.of("").toAbsolutePath().toString().getBytes(StandardCharsets.UTF_8)) + "'))\n"
+			+ "$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create"
+			+ " -Arguments @{ CommandLine = $line; CurrentDirectory = $dir }\n"
+			+ "if ($r.ReturnValue -ne 0) { 'refused ' + $r.ReturnValue; exit 1 }\n"
+			+ "'pid ' + $r.ProcessId\n";
+		Path powershell = Path.of(System.getenv().getOrDefault("SystemRoot", "C:\\Windows"),
+			"System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+		Process ps = new ProcessBuilder(powershell.toString(), "-NoProfile", "-NonInteractive",
+			"-ExecutionPolicy", "Bypass", "-Command", "-").redirectErrorStream(true).start();
+		try (OutputStream in = ps.getOutputStream()) {
+			in.write(script.getBytes(StandardCharsets.US_ASCII));
+		}
+		String answer;
+		try (InputStream out = ps.getInputStream()) {
+			answer = new String(out.readAllBytes(), StandardCharsets.UTF_8).strip();
+		}
+		try {
+			if (!ps.waitFor(WMI_SECONDS, TimeUnit.SECONDS)) {
+				ps.destroyForcibly();
+				throw new IOException("PowerShell did not answer in " + WMI_SECONDS + " s");
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new IOException("Interrupted while WMI started a process", e);
+		}
+		String last = answer.lines().reduce((a, b) -> b).orElse("");
+		if (ps.exitValue() != 0 || !last.startsWith("pid ")) {
+			throw new IOException("WMI did not start it: " + answer);
+		}
+		long pid = Long.parseLong(last.substring(4).strip());
+		MemorySegment handle;
+		try {
+			handle = (MemorySegment) Kernel32.OPEN_PROCESS.invokeExact(
+				SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE, 0, (int) pid);
+		} catch (RuntimeException | Error e) {
+			throw e;
+		} catch (Throwable t) {
+			throw new IOException("Could not call Windows to open process " + pid, t);
+		}
+		if (handle.equals(MemorySegment.NULL)) {
+			throw new IOException("WMI started process " + pid + ", which ended before it could be opened");
+		}
+		return new WindowsProcess(handle, pid, true);
 	}
 
 	/** The started process, or null when Windows refused to break it away from the job. */
@@ -167,29 +237,6 @@ final class WindowsProcess extends Process {
 	/** Whether it was started outside this process's job. */
 	boolean brokeAway() {
 		return brokeAway;
-	}
-
-	/**
-	 * Whether it is in the job this process belongs to directly. Breaking away
-	 * leaves that job; a job enclosing it that forbids leaving still holds both.
-	 */
-	boolean sharesJob() {
-		try (Arena arena = Arena.ofConfined()) {
-			// JOBOBJECT_BASIC_PROCESS_ID_LIST: two counts, then the ids
-			MemorySegment list = arena.allocate(8 + 8L * JOB_IDS, 8);
-			int ok = (int) Kernel32.QUERY_JOB.invokeExact(MemorySegment.NULL, JOB_OBJECT_BASIC_PROCESS_ID_LIST, list,
-				(int) list.byteSize(), MemorySegment.NULL);
-			if (ok == 0) return false; // this process is in no job
-			int listed = list.get(JAVA_INT, 4);
-			for (int i = 0; i < listed; i++) {
-				if (list.get(java.lang.foreign.ValueLayout.JAVA_LONG, 8 + 8L * i) == pid) return true;
-			}
-			return false;
-		} catch (RuntimeException | Error e) {
-			throw e;
-		} catch (Throwable t) {
-			throw new IllegalStateException(t);
-		}
 	}
 
 	@Override

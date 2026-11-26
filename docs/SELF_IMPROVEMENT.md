@@ -44,8 +44,11 @@ commits it, then relaunches Tau into the new build and runs the smoke checks. Su
 work is integrated into local `develop`; failures are rolled back where the
 store remains compatible and reported to the owner.
 
-Store-format changes stop an automatic upgrade. Backups and a migration plan
-are needed before moving a store that the last good build cannot read.
+The run chooses which Covia to build on: develop, a release or an earlier
+commit, but never one older than the store's format. It may move the store
+to a new format; past that point the last good
+build cannot read the store, so a failure is fixed forward rather than rolled
+back.
 
 ## What needs the owner
 
@@ -73,18 +76,20 @@ and history ([GODS.md](GODS.md), [LAUNCH.md](LAUNCH.md#the-startup-pass)).
 | The loop's checkout | `~/.tau/code/tau`, Tau's own Claude Code project: on the owner's machine a worktree on branch `improve` |
 | The backlog | `w/skill-feedback`, written by the skill-feedback operation: misses under their category, ideas under `improvement`; the loop marks entries `resolved` |
 | Work and design questions | GitHub issues on `covia-ai/tau` |
-| The last good build | `~/.tau/code/last-good.jar` (`file://code/last-good.jar` to Tau's relaunch) |
+| The last good build | `~/.tau/code/last-good.jar` |
 | The Covia commit last installed | `~/.tau/code/.covia-installed`, built from `../covia`'s committed `develop`, never its working tree |
 | The schedule | configured separately on the owner’s computer; no schedule is installed by this repository |
 
-The loop relaunches by calling Tau's relaunch operation with the venue
-operator login Tau keeps for local tools while the owner has it ticked
-([CONFIGURATION.md](CONFIGURATION.md#from-claude-code)). A relaunch is a
-deterministic step of the loop, so no agent judges it; it is a recorded job of
-the venue's, and the report says what changed and how it was tested, or what
-failed for a rollback. Tau starts its successor itself, so the running app
-does not depend on the Claude session that asked. Without the operator login
-the loop cannot relaunch, and reports the build for the owner to relaunch.
+The loop relaunches by running the new build's `--relaunch`
+([LAUNCH.md](LAUNCH.md#startup)): the new process unlocks with the remembered
+passphrase and takes over from the running Tau, whether that is a jar or
+the owner's launch from source, or simply starts when none is. It holds no
+login for this, and it runs outside the Claude app's Windows jobs, so the
+running app does not depend on the session that started it. A relaunch is a
+deterministic step of the loop, so no agent judges it; the report says what
+changed and how it was tested, or what failed for a rollback. Without a
+remembered passphrase the loop cannot relaunch, and reports the build for the
+owner to relaunch.
 
 Reports and issues quote the backlog and logs as they are. An owner whose
 data is not test data says so in the repository's `CLAUDE.local.md`, and the
@@ -94,7 +99,7 @@ loop redacts.
 
 - Run availability and missed-run handling depend on the scheduler the owner
   configures, not on Tau's venue scheduler.
-- There is no store backup: a store-format change waits for the owner, and
-  the last good build cannot read a store a newer Covia has migrated.
+- There is no store backup: once a newer Covia has migrated the store, the
+  last good build cannot read it, so there is nothing to roll back to.
 - Covia snapshot jars in `~/.m2` are shared with other work on the machine,
   so the loop reinstalls its commit when a build breaks in untouched code.

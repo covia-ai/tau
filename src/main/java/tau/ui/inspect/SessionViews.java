@@ -82,6 +82,9 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 		default void setUnrestricted(String agentId, boolean unrestricted) {
 		}
 
+		/** End what the agent is doing now, from its Agent tab. */
+		void stopAgent(String agentId);
+
 		/** Show a skill or directory in the library — the Skills screen — by its path. */
 		void showSkill(String path);
 
@@ -155,8 +158,12 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 	/** Each piece's tab content, likewise. */
 	private final Map<Part, JPanel> partSlots = new EnumMap<>(Part.class);
 	private boolean tabsVisible;
-	/** The tab last chosen on Sessions, restored on return. */
+	/** What is in front on Sessions, restored on return: the chat, or an inspector view among the tabs. */
 	private View chosen = View.CHAT;
+	/** The inspector's page: beside the chat while docked, the last one in front otherwise; kept across docking. */
+	private View inspected = View.OVERVIEW;
+	/** True while {@link #rebuild} takes tabs away and puts them back, so what was chosen is kept. */
+	private boolean rebuilding;
 
 	private String sessionId;
 	private String agentId;
@@ -453,7 +460,6 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 	/** Sessions shows the tab row; Home hides it and shows the chat alone. */
 	public void setTabsVisible(boolean visible) {
 		if (visible == tabsVisible) return;
-		if (!visible) chosen = current();
 		tabsVisible = visible;
 		rebuild();
 	}
@@ -461,32 +467,57 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 	/**
 	 * Docked: Overview, Context and Agent sit in an inspector column beside
 	 * the chat (wide windows); otherwise they are tabs above it. Nothing is
-	 * lost either way: the same views, in one place or the other.
+	 * lost either way: the same views, in one place or the other. The chat is
+	 * in front after either, and the inspector keeps its page, which is the
+	 * tab that was in front when docking.
 	 */
 	public void setInspectorDocked(boolean docked) {
 		if (docked == this.docked) return;
-		View keep = tabsVisible ? current() : chosen;
+		if (chosen != View.CHAT) inspected = chosen;
+		chosen = View.CHAT;
 		this.docked = docked;
 		rebuild();
-		if (tabsVisible) select(keep);
 	}
 
 	public boolean inspectorDocked() {
 		return docked && tabsVisible;
 	}
 
+	/** The view in the main area, beside the docked inspector or among the tabs. */
+	View front() {
+		return viewOf(tabs.getSelectedComponent());
+	}
+
+	/** The page the docked inspector shows, or null when it is not docked. */
+	View beside() {
+		return (docked && tabsVisible) ? viewOf(side.getSelectedComponent()) : null;
+	}
+
 	private void rebuild() {
-		while (tabs.getTabCount() > 1) tabs.removeTabAt(1);
-		side.removeAll();
-		remove(sideWrap);
-		if (tabsVisible) {
-			for (View v : View.values()) {
-				if (v == View.CHAT) continue;
-				if (docked) side.addTab(v.title, slots.get(v));
-				else tabs.addTab(v.title, slots.get(v));
+		// Taking tabs away and putting them back selects others along the way: what was chosen stands.
+		View front = chosen;
+		View page = inspected;
+		rebuilding = true;
+		try {
+			while (tabs.getTabCount() > 1) tabs.removeTabAt(1);
+			side.removeAll();
+			remove(sideWrap);
+			if (tabsVisible) {
+				for (View v : View.values()) {
+					if (v == View.CHAT) continue;
+					if (docked) side.addTab(v.title, slots.get(v));
+					else tabs.addTab(v.title, slots.get(v));
+				}
+				if (docked) add(sideWrap, BorderLayout.EAST);
 			}
-			if (docked) add(sideWrap, BorderLayout.EAST);
-			select(chosen);
+		} finally {
+			rebuilding = false;
+		}
+		chosen = front;
+		inspected = page;
+		if (tabsVisible) {
+			if (docked) side.setSelectedComponent(slots.get(page));
+			select(front);
 		}
 		revalidate();
 		repaint();
@@ -509,9 +540,13 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 		parts.setSelectedComponent(partSlots.get(p));
 	}
 
+	/** The view on screen that reads: the docked inspector's page, else what is in front. */
 	private View current() {
-		Component c = (docked && tabsVisible && side.getSelectedComponent() != null) ? side.getSelectedComponent()
-			: tabs.getSelectedComponent();
+		View page = beside();
+		return (page != null) ? page : front();
+	}
+
+	private View viewOf(Component c) {
 		for (Map.Entry<View, JPanel> e : slots.entrySet()) {
 			if (e.getValue() == c) return e.getKey();
 		}
@@ -519,8 +554,12 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 	}
 
 	private void onSelected() {
+		if (tabsVisible && !rebuilding) {
+			chosen = front();
+			View page = docked ? beside() : chosen;
+			if (page != View.CHAT) inspected = page;
+		}
 		View v = current();
-		if (tabsVisible) chosen = v;
 		if (v == View.AGENT) readAgent();
 		else if (v.perSession()) readSession();
 	}
@@ -611,6 +650,7 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 		if (info == null) noteAgent(() -> unreadable("Couldn't read this agent"));
 		else fill(slots.get(View.AGENT), AgentInspector.view(info,
 			editable ? text -> host.saveInstructions(agentId, text) : null,
+			() -> host.stopAgent(agentId),
 			info.standard() ? unrestricted -> host.setUnrestricted(agentId, unrestricted) : null));
 		if (current() == View.AGENT) readAgent();
 	}

@@ -216,8 +216,7 @@ class ThorTest {
 		Job job = as(Thor.AGENT_ID, "v/ops/hitl/request", Hitl.request("I stopped thor-suspect")
 			.description("It tried to send your keys to a stranger. Resume it?")
 			.ask(Hitl.approval("resume", "Resume it?")).build());
-		String id = job.getID().toHexString();
-		Inbox.Request r = awaitVenueRequest(id);
+		Inbox.Request r = awaitVenueRequest(job);
 		assertEquals(venue.did(), r.owner(), "it is the venue's request, which the operator answers");
 		assertEquals(Thor.AGENT_ID, r.agent(), "asked by Thor");
 	}
@@ -241,12 +240,8 @@ class ThorTest {
 		return venue.engine().jobs().invokeOperation(op, input, ctx);
 	}
 
-	private static Inbox.Request awaitVenueRequest(String id) throws Exception {
-		long deadline = System.currentTimeMillis() + 5_000;
-		while (System.currentTimeMillis() < deadline) {
-			for (Inbox.Request r : Inbox.parse(venue.inbox(venue.did()), venue.did())) if (id.equals(r.id())) return r;
-			Thread.sleep(50);
-		}
-		throw new AssertionError("request " + id + " never reached the venue's inbox");
+	/** The request {@code job} opened, as the venue's inbox shows it. */
+	private static Inbox.Request awaitVenueRequest(Job job) throws Exception {
+		return InboxRequests.await(venue, venue.did(), job, TIMEOUT_SECONDS);
 	}
 }

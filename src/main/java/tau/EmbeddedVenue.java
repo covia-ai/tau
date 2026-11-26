@@ -229,6 +229,27 @@ public final class EmbeddedVenue implements AutoCloseable {
 	}
 
 	/**
+	 * The user's agents' run states as Covia observes them ({@code RUNNING},
+	 * {@code SLEEPING}, {@code SUSPENDED}, …), by agent id: the agent
+	 * adapter's job-free listing, which counts a running loop rather than
+	 * the state last stored.
+	 */
+	public java.util.Map<String, String> agentStatuses(String userDID) {
+		java.util.Map<String, String> out = new java.util.LinkedHashMap<>();
+		if (!(engine().getAdapter("agent") instanceof covia.adapter.AgentAdapter adapter)) return out;
+		ACell listed = adapter.listAgents(RequestContext.of(Strings.create(userDID)), false, true);
+		if (convex.core.lang.RT.getIn(listed, "agents") instanceof convex.core.data.AVector<?> vec) {
+			for (long i = 0; i < vec.count(); i++) {
+				ACell entry = (ACell) vec.get(i);
+				AString id = convex.core.lang.RT.ensureString(convex.core.lang.RT.getIn(entry, covia.api.Fields.AGENT_ID));
+				AString status = convex.core.lang.RT.ensureString(convex.core.lang.RT.getIn(entry, covia.api.Fields.STATUS));
+				if (id != null && status != null) out.put(id.toString(), status.toString());
+			}
+		}
+		return out;
+	}
+
+	/**
 	 * The user's agents for the Peers map: each one's id, display name and run
 	 * state, read from its record in-process, so drawing them leaves no job
 	 * records. {@code standardId} is the owner's standard assistant, named as

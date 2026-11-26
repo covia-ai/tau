@@ -20,7 +20,7 @@ it, finish what is in hand, leave the rest to the backlog and report.
 Names used below (Git Bash):
 
 ```bash
-S=<this skill's directory>/scripts      # mcp.sh covia.sh relaunch.sh smoke.sh
+S=<this skill's directory>/scripts      # mcp.sh covia.sh relaunch.sh smoke.sh main-agent.sh
 W=~/.tau/code/tau          # the loop's worktree, branch improve
 M=$(dirname "$(git -C "$W" rev-parse --path-format=absolute --git-common-dir)")  # main checkout, on develop
 ```
@@ -28,10 +28,9 @@ M=$(dirname "$(git -C "$W" rev-parse --path-format=absolute --git-common-dir)") 
 Work in `$W`. Follow the repository's AGENTS.md there. Never edit `../covia`,
 never push, never release.
 
-Read `chat.agentId` from the active `config.json` (under `TAU_HOME`, or
-`~/.tau` by default), using `Tau` only when the key is absent. Export that id
-as `MAIN_AGENT` before the smoke checks, and use it as the fork's `sourceId`.
-Do not infer the agent id from its display name.
+`$S/main-agent.sh` prints the main agent's id, `chat.agentId` from the
+active `config.json`; use it as the fork's `sourceId`. The smoke checks find
+it themselves. Do not infer the agent id from its display name.
 
 ## 1. Preflight
 
@@ -45,14 +44,10 @@ Do not infer the agent id from its display name.
   '{"operation":"v/ops/tau/info"}'` directly. Exit 2 means unreachable, not
   necessarily stopped: check the process and log before starting another
   instance. A locked app or missing local token needs attention, not takeover.
-  If Tau is confirmed stopped, start it from a copy of
-  `~/.tau/code/last-good.jar` with
-  `javaw -jar <copy> --unlock --takeover` (PowerShell `Start-Process`), then
-  `$S/relaunch.sh file://code/last-good.jar`, and say in the report why it was
-  down, from its log: the process this session starts sits in the session's
-  Windows job and ends with it, while the one Tau relaunches into leaves the
-  job and runs on. Any other failed check: report it; fixing it is this run's
-  work.
+  If Tau is confirmed stopped, start it with
+  `$S/relaunch.sh ~/.tau/code/last-good.jar`, and say in the report why it was
+  down, from its log. Any other failed check: report it; fixing it is this
+  run's work.
 
 ## 2. The improvement agent
 
@@ -66,8 +61,15 @@ of the configured main agent with `agent_fork` (`sourceId` as above, `agentId`
 
 `$S/covia.sh status`. Upgrade when develop's main code has changed in ways Tau
 uses, when Covia's version moved, or when the last upgrade is a week old.
-Skip when the change is only tests, docs or build plumbing. If the store
-formats changed, do not upgrade: report it for the owner and carry on.
+Skip when the change is only tests, docs or build plumbing. Which Covia to
+build on is the run's choice: develop, a release or hotfix tag, or an
+earlier commit, whichever makes sense for Tau, but never one whose venue
+version (`VenueMigrations.VERSION`) is below the running store's
+(`storeVersion` in `v/ops/tau/info`): it could not open the store, and Tau
+refuses to take over with it. A store-format change is no
+bar, but the last good build cannot read a store the new one has migrated:
+once relaunched across one, a failure is fixed forward, never rolled back, so
+say in the report that the store moved.
 
 To upgrade: note the installed commit `status` printed, then
 `$S/covia.sh install`; set `covia.version` in `pom.xml` if
@@ -158,17 +160,19 @@ cd "$W" && mvn -q package -DskipTests
 $S/relaunch.sh && $S/smoke.sh
 ```
 
-The script relaunches with the venue operator login, which Tau keeps in
-`~/.tau/operator-token.json` while the owner has it ticked in Settings →
-Access; without it, it stops and says so, and the relaunch is reported for the
-owner to do. The report says what changed since the build Tau ran and the
+The script runs the jar's `--relaunch`: a new Tau, outside this session's
+Windows job, unlocks with the remembered passphrase and takes over from the
+running one, which needs no login. Without a remembered passphrase it stops
+and says so, and the relaunch is reported for the owner to do. Tau running
+from source (`v/ops/tau/info` says version `dev`), such as the owner's IDE
+launch, is taken over the same way, and the jar runs on in its place. The report says what changed since the build Tau ran and the
 tests that passed, or for a rollback what failed.
 
 On success: `cp "$W/target/tau.jar" ~/.tau/code/last-good.jar`,
 then re-run the failing actions of the entries this chunk fixed, and go to
 step 4: after an upgrade always, after an improvement if the bound at the top
 allows. On failure:
-`$S/relaunch.sh file://code/last-good.jar` and
+`$S/relaunch.sh ~/.tau/code/last-good.jar` and
 `$S/smoke.sh`. For an
 upgrade, then debug it as step 3 says. For an improvement, revert this
 chunk's commits, stop taking chunks, and merge what passed.

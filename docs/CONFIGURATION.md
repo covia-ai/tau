@@ -27,7 +27,7 @@ hand-edited file and its comments stay intact.
 | `~/.tau/venue.etch.compact` | Present when compaction is asked for; the next launch compacts the store and removes it ([Data store space](#data-store-space)). |
 | `~/.tau/vault.salt` | The non-secret salt for passphrase hardening. |
 | `~/.tau/identity.enc` | The AES-GCM-encrypted Ed25519 identity seed. |
-| `~/.tau/keys.enc` | Transient: stages an onboarding API key until the first launch moves it into the venue's encrypted secret stores; absent afterwards. |
+| `~/.tau/keys.enc` | Normally absent. Provider keys an older install kept here are moved into the venue's encrypted secret stores at launch, and the file deleted. |
 | `~/.tau/unlock.passphrase` | Optional remembered passphrase, stored as plaintext after explicit opt-in; exclude it from ordinary vault backups. |
 | `~/.tau/tool-token.json` | Optional: while Tau runs, a login as you for local tools, renewed hourly, after explicit opt-in ([From Claude Code](#from-claude-code)). |
 | `~/.tau/operator-token.json` | Optional: while Tau runs, a venue operator login for local tools, renewed hourly, after its own explicit opt-in ([From Claude Code](#from-claude-code)). |
@@ -149,17 +149,26 @@ to follow the operating system's dark or light setting, `ui.theme.dark`,
 `ui.theme.light`, and `ui.accent` as `#RRGGBB`), which then take precedence
 over this key; delete those lines to return to the file's setting and Tau's
 purple. A remembered choice of FlatLaf's plain Dark or Light is kept.
+Whatever the theme, Tau's own text colours — secondary text, links and the
+accent as text, and its red, green and orange — are made lighter or darker
+until they read at WCAG AA (4.5:1) on the theme's background and cards, and
+cards and selected rows stay close enough to the background for text to read
+on them too. *Higher contrast*, beside the Light/Dark switch and remembered as
+`ui.higherContrast`, raises all text to AAA (7:1) — the theme's own controls'
+as well as Tau's — placeholders to AA, and the borders of fields, buttons and
+check boxes to 3:1.
 
 The window's layout is remembered in `prefs.properties` too, all optional:
-`ui.shell` (`rail`, the default: the sidebar, a status strip and the menu
-bar; or `classic`: the bottom bar as before, *Settings → Theme → Layout* or
-*View → Layout*), `ui.rail.collapsed` (the sidebar as icons only, *View →
+`ui.shell` (`rail`, the default: the sidebar and a status strip; or
+`classic`: the bottom bar, *Settings → Theme → Layout* or *View →
+Layout*), `ui.rail.collapsed` (the sidebar as icons only, *View →
 Sidebar*), `ui.density` (`comfortable` or `compact` rows in tables and lists,
-*Settings → Theme → Density* or *View → Density*), and `ui.window.bounds` and
+*Settings → Theme → Density* or *View → Density*), `ui.window.bounds` and
 `ui.window.maximised` (the window's last size and place; without them it
-opens at about 1200 × 800), and `peers.examples` (`off` hides the example
-homes on the Peers map, *Show examples*; `on`, the default, shows them). Every screen is in the command palette (⌘K, Ctrl+K
-on Windows and Linux) and the menu bar, with its shortcut.
+opens at about 1200 × 800), and `ui.peers.examples` (`off` hides the example
+homes on the Peers map, *Show examples*; `on`, the default, shows them).
+Every screen is in the command palette (⌘K, Ctrl+K on Windows and Linux) and
+the menu bar, with its shortcut.
 
 ### `repairStore`
 
@@ -238,11 +247,10 @@ The default model operation needs a provider key. Two supported ways to supply i
 
 1. **Environment** — put `ANTHROPIC_API_KEY` in the environment before
    launching.
-2. **Tau settings** — enter it during onboarding or under *Settings →
-   Model*. It is written to the encrypted secret stores on the venue — yours
+2. **Tau settings** — enter it under *Settings → Models*, which opens after
+   first-run setup. It is written to the encrypted secret stores on the venue — yours
    and the operator's, so your agents and the gods each resolve their own copy —
-   and takes effect immediately. A key entered at onboarding is staged
-   briefly in `keys.enc` and moved into the stores at first launch.
+   and takes effect immediately.
 
 Each user's agents resolve that user's key (`s/ANTHROPIC_API_KEY` from their
 own store), so different users on the venue can use different keys; manage
@@ -361,8 +369,8 @@ venue's speech block; your replies' text then goes to that provider.
 The store only grows: a value replaced or deleted stays in the file until the
 store is compacted, which keeps everything still in use and drops the rest.
 *Compact it the next time Tau starts* asks for that; the next launch
-does it before the venue opens, once, and the chat says what the store held
-before and after. Clear the box to withdraw it. Nothing compacts the store
+does it before the venue opens, once, and a dialog after start-up says what
+the store held before and after. Clear the box to withdraw it. Nothing compacts the store
 unasked. Why it waits for a start is in [LAUNCH.md](LAUNCH.md#compacting-the-store).
 
 The same section lists the files kept from earlier repairs, when there are
@@ -591,7 +599,11 @@ appear:
   1, 7, or 90 days), and revoking ends it sooner. *New access* in the
   advanced options also offers a token that lasts until it is revoked. The page
   lists each token, when it expires, and its key (behind
-  your passphrase), *New key* and *Revoke*.
+  your passphrase), *New key* and *Revoke*. *New key* makes the token again
+  with a fresh key, its lifetime starting over, whether or not it has
+  expired; the old key, and work it started, stop. A token one of your
+  agents made, or another tool made to be accepted beyond the MCP endpoint,
+  can't be made again here.
 - **Login as you** (advanced): appears as you, with everything you can do,
   for a chosen time; shown once and never written to disk.
 - **Venue operator login** (advanced): the venue itself, for administration.
@@ -740,8 +752,8 @@ after a `401`:
 ```
 
 With that, and a remembered passphrase, Claude Code can start Tau
-itself with `java -jar target/tau.jar --unlock --takeover` and connect
-once it is up, with nobody at the computer. On Windows the helper may run
+itself with `java -jar target/tau.jar --relaunch` and connect once it is up,
+with nobody at the computer. On Windows the helper may run
 under `cmd.exe`, which has no `cat` and does not expand `~`: use
 `powershell.exe -NoProfile -Command Get-Content -Raw C:/Users/<you>/.tau/tool-token.json`.
 A helper that fails sends no token, and the venue's `401` then shows up as a
@@ -759,8 +771,9 @@ above.
 login for local tools* and Tau also keeps an operator login, on the same
 terms, in `~/.tau/operator-token.json`. A tool that reads it can do whatever
 the venue's own authority allows: manage users, adapters and the venue's
-secrets, and relaunch Tau into a build, as the self-improvement loop does
-([SELF_IMPROVEMENT.md](SELF_IMPROVEMENT.md)). Anyone who can read your files
+secrets, and relaunch Tau into a build. Bringing in a build needs no such
+login: `java -jar tau.jar --relaunch` does it with the remembered passphrase
+([LAUNCH.md](LAUNCH.md#startup)). Anyone who can read your files
 can use it, so keep it only on a computer nobody else signs in to.
 
 ## Files and personal drives

@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
  * says so, kept otherwise; a message with no key is never asked about.
  * Headless.
  */
+@tau.ui.ReadsLook
 class KeyCatchTest {
 
 	private static final String KEY = "sk-ant-api03-AbCdEfGhIjKlMnOpQrStUvWx";

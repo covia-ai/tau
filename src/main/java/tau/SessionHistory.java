@@ -500,7 +500,7 @@ public final class SessionHistory {
 		String chatName = str(RT.getIn(via, "chat", "name"));
 		String chatType = str(RT.getIn(via, "chat", "type"));
 		if (chatName != null) bits.add("#" + chatName);
-		else if (chatType != null) bits.add(chatType.toLowerCase());
+		else if (chatType != null) bits.add(chatType.toLowerCase(java.util.Locale.ROOT));
 		String from = str(RT.getIn(via, "from", "global_name"));
 		if (from == null) from = str(RT.getIn(via, "from", "username"));
 		if (from != null) bits.add(from);
@@ -508,7 +508,7 @@ public final class SessionHistory {
 	}
 
 	private static String firstLine(String s) {
-		String line = s.strip();
+		String line = KeyMask.mask(s).strip();
 		int nl = line.indexOf('\n');
 		if (nl >= 0) line = line.substring(0, nl).strip();
 		return (line.length() <= 48) ? line : line.substring(0, 47).strip() + "…";

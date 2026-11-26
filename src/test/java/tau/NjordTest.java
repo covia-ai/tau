@@ -95,9 +95,13 @@ class NjordTest {
 	@Test
 	void keysGoByReferenceAndAreMadeOnlyInTheTreasury() throws Exception {
 		String literal = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-		assertThrows(Exception.class, () -> asNjord(Maps.of("operation", "v/ops/convex/transact", "user", Njord.TREASURY,
-			"input", Maps.of("address", "#13", "source", "(transfer #42 1)", "seed", literal),
+		// Refused by the bridge itself: this venue's Convex adapter would go to the
+		// public network, so a refusal from anywhere later would not say this.
+		Exception pasted = assertThrows(Exception.class, () -> asNjord(Maps.of("operation", "v/ops/convex/transact",
+			"user", Njord.TREASURY, "input", Maps.of("address", "#13", "source", "(transfer #42 1)", "seed", literal),
 			"reason", "Paying with a pasted seed.")), "a literal seed never reaches an operation or a report");
+		String refusal = String.valueOf(((pasted.getCause() != null) ? pasted.getCause() : pasted).getMessage());
+		assertTrue(refusal.contains("secret reference"), "refused before the operation runs: " + refusal);
 		assertThrows(Exception.class, () -> asNjord(Maps.of("operation", "v/ops/convex/generate-key", "user", userDID,
 			"input", Maps.of("name", "OUTSIDE_CUSTODY"), "reason", "A key in the owner's store.")),
 			"his keys are made in his treasury");

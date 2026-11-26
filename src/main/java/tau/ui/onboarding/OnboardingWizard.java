@@ -28,7 +28,7 @@ import javax.swing.SwingConstants;
 import com.formdev.flatlaf.FlatClientProperties;
 
 import tau.Identity;
-import tau.model.Providers;
+import tau.ui.Icons;
 import tau.ui.components.Buttons;
 import tau.ui.components.Clipboard;
 import tau.ui.components.Documents;
@@ -36,10 +36,7 @@ import tau.ui.components.IdentityMark;
 import tau.ui.components.Labels;
 import tau.ui.components.TauMark;
 import tau.ui.components.Theme;
-import tau.ui.components.Links;
-import tau.ui.components.ModelSelector;
 import tau.ui.components.Panels;
-import tau.ui.components.PressButton;
 import tau.ui.components.Styles;
 import tau.ui.components.TextArea;
 import tau.vault.Mnemonic;
@@ -47,17 +44,17 @@ import tau.vault.Mnemonic;
 /**
  * The first-run onboarding wizard — the app's first impression. A sequence of
  * full-window steps: welcome, choose a passphrase (the encrypted vault), create
- * or import an identity (a BIP39 recovery phrase), pick a name, and choose a
- * model provider + API key. It only <em>collects</em> the choices; the vault,
- * identity write and venue launch happen in {@code Tau} once
- * {@link Listener#onComplete} fires. See {@code docs/ONBOARDING.md}.
+ * or import an identity (a BIP39 recovery phrase), and pick a name: what is
+ * needed before the venue can start. It only <em>collects</em> the choices; the
+ * vault, identity write and venue launch happen in {@code Tau} once
+ * {@link Listener#onComplete} fires. The model is chosen afterwards, in
+ * Settings → Models with the venue up. See {@code docs/ONBOARDING.md}.
  */
 @SuppressWarnings("serial")
 public final class OnboardingWizard extends JPanel {
 
-	/** Everything onboarding gathers. {@code apiKey}/{@code providerId} are null for the offline bot. */
-	public record Setup(char[] passphrase, String seedHex, String name,
-			String providerId, String modelId, String apiKey) {
+	/** Everything onboarding gathers. */
+	public record Setup(char[] passphrase, String seedHex, String name) {
 	}
 
 	public interface Listener {
@@ -65,7 +62,7 @@ public final class OnboardingWizard extends JPanel {
 	}
 
 	private enum Step {
-		WELCOME, PASSPHRASE, IDENTITY, RECOVERY, CONFIRM, IMPORT, NAME, PROVIDER
+		WELCOME, PASSPHRASE, IDENTITY, RECOVERY, CONFIRM, IMPORT, NAME
 	}
 
 	/** The width the app's own copy wraps at on these screens. */
@@ -113,11 +110,6 @@ public final class OnboardingWizard extends JPanel {
 	private final TextArea importArea = new TextArea(3, 30).placeholder("your twelve or twenty-four words…");
 	private final JLabel importStatus = Labels.small(" ");
 	private final JTextField nameField = new JTextField(16);
-	private final ModelSelector modelSelector = new ModelSelector();
-	private final JPasswordField keyField = new JPasswordField(30);
-	private final PressButton keyLink = Buttons.link("Get an API key →", Providers.defaultProvider().consoleUrl());
-	private final JRadioButton useKey = new JRadioButton("Use my own model provider", true);
-	private final JRadioButton useOffline = new JRadioButton("Skip for now and use the offline echo bot");
 
 	private Step step = Step.WELCOME;
 	/** The header's τ: large on Welcome and as Finish sets things up. */
@@ -143,7 +135,6 @@ public final class OnboardingWizard extends JPanel {
 		cards.add(confirmCard(), Step.CONFIRM.name());
 		cards.add(importCard(), Step.IMPORT.name());
 		cards.add(nameCard(), Step.NAME.name());
-		cards.add(providerCard(), Step.PROVIDER.name());
 
 		back.addActionListener(e -> goBack());
 		next.addActionListener(e -> goNext());
@@ -242,7 +233,7 @@ public final class OnboardingWizard extends JPanel {
 		// Wraps to the card's width, so no word is cut off at any window size.
 		tau.ui.components.SelectableText warn = new tau.ui.components.SelectableText(
 			"⚠  Keep your recovery phrase safe. It can reset a forgotten passphrase "
-			+ "and reopen retained " + APP_NAME + " data; provider API keys must be entered again.").small();
+			+ "and reopen retained " + APP_NAME + " data.").small();
 		// A card with a navy outline, never red: it asks for care, nothing has gone wrong.
 		tau.ui.components.Card note = new tau.ui.components.Card(12).fill(Theme::card)
 			.outline(Theme::foreground);
@@ -351,44 +342,6 @@ public final class OnboardingWizard extends JPanel {
 		return c;
 	}
 
-	private JComponent providerCard() {
-		JPanel c = column();
-		useKey.setOpaque(false);
-		useOffline.setOpaque(false);
-		useKey.setAlignmentX(CENTER_ALIGNMENT);
-		useOffline.setAlignmentX(CENTER_ALIGNMENT);
-		ButtonGroup g = new ButtonGroup();
-		g.add(useKey);
-		g.add(useOffline);
-
-		modelSelector.addSelectionListener(this::onProviderChanged);
-		onProviderChanged();
-		big(keyField);
-		Styles.style(keyField, "font: +3 $monospaced.font");
-		keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Paste your API key");
-
-		modelSelector.setAlignmentX(CENTER_ALIGNMENT);
-		modelSelector.setMaximumSize(new Dimension(420, modelSelector.getPreferredSize().height));
-
-		JPanel keyBox = column();
-		keyBox.add(keyField);
-		keyBox.add(Box.createVerticalStrut(6));
-		keyLink.setAlignmentX(CENTER_ALIGNMENT);
-		keyBox.add(keyLink);
-
-		useKey.addActionListener(e -> setKeyEnabled(true));
-		useOffline.addActionListener(e -> setKeyEnabled(false));
-
-		c.add(useKey);
-		c.add(Box.createVerticalStrut(12));
-		c.add(modelSelector);
-		c.add(Box.createVerticalStrut(12));
-		c.add(keyBox);
-		c.add(Box.createVerticalStrut(16));
-		c.add(useOffline);
-		return c;
-	}
-
 	// ------------------------------------------------------------------
 	// Navigation
 	// ------------------------------------------------------------------
@@ -420,14 +373,11 @@ public final class OnboardingWizard extends JPanel {
 			case IMPORT -> set("Import your recovery phrase",
 				"Paste the 12 or 24 words from another " + APP_NAME + ", or any Convex BIP39 phrase.", "Continue", true);
 			case NAME -> {
-				set("What should I call you?", "So your assistant can address you properly.", "Continue", true);
+				set("What should I call you?", "So your assistant can address you properly.", "Finish", true);
 				nameField.requestFocusInWindow();
 			}
-			case PROVIDER -> set("Choose your assistant's brain",
-				APP_NAME + " thinks using a model you choose. Your key is stored encrypted, only on this computer.",
-				"Finish", true);
 		}
-		dots.set(5, phase(s));
+		dots.set(4, phase(s));
 		back.setVisible(s != Step.WELCOME);
 		greet(s == Step.WELCOME);
 		if (s == Step.NAME) showIdentity();
@@ -439,7 +389,6 @@ public final class OnboardingWizard extends JPanel {
 			case PASSPHRASE -> 1;
 			case IDENTITY, RECOVERY, CONFIRM, IMPORT -> 2;
 			case NAME -> 3;
-			case PROVIDER -> 4;
 		};
 	}
 
@@ -455,8 +404,7 @@ public final class OnboardingWizard extends JPanel {
 			case IDENTITY -> show(createNew ? Step.RECOVERY : Step.IMPORT);
 			case RECOVERY -> show(Step.CONFIRM);
 			case CONFIRM, IMPORT -> show(Step.NAME);
-			case NAME -> show(Step.PROVIDER);
-			case PROVIDER -> finish();
+			case NAME -> finish();
 		}
 	}
 
@@ -468,7 +416,6 @@ public final class OnboardingWizard extends JPanel {
 			case CONFIRM -> show(Step.RECOVERY);
 			case IMPORT -> show(Step.IDENTITY);
 			case NAME -> show(createNew ? Step.CONFIRM : Step.IMPORT);
-			case PROVIDER -> show(Step.NAME);
 			default -> { }
 		}
 	}
@@ -498,13 +445,6 @@ public final class OnboardingWizard extends JPanel {
 			case NAME -> {
 				if (Identity.sanitise(nameField.getText()).isEmpty()) return "Please enter a name.";
 			}
-			case PROVIDER -> {
-				if (useKey.isSelected() && Providers.byId(providerId()).needsApiKey()
-					&& keyField.getPassword().length == 0) {
-					return "Paste your API key, or choose the offline bot.";
-				}
-				if (useKey.isSelected() && modelSelector.selectedModel() == null) return "Choose a model.";
-			}
 			default -> { }
 		}
 		return null;
@@ -514,15 +454,10 @@ public final class OnboardingWizard extends JPanel {
 		char[] passphrase = pass1.getPassword();
 		String seedHex = Mnemonic.toSeedHex(createNew ? mnemonic : importArea.getText());
 		String name = nameField.getText().trim();
-		boolean offline = useOffline.isSelected();
-		String provider = offline ? null : providerId();
-		Providers.Model selectedModel = modelSelector.selectedModel();
-		String model = offline || selectedModel == null ? null : selectedModel.id();
-		String apiKey = (offline || keyField.getPassword().length == 0) ? null : new String(keyField.getPassword());
 		next.setEnabled(false);
 		greet(true);
 		setError("Setting things up…", false);
-		listener.onComplete(new Setup(passphrase, seedHex, name, provider, model, apiKey));
+		listener.onComplete(new Setup(passphrase, seedHex, name));
 	}
 
 	/**
@@ -619,31 +554,6 @@ public final class OnboardingWizard extends JPanel {
 		boolean ok = Mnemonic.isValid(text);
 		importStatus.setText(ok ? "✓ valid phrase" : "not a valid phrase yet…");
 		Styles.classes(importStatus, Styles.SMALL, ok ? Styles.SUCCESS : Styles.MUTED);
-	}
-
-	private void onProviderChanged() {
-		Providers.Provider p = modelSelector.selectedProvider();
-		if (p == null) return;
-		keyLink.setText("Get a " + p.label() + " key →");
-		keyLink.onPress(() -> Links.open(p.consoleUrl()));
-		boolean needsKey = p.needsApiKey();
-		if (useKey.isSelected()) setKeyEnabled(true);
-		keyField.setVisible(needsKey);
-		keyLink.setVisible(needsKey);
-	}
-
-	private void setKeyEnabled(boolean on) {
-		Providers.Provider p = modelSelector.selectedProvider();
-		boolean needsKey = on && p != null && p.needsApiKey();
-		keyField.setEnabled(on);
-		modelSelector.setEnabled(on);
-		keyField.setVisible(needsKey);
-		keyLink.setVisible(needsKey);
-	}
-
-	private String providerId() {
-		Providers.Provider p = modelSelector.selectedProvider();
-		return (p != null) ? p.id() : Providers.defaultProvider().id();
 	}
 
 	// ------------------------------------------------------------------

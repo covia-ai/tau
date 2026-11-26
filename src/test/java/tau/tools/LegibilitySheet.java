@@ -45,7 +45,7 @@ public final class LegibilitySheet {
 		Path out = Path.of(args.length > 0 ? args[0] : "target/legibility");
 		Files.createDirectories(out);
 		for (String theme : List.of(LAF.TAU_DARK, LAF.TAU_LIGHT)) {
-			LAF.init(theme, null, null, null);
+			LAF.init(theme, null, null, false, null);
 			String family = UIManager.getFont("defaultFont").getFamily();
 			for (int scale : new int[] { 1, 2 }) {
 				Color[] grounds = { Theme.panel(), Theme.card(), Theme.sidebar(), Theme.chrome(), Theme.warmSurface() };

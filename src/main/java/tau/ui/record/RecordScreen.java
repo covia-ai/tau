@@ -24,11 +24,15 @@ import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
+import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 
 import com.formdev.flatlaf.util.UIScale;
+
+import convex.core.data.ACell;
+import convex.core.util.JSON;
 
 import tau.JobList;
 import tau.ui.binding.Watcher;
@@ -93,7 +97,7 @@ public final class RecordScreen extends JPanel {
 		header.action(export);
 
 		JLabel about = Labels.small("Every job run for you on this computer, newest first: when, who started it, "
-			+ "which agent ran it, what it ran, and how it ended. Entries can't be edited or removed.");
+			+ "which agent ran it, what it ran, and how it ended.");
 		Styles.classes(about, Styles.SMALL, Styles.MUTED);
 		about.setBorder(BorderFactory.createEmptyBorder(8, 20, 8, 20));
 
@@ -176,7 +180,7 @@ public final class RecordScreen extends JPanel {
 					if (j == null) continue;
 					out.add(new Row(j.id(), j.created(), startedBy(j), j.agent() != null ? j.agent() : "",
 						j.operation() != null ? j.operation() : j.title(), j.status() != null ? j.status() : "",
-						j.record() != null ? j.record().toString() : "{}"));
+						json(j.record())));
 				}
 				return out;
 			}
@@ -191,6 +195,11 @@ public final class RecordScreen extends JPanel {
 				}
 			}
 		}.execute();
+	}
+
+	/** A job's record as JSON, for Copy as JSON and Export: never Convex's printed form, which JSON readers refuse. */
+	static String json(ACell record) {
+		return (record != null) ? JSON.toString(record) : "{}";
 	}
 
 	private static String startedBy(JobList.Job j) {
@@ -237,7 +246,10 @@ public final class RecordScreen extends JPanel {
 		JFileChooser chooser = new JFileChooser();
 		chooser.setSelectedFile(new java.io.File("tau-record.json"));
 		if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
-		write(chooser.getSelectedFile().toPath(), model.rows, msg -> state.setText(msg));
+		java.nio.file.Path file = chooser.getSelectedFile().toPath();
+		List<Row> rows = model.rows;
+		// Writing waits on the disk: off the event thread, the note posted back to it.
+		Thread.ofVirtual().start(() -> write(file, rows, msg -> SwingUtilities.invokeLater(() -> state.setText(msg))));
 	}
 
 	static void write(java.nio.file.Path file, List<Row> rows, Consumer<String> note) {

@@ -14,7 +14,7 @@ public final class SystemAppearance {
 	}
 
 	public static boolean dark() {
-		String os = System.getProperty("os.name", "").toLowerCase();
+		String os = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT);
 		try {
 			if (os.contains("mac")) {
 				// Prints "Dark" in dark mode; fails (no such key) in light mode.

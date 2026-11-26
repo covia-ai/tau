@@ -234,6 +234,8 @@ public final class SettingsScreen extends JPanel {
 	public void livesElsewhere(Tab tab, Runnable open) {
 		if (open == null) elsewhere.remove(tab);
 		else elsewhere.put(tab, open);
+		// Its panel has gone to that screen: the section on view is the first, not its empty place.
+		if (open != null && tab == selected) select(Tab.values()[0]);
 	}
 
 	/** Puts a page's panel back in this screen, after it was shown on a screen of its own. */

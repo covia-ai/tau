@@ -3,19 +3,12 @@ package tau;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
-
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import tau.Discord;
-import tau.EmbeddedVenue;
-import tau.Identity;
 import convex.core.data.ACell;
 import convex.core.data.Strings;
 import convex.core.lang.RT;
@@ -23,10 +16,11 @@ import covia.grid.Venue;
 import covia.venue.RequestContext;
 
 /**
- * The Discord adapter is part of the embedded venue, and the owner's bot goes
- * through it: created as the user with the token held as a secret, listed with
- * the allow-list it was given, and removed again. No Discord is reached — an
- * unusable token leaves the bot pending, which is what the adapter reports.
+ * Tau's side of the Discord integration: Covia's Discord adapter is part of
+ * the embedded venue with its own skill, and Settings reads the owner's bot
+ * without leaving a job record. Creating a bot starts Covia's connection to
+ * Discord itself, which is Covia's to test, not Tau's, so no test here makes
+ * one.
  */
 class DiscordTest {
 
@@ -36,25 +30,12 @@ class DiscordTest {
 	private static EmbeddedVenue venue;
 	private static String userDID;
 	private static Venue user;
-	private static ExpectedLogs.Scope gatewayLogs;
-	private static ExpectedLogs.Scope requestLogs;
 
 	@BeforeAll
 	static void boot() {
-		// The fake token cannot connect. Keep filtering until the bot is removed: startup runs asynchronously.
-		gatewayLogs = ExpectedLogs.expect("covia.adapter.discord.BotRunner", ch.qos.logback.classic.Level.WARN,
-			"Discord bot 'tau' not started: Discord Gateway connection failed:");
-		requestLogs = ExpectedLogs.expect("net.dv8tion.jda.internal.requests.Requester", ch.qos.logback.classic.Level.ERROR,
-			"There was an I/O error while executing a REST request:");
 		venue = shared.venue();
 		userDID = Identity.of("discord-owner").userDID(venue.did());
 		user = venue.clientAs(userDID);
-	}
-
-	@AfterAll
-	static void shutdown() {
-		if (requestLogs != null) requestLogs.close();
-		if (gatewayLogs != null) gatewayLogs.close();
 	}
 
 	@Test
@@ -74,29 +55,9 @@ class DiscordTest {
 	}
 
 	@Test
-	void theOwnersBotIsCreatedListedAndRemovedAsTheUser() throws Exception {
-		assertNull(Discord.status(user), "nothing before setup");
-
-		Discord.configure(user, "Tau", "not-a-real-token", List.of("123456789012345678", " @mike "));
-
+	void theOwnersBotIsReadWithoutAJobRecordAndIsAbsentBeforeSetup() throws Exception {
 		long jobsBefore = RecordedJobs.of(venue, userDID);
-		Discord.Bot bot = Discord.status(user);
-		assertNotNull(bot, "listed for its owner");
+		assertNull(Discord.status(user), "nothing before setup");
 		assertEquals(jobsBefore, RecordedJobs.of(venue, userDID), "status is a read: visiting Settings leaves no job record");
-		assertNotNull(bot.state());
-		assertEquals(List.of("123456789012345678", "mike"), bot.allows(), "the allow-list, as the adapter matches it");
-
-		// A second configure replaces the bot rather than duplicating it.
-		Discord.configure(user, "Tau", null, List.of("@mike"));
-		assertEquals(List.of("mike"), Discord.status(user).allows());
-
-		// Another user sees no bot of theirs and cannot remove the owner's.
-		String otherDID = Identity.of("someone-else").userDID(venue.did());
-		Venue other = venue.clientAs(otherDID);
-		assertNull(Discord.status(other));
-		assertThrows(Exception.class, () -> Discord.remove(other));
-
-		Discord.remove(user);
-		assertNull(Discord.status(user), "gone");
 	}
 }

@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeAll;
@@ -27,16 +28,21 @@ import convex.core.data.AVector;
 import convex.core.data.Maps;
 import convex.core.data.Strings;
 import convex.core.data.Vectors;
+import convex.core.data.prim.CVMBool;
 import convex.core.lang.RT;
 import covia.api.Fields;
 import covia.grid.Job;
 import covia.grid.Venue;
+import covia.adapter.TestAdapter;
+import covia.venue.AgentEvents;
+import covia.venue.Config;
 
 /**
  * Mechanism test for the agent info screen, new instructions and agent
  * deletion: what {@link AgentInfo} reports comes from a real record, new
  * instructions replace only the prompt, and {@code agent:delete}
- * as Tau calls it removes the record, not just marks it terminated.
+ * as Tau calls it removes the record, not just marks it terminated. Stopping
+ * an agent ends a tool call that would otherwise hold it for an hour.
  */
 class AgentInfoTest {
 
@@ -106,6 +112,45 @@ class AgentInfoTest {
 			assertNull(AgentInfo.load(client, null, agentId, userDID, "Info Test", false));
 		}
 		assertFalse(listedAgents().contains(agentId));
+	}
+
+	@Test
+	void stopEndsAToolCallThatWillNotReturnAndLeavesTheAgentFree() throws Exception {
+		String agentId = "Hung";
+		String gateName = "tau-stop-" + System.nanoTime();
+		// The model's tool call holds at the gate, which is never released: only
+		// the stop or the hour-long tool limit can end the turn.
+		try (TestAdapter.TestGate gate = TestAdapter.createGate(gateName)) {
+			run("v/ops/agent/create", Maps.of(Fields.AGENT_ID, agentId, Fields.CONFIG, Maps.of(
+				Fields.OPERATION, AppConfig.DEFAULT_OPERATION,
+				"llmOperation", "v/test/ops/nevertoolllm",
+				Fields.MODEL, "hold:" + gateName,
+				"tools", Vectors.of(Strings.create("v/test/ops/hold")),
+				"caps", Config.UNRESTRICTED,
+				"toolCallTimeoutMs", 3_600_000L)));
+			client.invoke("v/ops/agent/chat", Maps.of(Fields.AGENT_ID, agentId, "message", "go"))
+				.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+			assertTrue(gate.awaitEntered(TIMEOUT_SECONDS, TimeUnit.SECONDS), "the tool call is in flight");
+
+			// The run loop records the stopped cycle and settles the agent's
+			// status before it announces the run's end.
+			CountDownLatch runEnded = new CountDownLatch(1);
+			try (AutoCloseable events = venue.subscribeAgent(userDID, agentId, e -> {
+					if (AgentEvents.RUN_END.equals(e.type())) runEnded.countDown();
+				})) {
+				Tau.stopAgent(client, agentId);
+				assertTrue(runEnded.await(TIMEOUT_SECONDS, TimeUnit.SECONDS), "the run never ended");
+			}
+			assertEquals("SLEEPING", status(agentId), "freed");
+			ACell timeline = RT.getIn(venue.agentRecord(userDID, agentId), "timeline");
+			assertTrue(timeline instanceof AVector<?> v && v.count() == 1
+				&& CVMBool.TRUE.equals(RT.getIn((ACell) v.get(0), "cancelled")),
+				"the one turn was cut short: " + timeline);
+		}
+	}
+
+	private static String status(String agentId) throws Exception {
+		return String.valueOf(RT.getIn(run("v/ops/agent/info", Maps.of(Fields.AGENT_ID, agentId)), "status"));
 	}
 
 	private static List<String> listedAgents() throws Exception {

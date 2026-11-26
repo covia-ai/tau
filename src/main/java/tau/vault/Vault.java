@@ -37,7 +37,8 @@ import covia.venue.Config;
  * recovery phrase. Recovery therefore restores full access to the existing store,
  * not just the identity.</li>
  * <li>The <b>passphrase key</b> (Argon2id over a per-vault salt) protects only the
- * seed itself ({@code identity.enc}) and the provider API keys ({@code keys.enc}).</li>
+ * seed itself ({@code identity.enc}) and any provider API keys an older install
+ * kept in {@code keys.enc}.</li>
  * </ul>
  *
  * <p>Unlocking is <em>passphrase → seed → store key → open store</em>; recovery is
@@ -138,8 +139,8 @@ public final class Vault {
 
 	/**
 	 * Removes the legacy API-key file entirely. Provider keys live in the
-	 * venue's encrypted secret stores; {@code keys.enc} only stages a key
-	 * between onboarding and the first launch, and is deleted once migrated.
+	 * venue's encrypted secret stores; a {@code keys.enc} left by an earlier
+	 * Tau is moved into them at launch, then deleted.
 	 */
 	public void clearApiKeys() throws IOException {
 		Files.deleteIfExists(home.resolve(KEYS_FILE));

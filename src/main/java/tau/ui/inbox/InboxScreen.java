@@ -46,8 +46,6 @@ public final class InboxScreen extends JPanel {
 	private final Map<String, RequestCard> cards = new LinkedHashMap<>();
 	private List<Inbox.Request> requests = List.of();
 	private boolean dirty;
-	/** Who the app is acting as: a request from this identity can't be approved by it. */
-	private String actingDid;
 	/** The card holding the view's one filled primary: the one being worked on. */
 	private RequestCard active;
 	private final java.util.Set<RequestCard> wired = java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
@@ -129,7 +127,6 @@ public final class InboxScreen extends JPanel {
 		waiting.setText(soonest != null ? soonest : " ");
 		waiting.setVisible(open > 0 && soonest != null);
 		for (RequestCard card : cards.values()) {
-			card.form().setSelfRequest(card.request().open() && actingDid != null && actingDid.equals(card.request().from()));
 			if (wired.add(card)) {
 				card.form().onEngaged(() -> activate(card));
 				card.onToggle(() -> {
@@ -171,13 +168,6 @@ public final class InboxScreen extends JPanel {
 		activate(card);
 		javax.swing.SwingUtilities.invokeLater(() -> card.scrollRectToVisible(
 			new java.awt.Rectangle(0, 0, card.getWidth(), Math.min(card.getHeight(), 400))));
-	}
-
-	/** Who the app is acting as, by DID, for the self-approval guard; null when signed out. */
-	public void setActing(String did) {
-		actingDid = did;
-		dirty = true;
-		renderIfShowing();
 	}
 
 	/**

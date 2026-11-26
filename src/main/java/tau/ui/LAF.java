@@ -15,6 +15,7 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import javax.swing.LookAndFeel;
+import javax.swing.UIDefaults;
 import javax.swing.UIManager;
 
 import org.slf4j.Logger;
@@ -96,6 +97,24 @@ public final class LAF {
 	/** The package FlatLaf searches for Tau's {@code *.properties} UI defaults. */
 	private static final String DEFAULTS_PACKAGE = "tau.ui";
 
+	/** The tones whose text colour {@link #installDerived} makes readable, each with a {@code Tau.<tone>} and a {@code Tau.<tone>.tint}. */
+	private static final List<String> TONES = List.of("muted", "error", "success", "warning");
+
+	/** The named statuses {@link #installDerived} makes readable on their own grounds, each with {@code Tau.status.<name>.*} keys. */
+	private static final List<String> STATUSES = List.of("running", "signed", "waiting", "refused", "timedout");
+
+	/**
+	 * The controls whose text {@link #installHigherContrast} raises, by the
+	 * prefix of their {@code .foreground}, {@code .background},
+	 * {@code .selectionForeground} and {@code .placeholderForeground} keys.
+	 */
+	private static final List<String> TEXT_CONTROLS = List.of(
+		"Button", "Button.default", "ToggleButton", "CheckBox", "RadioButton",
+		"TextField", "FormattedTextField", "PasswordField", "TextArea", "TextPane", "EditorPane",
+		"ComboBox", "Spinner", "List", "Tree", "Table", "TableHeader", "TabbedPane",
+		"MenuBar", "Menu", "MenuItem", "CheckBoxMenuItem", "RadioButtonMenuItem", "PopupMenu",
+		"ToolTip", "TitlePane");
+
 	/** Body text, 13 pt: the type scale's body size (caption and small 12, lead 15, section 17, title 24, display 32). */
 	private static final int BASE_FONT_SIZE = 13;
 
@@ -119,6 +138,7 @@ public final class LAF {
 	private static List<Choice> catalogue = List.of();
 	private static Choice current;
 	private static String accent;
+	private static boolean higherContrast;
 
 	private LAF() {
 	}
@@ -126,47 +146,49 @@ public final class LAF {
 	/**
 	 * Installs the look before any component exists.
 	 *
-	 * @param themeId   the chosen theme's id, or null
-	 * @param mode      {@link #LIGHT} or {@link #DARK}: which default to fall back to when
-	 *                  there is no chosen theme or it is no longer available
-	 * @param accentHex the chosen accent as {@code #RRGGBB}, or null for the default
-	 * @param ownThemes the folder of the owner's own {@code .theme.json} files, or null
+	 * @param themeId        the chosen theme's id, or null
+	 * @param mode           {@link #LIGHT} or {@link #DARK}: which default to fall back to when
+	 *                       there is no chosen theme or it is no longer available
+	 * @param accentHex      the chosen accent as {@code #RRGGBB}, or null for the default
+	 * @param higherContrast whether higher contrast is chosen (see {@link #installHigherContrast})
+	 * @param ownThemes      the folder of the owner's own {@code .theme.json} files, or null
 	 */
-	public static void init(String themeId, String mode, String accentHex, Path ownThemes) {
-		// Bundled Inter: register the faces, then make it the preferred family
-		// before the theme installs so components pick it up.
-		registerFonts();
-		FlatLaf.setPreferredFontFamily(FONT_FAMILY);
-		// FlatLaf's semibold class (and the .lead and .section headings) use Inter's own SemiBold cut.
-		FlatLaf.setPreferredSemiboldFontFamily("Inter SemiBold");
-
-		// Tau's defaults load after the theme's, so they win. Registered
-		// once: the source list is additive.
+	public static void init(String themeId, String mode, String accentHex, boolean higherContrast, Path ownThemes) {
+		// Registered once per process: the bundled faces stay registered with
+		// the graphics environment, and the defaults source list is additive.
+		// Tau's defaults load after the theme's, so they win.
 		if (!registered) {
+			registerFonts();
 			FlatLaf.registerCustomDefaultsSource(DEFAULTS_PACKAGE);
 			registered = true;
 		}
+		// Bundled Inter is the preferred family before the theme installs, so
+		// components pick it up.
+		FlatLaf.setPreferredFontFamily(FONT_FAMILY);
+		// FlatLaf's semibold class (and the .lead and .section headings) use Inter's own SemiBold cut.
+		FlatLaf.setPreferredSemiboldFontFamily("Inter SemiBold");
 
 		catalogue = catalogue(ownThemes);
 		Choice c = choice(themeId);
 		if (c == null) c = choice(defaultTheme(mode));
 		setup(c, accentHex);
 		installFont();
-		installDerived();
+		installDerived(higherContrast);
 		FlatLaf.updateUI();
 	}
 
 	/**
-	 * Switches the running app to another theme or accent, cross-fading every
-	 * open window from the old look to the new. Event thread only.
+	 * Switches the running app to another theme, accent or contrast,
+	 * cross-fading every open window from the old look to the new. Event
+	 * thread only.
 	 */
-	public static void apply(String themeId, String accentHex) {
+	public static void apply(String themeId, String accentHex, boolean higherContrast) {
 		Choice c = choice(themeId);
 		if (c == null) c = (current != null) ? current : choice(TAU_DARK);
 		FlatAnimatedLafChange.showSnapshot();
 		setup(c, accentHex);
 		installFont();
-		installDerived();
+		installDerived(higherContrast);
 		FlatLaf.updateUI();
 		FlatAnimatedLafChange.hideSnapshotWithAnimation();
 	}
@@ -213,6 +235,11 @@ public final class LAF {
 		return accent;
 	}
 
+	/** Whether higher contrast is in use. */
+	public static boolean higherContrast() {
+		return higherContrast;
+	}
+
 	/** {@code hex} if it is a colour FlatLaf can read, else null. */
 	public static String validAccent(String hex) {
 		if (hex == null || hex.isBlank()) return null;
@@ -247,35 +274,124 @@ public final class LAF {
 	}
 
 	/**
-	 * The shades the buttons take from the accent, computed from the accent the
-	 * installed theme resolved — a properties file cannot work out a contrast —
-	 * and put into the defaults the style classes in {@code FlatLaf.properties}
-	 * refer to. Runs after every theme setup, before the UI updates.
+	 * The colours a properties file cannot work out, because they depend on a
+	 * contrast: Tau's own text colours made readable on whichever theme is
+	 * installed, and the shades the buttons take from the accent. Each starts
+	 * from the value the theme and {@code FlatLaf.properties} resolved and is
+	 * put into the look and feel's own defaults, which the next theme setup
+	 * replaces, so a value never carries over to another theme or compounds.
+	 * The style classes in {@code FlatLaf.properties} refer to them. Tau's
+	 * own text reads at {@link Theme#textContrast}: AA, or AAA with higher
+	 * contrast. Runs after every theme setup, before the UI updates.
 	 */
-	private static void installDerived() {
+	private static void installDerived(boolean higher) {
+		UIDefaults defaults = UIManager.getLookAndFeelDefaults();
+		higherContrast = higher;
+		double target = higher ? Theme.AAA_CONTRAST : Theme.AA_CONTRAST;
+		defaults.put("Tau.textContrast", target);
+		if (higher) installHigherContrast(defaults);
+		Color panel = Theme.panel();
+		// Cards and code step off the panel no further than ordinary text still reads on them.
+		Color text = Theme.foreground();
+		Color surface = Theme.readableGround(panel, Theme.surface(), target, text);
+		defaults.put("Tau.surface", surface);
+		defaults.put("Tau.code.background", Theme.readableGround(panel, Theme.codeBackground(), target, text));
+		// Secondary text and Tau's red, green and orange: moved in lightness until each
+		// reads on the panel, on a card, and on its own faint tint over either. Where
+		// the text can go no further and still falls short, the tint fades instead.
+		for (String tone : TONES) {
+			Color base = defaults.getColor("Tau." + tone);
+			Color tint = defaults.getColor("Tau." + tone + ".tint");
+			// Absent only when FlatLaf could not install and Tau's defaults never loaded: Theme's fallbacks stand.
+			if (base == null || tint == null) continue;
+			Color toneText = Theme.readableOn(base, target, panel, surface, Theme.over(tint, panel), Theme.over(tint, surface));
+			defaults.put("Tau." + tone, toneText);
+			defaults.put("Tau." + tone + ".tint", Theme.readableTint(tint, toneText, target, panel, surface));
+		}
+		// The named statuses paint on a ground of their own, over the panel or a card:
+		// their text reads there as text does, their icon as a mark does (3:1). A
+		// translucent ground fades where the text can go no further, as a tone's tint does.
+		for (String status : STATUSES) {
+			String key = "Tau.status." + status;
+			Color ground = defaults.getColor(key + ".background");
+			if (ground == null) continue;
+			raise(defaults, key + ".foreground", target, Theme.over(ground, panel), Theme.over(ground, surface));
+			Color statusText = defaults.getColor(key + ".foreground");
+			if (statusText != null && ground.getAlpha() < 255) {
+				ground = Theme.readableTint(ground, statusText, target, panel, surface);
+				defaults.put(key + ".background", ground);
+			}
+			raise(defaults, key + ".icon", Theme.NON_TEXT_CONTRAST, Theme.over(ground, panel), Theme.over(ground, surface));
+		}
 		Color accent = Theme.accent();
 		Color dark = Theme.accentDark();
-		// The accent as text on its own tint over the panel: moved in lightness until it reads there.
-		Color text = Theme.readableOn(accent, Theme.blend(Theme.panel(), accent, 0.22f), Theme.AA_CONTRAST);
-		// On Tau's own themes with Tau's own purple, the accent as text is the
-		// theme's link colour exactly (#B79BF0 on navy, Royal Purple on white).
+		Color strongest = ColorFunctions.fade(accent, 0.22f);
+		// The accent as text — links, headings, the tinted button — read the same way, on the
+		// tinted button's tint; that tint, the selected navigation's and the accent badge's
+		// fade where the text can go no further. On Tau's own themes with Tau's own purple it
+		// starts from the theme's link colour (#B79BF0 on navy, Royal Purple on white).
+		Color start = accent;
 		if (current != null && GROUP_TAU.equals(current.group()) && accent.equals(Color.decode(TAU_ACCENT))) {
-			Color link = UIManager.getColor("Tau.link");
-			if (link != null) text = link;
+			Color link = defaults.getColor("Tau.link");
+			if (link != null) start = link;
 		}
-		UIManager.put("Tau.accent.dark", dark);
-		UIManager.put("Tau.accent.text", text);
-		// The primary button: white on the accent, darkened only until white reads on it at AA;
+		Color accentText = Theme.readableOn(start, target, panel, surface, Theme.over(strongest, panel), Theme.over(strongest, surface));
+		Color tinted = Theme.readableTint(strongest, accentText, target, panel, surface);
+		Color accentTint = defaults.getColor("Tau.accent.tint");
+		if (accentTint != null) defaults.put("Tau.accent.tint", Theme.readableTint(accentTint, accentText, target, panel, surface));
+		defaults.put("Button.toolbar.selectedBackground", tinted);
+		defaults.put("ToggleButton.toolbar.selectedBackground", tinted);
+		defaults.put("Tau.accent.dark", dark);
+		defaults.put("Tau.accent.text", accentText);
+		// The primary button: white on the accent, darkened only until white reads on it;
 		// hover a step lighter, pressed a step darker.
 		Color fill = Theme.primaryFill();
-		UIManager.put("Tau.primary.background", fill);
-		UIManager.put("Tau.primary.hoverBackground", ColorFunctions.lighten(fill, 0.05f));
-		UIManager.put("Tau.primary.pressedBackground", ColorFunctions.darken(fill, 0.06f));
+		defaults.put("Tau.primary.background", fill);
+		defaults.put("Tau.primary.hoverBackground", ColorFunctions.lighten(fill, 0.05f));
+		defaults.put("Tau.primary.pressedBackground", ColorFunctions.darken(fill, 0.06f));
 		// The tinted button: the accent as text on its faint tint, the tint deepening under the pointer.
-		UIManager.put("Tau.tinted.foreground", text);
-		UIManager.put("Tau.tinted.background", ColorFunctions.fade(accent, 0.22f));
-		UIManager.put("Tau.tinted.hoverBackground", ColorFunctions.fade(accent, 0.30f));
-		UIManager.put("Tau.tinted.pressedBackground", ColorFunctions.fade(accent, 0.38f));
+		float rest = tinted.getAlpha() / 255f;
+		defaults.put("Tau.tinted.foreground", accentText);
+		defaults.put("Tau.tinted.background", tinted);
+		defaults.put("Tau.tinted.hoverBackground", ColorFunctions.fade(accent, rest + 0.08f));
+		defaults.put("Tau.tinted.pressedBackground", ColorFunctions.fade(accent, rest + 0.16f));
+	}
+
+	/**
+	 * Higher contrast, chosen in Settings → Theme, on the theme's own colours:
+	 * the text of its controls brought to {@value Theme#AAA_CONTRAST}:1 on the
+	 * ground each paints on, and selected text on its selection as near as
+	 * white or black gets on a mid-tone selection; placeholders
+	 * to {@value Theme#AA_CONTRAST}:1, where they stay quieter than what is
+	 * typed; and the borders of fields, buttons and check boxes to
+	 * {@value Theme#NON_TEXT_CONTRAST}:1 — each moved in lightness, hue kept.
+	 */
+	private static void installHigherContrast(UIDefaults defaults) {
+		double aaa = Theme.AAA_CONTRAST;
+		Color panel = Theme.panel();
+		// Labels sit on cards as well as on the panel.
+		raise(defaults, "Label.foreground", aaa, panel, Theme.surface());
+		for (String c : TEXT_CONTROLS) {
+			Color ground = defaults.getColor(c + ".background");
+			if (ground == null) ground = panel;
+			raise(defaults, c + ".foreground", aaa, ground);
+			raise(defaults, c + ".selectionForeground", aaa, defaults.getColor(c + ".selectionBackground"));
+			raise(defaults, c + ".placeholderForeground", Theme.AA_CONTRAST, ground);
+		}
+		// A tree's renderer reads its own pair.
+		raise(defaults, "Tree.textForeground", aaa, defaults.getColor("Tree.textBackground"));
+		double edge = Theme.NON_TEXT_CONTRAST;
+		raise(defaults, "Component.borderColor", edge, panel, defaults.getColor("TextField.background"));
+		raise(defaults, "Button.borderColor", edge, panel, defaults.getColor("Button.background"));
+		raise(defaults, "CheckBox.icon.borderColor", edge, panel, defaults.getColor("CheckBox.icon.background"));
+	}
+
+	/** The colour at {@code key} moved until it reads on every ground; an absent key, or an absent ground, leaves it be. */
+	private static void raise(UIDefaults defaults, String key, double contrast, Color... grounds) {
+		Color colour = defaults.getColor(key);
+		if (colour == null) return;
+		for (Color g : grounds) if (g == null) return;
+		defaults.put(key, Theme.readableOn(colour, contrast, grounds));
 	}
 
 	/** The body size in Inter: FlatLaf derives every other font from it and scales the UI to match. */

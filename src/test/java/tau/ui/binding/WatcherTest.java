@@ -22,6 +22,7 @@ import convex.core.data.ACell;
 import convex.core.data.prim.CVMLong;
 import convex.lattice.ALatticeComponent;
 import convex.lattice.cursor.Root;
+import tau.ui.ReadsLook;
 
 /**
  * The watcher reads a component only while its view is on screen, tells the
@@ -29,6 +30,7 @@ import convex.lattice.cursor.Root;
  * whether or not Swing said so. A test drives the passes, and decides what is
  * on screen and what is minimised; nothing waits on the clock.
  */
+@ReadsLook
 class WatcherTest {
 
 	/** A lattice component over a root cursor, counting its reads. */

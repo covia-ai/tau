@@ -18,6 +18,7 @@ import javax.swing.JPanel;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import tau.ui.ReadsLook;
 import tau.ui.vault.VaultScreen;
 
 /**
@@ -26,6 +27,7 @@ import tau.ui.vault.VaultScreen;
  * as coming, never claimed. The Vault holds Secrets, Access, and Passphrase.
  * Headless.
  */
+@ReadsLook
 class RecordScreenTest {
 
 	private static final List<String> FORBIDDEN = List.of("undo", "revert", "delete", "edit", "remove", "rollback");
@@ -100,5 +102,14 @@ class RecordScreenTest {
 			}
 		}
 		return null;
+	}
+
+	@Test
+	void aJobRecordIsCopiedAndExportedAsJson() {
+		convex.core.data.ACell record = convex.core.data.Maps.of("status", "COMPLETE", "id",
+			convex.core.data.Blob.fromHex("0a0b"));
+		convex.core.data.ACell back = convex.core.util.JSON.parse(RecordScreen.json(record));
+		assertEquals("COMPLETE", convex.core.lang.RT.getIn(back, "status").toString());
+		assertEquals("{}", RecordScreen.json(null));
 	}
 }

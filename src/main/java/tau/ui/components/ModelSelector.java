@@ -16,7 +16,7 @@ import tau.model.Providers;
 import net.miginfocom.swing.MigLayout;
 
 /**
- * Shared provider/model picker used by onboarding, Settings and agent creation.
+ * Shared provider/model picker used by Settings and agent creation.
  * For a provider that takes any model, the model field is editable and holds
  * the model's id: pick a listed one, or type any id the provider serves.
  */

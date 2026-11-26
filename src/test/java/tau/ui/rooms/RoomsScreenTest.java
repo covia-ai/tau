@@ -63,6 +63,7 @@ import tau.ui.components.TauMark;
  * their waits and stop telling; a flood stays responsive, folds long posts,
  * and notifies once; no character anywhere; and the panes at each width.
  */
+@tau.ui.ReadsLook
 class RoomsScreenTest {
 
 	@RegisterExtension

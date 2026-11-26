@@ -152,10 +152,11 @@ class TauAdapterTest {
 	@Test
 	void contextKnowsTheDate() {
 		StringBuilder text = new StringBuilder();
-		TauAdapter.appendClock(text);
-		String today = java.time.LocalDate.now().toString();
-		assertTrue(text.toString().contains("Today is " + today), text.toString());
-		assertTrue(text.toString().matches("(?s).*Timestamp \\d{13}\\..*"), "the epoch millisecond alongside: " + text);
+		java.time.ZonedDateTime now = java.time.ZonedDateTime.of(2026, 11, 25, 23, 59, 30, 0, java.time.ZoneId.of("Europe/London"));
+		TauAdapter.appendClock(text, now);
+		assertTrue(text.toString().contains("2026-11-25"), "the date in the owner's zone: " + text);
+		assertTrue(text.toString().contains("Europe/London"), "and the zone: " + text);
+		assertTrue(text.toString().contains("Timestamp " + now.toInstant().toEpochMilli()), "the epoch millisecond alongside: " + text);
 	}
 
 	@Test

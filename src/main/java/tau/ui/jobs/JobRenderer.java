@@ -32,7 +32,7 @@ final class JobRenderer extends JPanel implements ListCellRenderer<JobList.Job> 
 	private long now = System.currentTimeMillis();
 
 	JobRenderer() {
-		super(new MigLayout("insets 10 14 10 14, fillx, gapx 12, gapy 2", "[]12[grow,fill,100:]12[]", "[][]"));
+		super(new MigLayout("insets 5 14 5 14, fillx, gapx 12, gapy 1", "[]12[grow,fill,100:]12[]", "[][]"));
 		add(icon, "spany 2, aligny top, gaptop 2");
 		add(title, "wmin 0");
 		add(status, "spany 2, aligny center, wrap");
@@ -50,8 +50,8 @@ final class JobRenderer extends JPanel implements ListCellRenderer<JobList.Job> 
 	@Override
 	public Component getListCellRendererComponent(JList<? extends JobList.Job> list, JobList.Job job, int index,
 			boolean selected, boolean focused) {
-		int pad = tau.ui.components.Density.pad(10);
-		((MigLayout) getLayout()).setLayoutConstraints("insets " + pad + " 14 " + pad + " 14, fillx, gapx 12, gapy 2");
+		int pad = tau.ui.components.Density.pad(5);
+		((MigLayout) getLayout()).setLayoutConstraints("insets " + pad + " 14 " + pad + " 14, fillx, gapx 12, gapy 1");
 		if (job == null) {
 			title.setText(" ");
 			meta.setText(" ");
@@ -64,7 +64,7 @@ final class JobRenderer extends JPanel implements ListCellRenderer<JobList.Job> 
 		status.setText(JobLooks.status(job));
 		status.tone(JobLooks.tone(job));
 		status.setIcon(Lucide.icon(JobLooks.icon(job), 14, () -> status.tone().colour()));
-		setBackground(selected ? Theme.blend(Theme.panel(), Theme.accent(), 0.14f) : Theme.panel());
+		setBackground(selected ? Theme.accentGround(0.14f) : Theme.panel());
 		setOpaque(true);
 		return this;
 	}
