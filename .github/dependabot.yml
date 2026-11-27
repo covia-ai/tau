@@ -1,0 +1,12 @@
+# Keeps the pinned workflow actions current. Maven dependencies are left to
+# the dependency scan in CI: while Tau builds on a Covia SNAPSHOT, which is
+# not published, Dependabot cannot resolve the project.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories: ['/', '/.github/actions/*']
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']

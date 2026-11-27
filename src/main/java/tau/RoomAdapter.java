@@ -250,12 +250,19 @@ public class RoomAdapter extends AAdapter {
 		return page(name, room, from, limit);
 	}
 
-	/** The blocking read: answers with what is after {@code after} now, or once a post or the timeout comes. */
+	/**
+	 * The blocking read: answers with what is after {@code after} now, or once a
+	 * post or the timeout comes. Without {@code after} it waits for the room's
+	 * next post, so a room with no posts yet can be followed from its first.
+	 */
 	private CompletableFuture<ACell> await(RequestContext ctx, ACell input) {
 		AString name = roomName(input);
 		AMap<AString, ACell> room = room(name);
 		requireReadable(ctx, name, room);
-		long after = number(RT.getIn(input, K_AFTER), "after");
+		ACell given = RT.getIn(input, K_AFTER);
+		// -1 is "nothing seen yet": a reader that read the room empty waits from its first post, so posts made
+		// between its read and this wait are given, not skipped.
+		long next = (given == null) ? longIn(room, K_NEXT, 0) : after(given) + 1;
 		int limit = limit(input);
 		ACell t = RT.getIn(input, K_TIMEOUT);
 		long timeout = Math.min(MAX_WAIT_MS, Math.max(0, (t == null) ? DEFAULT_WAIT_MS : number(t, "timeout")));
@@ -264,7 +271,7 @@ public class RoomAdapter extends AAdapter {
 			waiting.computeIfAbsent(name, k -> new ArrayList<>()).add(arrived);
 		}
 		// Registered before reading, so a post between the two is not missed
-		AMap<AString, ACell> now = page(name, room(name), after + 1, limit);
+		AMap<AString, ACell> now = page(name, room(name), next, limit);
 		if (!RT.ensureVector(now.get(K_POSTS)).isEmpty() || timeout == 0) {
 			forget(name, arrived);
 			return CompletableFuture.completedFuture(now);
@@ -272,7 +279,7 @@ public class RoomAdapter extends AAdapter {
 		return arrived.completeOnTimeout(true, timeout, TimeUnit.MILLISECONDS).thenApply(present -> {
 			forget(name, arrived);
 			if (!present) throw new NotFoundException(DELETED.formatted(name), name.toString());
-			return (ACell) page(name, room(name), after + 1, limit);
+			return (ACell) page(name, room(name), next, limit);
 		});
 	}
 
@@ -557,6 +564,12 @@ public class RoomAdapter extends AAdapter {
 		long limit = (v == null) ? DEFAULT_LIMIT : number(v, "limit");
 		if (limit < 1 || limit > MAX_LIMIT) throw new InvalidInputException("limit must be 1 to " + MAX_LIMIT);
 		return (int) limit;
+	}
+
+	/** A wait's {@code after}: a post's number, or -1 for none seen yet. */
+	private static long after(ACell v) {
+		if (v instanceof CVMLong l && l.longValue() >= -1) return l.longValue();
+		throw new InvalidInputException("after must be a post's number, or -1 when none has been seen");
 	}
 
 	private static long number(ACell v, String what) {

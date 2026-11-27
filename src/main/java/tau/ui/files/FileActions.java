@@ -281,7 +281,7 @@ final class FileActions {
 
 	private static String reason(Throwable error) {
 		while (error.getCause() != null) error = error.getCause();
-		return (error.getMessage() == null) ? error.getClass().getSimpleName() : error.getMessage();
+		return tau.ui.Problems.fileLine(error);
 	}
 
 	private static String systemFiles() {

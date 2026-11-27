@@ -554,7 +554,7 @@ final class VoiceInput {
 		idle();
 		note(text, "circle-alert", Tone.ERROR);
 		// The detail, for whoever wants it, without filling the line.
-		line.setToolTipText(ChatPanel.describe(cause));
+		line.setToolTipText(tau.ui.Problems.clean(ChatPanel.describe(cause)));
 	}
 
 	/** A line that clears itself after a few seconds. */

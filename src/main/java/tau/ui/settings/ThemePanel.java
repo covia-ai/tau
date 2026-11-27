@@ -78,6 +78,10 @@ public final class ThemePanel extends JPanel {
 		/** Open the folder the owner's own {@code .theme.json} files go in. */
 		void openThemesFolder();
 
+		/** Choose a character pack (its folder or zip) and copy it into the data folder. */
+		default void addCharacterPack() {
+		}
+
 		/** The sidebar ({@code true}) or the classic bottom bar. */
 		default void setShell(boolean rail) {
 		}
@@ -85,7 +89,25 @@ public final class ThemePanel extends JPanel {
 		/** Compact rows in tables and lists ({@code true}) or comfortable ones. */
 		default void setDensity(boolean compact) {
 		}
+
+		/** How much the character moves: a level, or null to match the system. */
+		default void setMotion(tau.ui.character.Motion motion) {
+		}
 	}
+
+	/** A Motion choice on offer: a level, or null for the system's own setting. */
+	private record MotionChoice(String label, tau.ui.character.Motion level) {
+		@Override
+		public String toString() {
+			return label;
+		}
+	}
+
+	private static final MotionChoice[] MOTIONS = {
+		new MotionChoice("Match the system", null),
+		new MotionChoice("Full", tau.ui.character.Motion.FULL),
+		new MotionChoice("Reduced", tau.ui.character.Motion.REDUCED),
+		new MotionChoice("Off", tau.ui.character.Motion.OFF) };
 
 	/** A named accent on offer. */
 	private record Accent(String label, String hex) {
@@ -116,6 +138,7 @@ public final class ThemePanel extends JPanel {
 	private final JRadioButton bottomLayout = new JRadioButton("Bottom bar");
 	private final JRadioButton comfortable = new JRadioButton("Comfortable");
 	private final JRadioButton compact = new JRadioButton("Compact");
+	final javax.swing.JComboBox<MotionChoice> motion = new javax.swing.JComboBox<>(MOTIONS);
 	private String mode = LAF.DARK;
 	/** Whether the mode follows the system, so choosing the mode it shows still leaves it. */
 	private boolean followingSystem;
@@ -189,7 +212,11 @@ public final class ThemePanel extends JPanel {
 		JButton open = Buttons.secondary("Open themes folder");
 		open.setToolTipText("Drop a FlatLaf or IntelliJ .theme.json here and restart; it appears under its mode");
 		open.addActionListener(e -> host.openThemesFolder());
-		own.add(open, "gaptop 12");
+		own.add(open, "gaptop 12, split 2");
+		JButton pack = Buttons.secondary("Add character pack…");
+		pack.setToolTipText("Choose a character pack, its folder or its zip; " + APP_NAME + " keeps a copy in its data folder");
+		pack.addActionListener(e -> host.addCharacterPack());
+		own.add(pack, "gaptop 12, gapleft 8");
 		form.add(own, "growx, wmin 0");
 
 		// How the window is laid out: the sidebar, or the bottom bar as before;
@@ -223,6 +250,15 @@ public final class ThemePanel extends JPanel {
 		densityRow.add(Box.createHorizontalStrut(18));
 		densityRow.add(compact);
 		layout.add(densityRow);
+		motion.setToolTipText("How much " + APP_NAME + "'s character moves. Reduced keeps only crossfades; Off shows still "
+			+ "poses. Match the system follows your computer's reduce-motion setting.");
+		motion.addActionListener(e -> {
+			if (syncing) return;
+			MotionChoice c = (MotionChoice) motion.getSelectedItem();
+			host.setMotion(c == null ? null : c.level());
+		});
+		layout.add(Labels.text("Motion"));
+		layout.add(motion, "growx 0");
 		form.add(layout, "growx, wmin 0");
 
 		add(form, BorderLayout.CENTER);
@@ -234,6 +270,16 @@ public final class ThemePanel extends JPanel {
 		syncing = true;
 		try {
 			modeButton().setSelected(true);
+		} finally {
+			syncing = false;
+		}
+	}
+
+	/** Reflect the Motion choice: a level, or null when it matches the system; fires no host call. */
+	public void refreshMotion(tau.ui.character.Motion level) {
+		syncing = true;
+		try {
+			for (MotionChoice c : MOTIONS) if (c.level() == level) motion.setSelectedItem(c);
 		} finally {
 			syncing = false;
 		}

@@ -75,7 +75,7 @@ class MoltbookKeyPersistenceTest {
 	/** Launches the venue the way Tau does: the store keyed from the seed, the vault from the passphrase. */
 	private static Launched launch(Path home, String passphrase) throws IOException {
 		Vault.open(home, passphrase.toCharArray());
-		AMap<AString, ACell> config = Vault.secure(AppConfig.defaultVenue(home), SEED)
+		AMap<AString, ACell> config = Vault.secure(SharedVenue.withTestAdapter(AppConfig.defaultVenue(home)), SEED)
 			.assoc(Fields.PORT, CVMLong.create(0));
 		return new Launched(EmbeddedVenue.launch(config));
 	}

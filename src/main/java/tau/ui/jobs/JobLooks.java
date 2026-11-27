@@ -67,7 +67,6 @@ final class JobLooks {
 	/** The line under a job's title: what it ran, who started it, when, and for how long. */
 	static String meta(JobList.Job job, long now) {
 		StringBuilder line = new StringBuilder();
-		if (job.purpose() != null) line.append(job.name()).append(" · ");
 		line.append(startedBy(job));
 		if (job.created() > 0) line.append(" · ").append(Times.relative(job.created(), now));
 		if (job.created() > 0 && !"PENDING".equals(job.status())) {

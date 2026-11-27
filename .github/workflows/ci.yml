@@ -1,0 +1,258 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and test (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            runner: ubuntu-latest
+            jdk: temurin
+          - name: linux-arm64
+            runner: ubuntu-24.04-arm
+            jdk: temurin
+          - name: macos-arm64
+            runner: macos-latest
+            jdk: temurin
+          - name: macos-x64
+            runner: macos-15-intel
+            jdk: temurin
+          - name: windows-x64
+            runner: windows-latest
+            jdk: temurin
+          # Temurin publishes no JDK 25 for Windows on ARM; Microsoft's build of OpenJDK does.
+          - name: windows-arm64
+            runner: windows-11-arm
+            jdk: microsoft
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: ${{ matrix.jdk }}
+          java-version: '25'
+          cache: maven
+
+      - name: Install Covia
+        uses: ./.github/actions/install-covia
+
+      - name: Build and test
+        shell: bash
+        run: mvn -B -ntp package
+
+      - name: Keep test reports
+        # Evidence only: a failed upload (often a GitHub network error) must not fail a build that passed.
+        continue-on-error: true
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-reports-${{ matrix.name }}
+          path: target/surefire-reports/
+          retention-days: 7
+
+      - name: Self-test the jar
+        shell: bash
+        run: |
+          java -jar target/tau.jar --self-test "$RUNNER_TEMP/tau-self-test"
+          java -jar target/tau.jar --self-test "$RUNNER_TEMP/tau-self-test"
+
+      # Every screen at the four window sizes, dark and light, through the
+      # screenshot harness: it fails on an exception or an unexpected error in
+      # the log. The character's art is never in this repository, so the
+      # screens show the glyph that stands in for it.
+      - name: Install a virtual display
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb
+
+      - name: Screens render (dark and light)
+        shell: bash
+        run: |
+          set -euo pipefail
+          unset TAU_CHARACTER_DIR
+          mvn -B -ntp -q org.apache.maven.plugins:maven-dependency-plugin:3.9.0:build-classpath -Dmdep.outputFile=target/cp.txt
+          sep=':'
+          [[ "$RUNNER_OS" == Windows ]] && sep=';'
+          cp="target/test-classes${sep}target/classes${sep}$(cat target/cp.txt)"
+          display=()
+          [[ "$RUNNER_OS" == Linux ]] && display=(xvfb-run -a -s "-screen 0 1600x1000x24")
+          for mode in dark light; do
+            echo "== $mode"
+            ${display[@]+"${display[@]}"} java -cp "$cp" tau.tools.ScreenShots target/shots "$mode"
+          done
+
+      - name: Keep the screenshots
+        # Evidence only: a failed upload (often a GitHub network error) must not fail a build that passed.
+        continue-on-error: true
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: screenshots-${{ matrix.name }}
+          path: target/shots/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Keep the jar
+        if: matrix.name == 'linux-x64'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tau-jar
+          path: target/tau.jar
+          retention-days: 14
+
+  # Builds its own jar rather than waiting for the build matrix, so a test
+  # failure or a runner shortage on one platform does not skip the scan.
+  dependency-scan:
+    name: Dependency vulnerability scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Install Covia
+        uses: ./.github/actions/install-covia
+
+      - name: Build the jar
+        shell: bash
+        run: |
+          mvn -B -ntp package -DskipTests
+          mkdir -p scan
+          cp target/tau.jar scan/
+
+      # The shaded jar keeps every dependency's Maven coordinates, so this
+      # sees exactly what ships, Covia's transitive dependencies included.
+      - name: Report known vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.76.2
+          scan-type: rootfs
+          scan-ref: scan/
+          scanners: vuln
+          severity: MEDIUM,HIGH,CRITICAL
+          format: table
+          output: trivy-report.txt
+          exit-code: '0'
+
+      - name: Fail on critical vulnerabilities with a fix
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.76.2
+          scan-type: rootfs
+          scan-ref: scan/
+          scanners: vuln
+          severity: CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: '1'
+          skip-setup-trivy: true
+
+      - name: Summarise
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f trivy-report.txt ]]; then
+            {
+              echo '### Dependency vulnerabilities (medium and above)'
+              echo '```'
+              cat trivy-report.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Keep the report
+        # Evidence only: a failed upload (often a GitHub network error) must not fail a build that passed.
+        continue-on-error: true
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dependency-report
+          path: trivy-report.txt
+          if-no-files-found: ignore
+          retention-days: 30
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install gitleaks
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive"
+          echo "$GITLEAKS_SHA256  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
+
+      # Every commit is scanned, not only the change, so a secret added and
+      # later removed is still caught. Findings are redacted in the log.
+      - name: Scan history
+        shell: bash
+        run: |
+          "$RUNNER_TEMP/gitleaks" git --no-banner --redact --config .gitleaks.toml \
+            --report-format sarif --report-path gitleaks.sarif .
+
+      - name: Keep the report
+        # Evidence only: a failed upload (often a GitHub network error) must not fail a build that passed.
+        continue-on-error: true
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: secret-scan-report
+          path: gitleaks.sarif
+          retention-days: 7
+
+  shipped-images:
+    name: Shipped images
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Only reviewed artwork is published or built into the app: the app
+      # icon set, the Lucide icons and the documentation screenshots. Any
+      # other image needs adding to packaging/allowed-images.txt in review.
+      - name: Check that every image is on the allowed list
+        shell: bash
+        run: packaging/check-images.sh

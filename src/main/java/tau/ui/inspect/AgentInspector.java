@@ -50,10 +50,20 @@ public final class AgentInspector {
 	 * while it runs.
 	 */
 	public static JComponent view(AgentInfo.Summary a, Consumer<String> saveInstructions, Runnable stop) {
+		return view(a, saveInstructions, stop, null);
+	}
+
+	/**
+	 * As {@link #view(AgentInfo.Summary, Consumer, Runnable)}; {@code setUnrestricted},
+	 * for the main assistant, switches it between the scoped set (false) and
+	 * Unrestricted (true) once the owner confirms; null when not offered.
+	 */
+	public static JComponent view(AgentInfo.Summary a, Consumer<String> saveInstructions, Runnable stop,
+			Consumer<Boolean> setUnrestricted) {
 		JPanel view = new JPanel(new BorderLayout());
 		view.setOpaque(false);
 		view.add(header(a, stop), BorderLayout.NORTH);
-		view.add(Scrolls.vertical(document(a, saveInstructions)), BorderLayout.CENTER);
+		view.add(Scrolls.vertical(document(a, saveInstructions, setUnrestricted)), BorderLayout.CENTER);
 		return view;
 	}
 
@@ -122,6 +132,10 @@ public final class AgentInspector {
 	}
 
 	static Readout document(AgentInfo.Summary a, Consumer<String> saveInstructions) {
+		return document(a, saveInstructions, null);
+	}
+
+	static Readout document(AgentInfo.Summary a, Consumer<String> saveInstructions, Consumer<Boolean> setUnrestricted) {
 		Readout d = new Readout();
 		if (a.error() != null) {
 			d.pair("Last error", a.error(), Styles.ERROR).tip("What stopped the agent, as the venue reports it.");
@@ -134,6 +148,16 @@ public final class AgentInspector {
 		d.pair("Tasks", Long.toString(a.tasks())).tip("Tasks on the agent's queue.");
 		d.pair("Timeline", a.timelineLength() + " event" + (a.timelineLength() == 1 ? "" : "s"))
 			.tip("Events the venue has recorded on the agent's timeline.");
+
+		d.section("What it may do").tip("Its permissions, as the venue checks them on every call. Overwrites and "
+			+ "deletes that ask you first wait for your approval in the Inbox.");
+		if (a.permissions() != null) {
+			for (String p : a.permissions()) {
+				if (tau.model.AgentPermissions.UNRESTRICTED_WORDS.equals(p)) d.pair("Permissions", p, Styles.WARNING);
+				else d.prose(p);
+			}
+		}
+		permissionChoice(d, a, setUnrestricted);
 
 		d.section("System prompt").tip("The instructions that open every turn: the agent's identity and role.");
 		d.prose(orDash(a.systemPrompt()));
@@ -168,6 +192,59 @@ public final class AgentInspector {
 	}
 
 	/** Asks for new instructions, starting from the current ones, and saves them unless cancelled, blank or unchanged. */
+	/** Whether {@code a}'s permissions read as everything its owner can do. */
+	static boolean unrestricted(AgentInfo.Summary a) {
+		return a.permissions() == null || a.permissions().equals(List.of(tau.model.AgentPermissions.UNRESTRICTED_WORDS));
+	}
+
+	/**
+	 * The main assistant's choice between the scoped set and Unrestricted:
+	 * Unrestricted is offered the scoped set in one click, listing what
+	 * changes; the scoped set lists what it does not cover and offers
+	 * Unrestricted, labelled with what that gives up.
+	 */
+	private static void permissionChoice(Readout d, AgentInfo.Summary a, Consumer<Boolean> setUnrestricted) {
+		if (setUnrestricted == null) return;
+		if (unrestricted(a)) {
+			d.note("Its deletes and overwrites don't ask you first, scheduled runs included.");
+			d.link("Use the scoped set…", () -> {
+				if (Dialogs.confirm(d, "Use the scoped set for " + a.name() + "?", scopedChanges(a.name()))) {
+					setUnrestricted.accept(false);
+				}
+			});
+			return;
+		}
+		boolean assistantSet = tau.model.AgentPermissions.words(tau.model.AgentPermissions.ASSISTANT).equals(a.permissions());
+		if (assistantSet) {
+			d.section("Doesn't ask first").tip("What it does without waiting for you.");
+			for (String s : tau.model.AgentPermissions.DOES_NOT_ASK) d.prose(s);
+			d.section("Needs an extra grant").tip("What the scoped set doesn't cover: you add the grant, or a god does it.");
+			for (String s : tau.model.AgentPermissions.NEEDS_MORE) d.prose(s);
+		}
+		d.link("Make it Unrestricted…", () -> {
+			if (Dialogs.confirmDanger(d, "Make " + a.name() + " Unrestricted?", unrestrictedWarning(a.name()))) {
+				setUnrestricted.accept(true);
+			}
+		});
+	}
+
+	/** What making the assistant Unrestricted gives up, for the confirmation. */
+	public static String unrestrictedWarning(String name) {
+		return name + " will be able to do everything you can, and its deletes and overwrites won't ask you first, "
+			+ "scheduled runs included.";
+	}
+
+	/** What switching an Unrestricted assistant to the scoped set changes, for the confirmation. */
+	public static String scopedChanges(String name) {
+		StringBuilder sb = new StringBuilder(name).append(" keeps everything its skills and tools use. What changes:\n\n");
+		sb.append("Overwrites and deletes ask you first in the Inbox, scheduled runs included, and so does "
+			+ "giving another agent permissions or replacing a stored key.\n\n");
+		sb.append("It needs an extra grant to:\n");
+		for (String s : tau.model.AgentPermissions.NEEDS_MORE) sb.append("  • ").append(s).append('\n');
+		sb.append("\nYou can make it Unrestricted again from this page.");
+		return sb.toString();
+	}
+
 	private static void editInstructions(JComponent parent, AgentInfo.Summary a, Consumer<String> save) {
 		TextArea area = new TextArea(16, 60);
 		area.setLineWrap(true);

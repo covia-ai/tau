@@ -51,6 +51,10 @@ final class JobDetail extends JPanel implements AutoCloseable {
 
 		/** The record has been read, or changed: {@code job} is what it now says. */
 		void shown(JobList.Job job);
+
+		/** Opens the room a wait job waits on. */
+		default void openRoom(String name) {
+		}
 	}
 
 	private final Blob id;
@@ -124,7 +128,8 @@ final class JobDetail extends JPanel implements AutoCloseable {
 
 		field("Operation", job.name() + (job.operation() != null && !job.operation().equals(job.name())
 			? "  (" + job.operation() + ")" : ""), false);
-		if (job.purpose() != null && !job.purpose().equals(job.title())) field("For", job.purpose(), false);
+		// What it was handed, with anything shaped like a key masked.
+		if (job.purpose() != null) field("For", tau.ui.Problems.clean(job.purpose()), false);
 		field("Started", job.created() > 0 ? Times.exact(job.created()) : null, false);
 		if (job.timedOut()) {
 			field("Timed out", job.updated() > 0 ? Times.exact(job.updated()) : null, false);
@@ -141,6 +146,12 @@ final class JobDetail extends JPanel implements AutoCloseable {
 			open.setToolTipText("What the agent did in it, step by step, as the chat shows it");
 			open.addActionListener(e -> actions.openConversation(job));
 			add(open, "growx 0");
+		}
+		if (tau.rooms.Rooms.isWaitOn(job.record(), null)) {
+			// A wait on a room: the room it follows, one step away.
+			String room = String.valueOf(convex.core.lang.RT.getIn(job.record().get(Fields.INPUT), "room"));
+			add(Labels.small("Room"), "aligny top");
+			add(Buttons.link("Open room " + room, () -> actions.openRoom(room)), "growx 0");
 		}
 		if (job.parent() != null) {
 			add(Labels.small("Ran inside"), "aligny top");

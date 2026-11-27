@@ -54,7 +54,7 @@ final class ThinkingBubble extends Card {
 		setSummary(initialSummary);
 		elapsed.setVisible(false);
 
-		stop = Buttons.icon(Lucide.icon("x", 14, Theme::muted), "Stop waiting for this reply");
+		stop = Buttons.icon(Lucide.icon("x", 14, Theme::muted), "Stop this reply");
 		// Compact enough to sit on the text line without growing the bubble, and
 		// never the focus owner: the composer keeps it either way.
 		Styles.style(stop, "toolbar.margin: 1,1,1,1");

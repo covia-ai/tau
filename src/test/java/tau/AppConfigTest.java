@@ -90,6 +90,20 @@ class AppConfigTest {
 	}
 
 	@Test
+	void browserPagesMayCallTheVenueOnlyFromThisComputer() {
+		Config.CorsPolicy cors = new Config(AppConfig.parse("{}", home).venueConfig()).getCorsPolicy();
+		assertEquals(null, cors.allowedOriginHeader("https://evil.example"), "a website is refused");
+		assertEquals(null, cors.allowedOriginHeader("http://192.168.1.20:3000"), "another machine is refused");
+		assertEquals("http://localhost:3000", cors.allowedOriginHeader("http://localhost:3000"), "a local web tool is allowed");
+		assertEquals("http://127.0.0.1:5173", cors.allowedOriginHeader("http://127.0.0.1:5173"), "by address too");
+		Config.CorsPolicy widened = new Config(AppConfig.parse(
+			"{venue:{corsOrigins:[\"loopback\",\"https://tools.example\"]}}", home).venueConfig()).getCorsPolicy();
+		assertEquals("https://tools.example", widened.allowedOriginHeader("https://tools.example"),
+			"the owner can still allow an origin in config.json");
+		assertEquals(null, widened.allowedOriginHeader("https://evil.example"));
+	}
+
+	@Test
 	void privateNetworkAccessFollowsTheBind() {
 		assertTrue(new Config(AppConfig.parse("{}", home).venueConfig()).isAllowPrivateNetwork(),
 			"on loopback, local web tooling can reach the venue");

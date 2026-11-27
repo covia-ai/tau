@@ -156,6 +156,18 @@ abstract class SettingsPage extends JPanel {
 		return new Rows(parts);
 	}
 
+	/**
+	 * Adds whole groups ({@link #group} and their rows) that show and hide as
+	 * one, headings and cards together: a section of the page.
+	 */
+	protected final Rows section(Runnable add) {
+		int before = form.getComponentCount();
+		add.run();
+		java.util.List<java.awt.Component> parts = new java.util.ArrayList<>();
+		for (int i = before; i < form.getComponentCount(); i++) parts.add(form.getComponent(i));
+		return new Rows(parts);
+	}
+
 	/** A labelled row; on a card, ruled off from the row above. */
 	private void row(JComponent label, String labelConstraints, JComponent field, String fieldConstraints) {
 		if (target != form && cardHasRow) target.add(new JSeparator(), "span 2, growx");

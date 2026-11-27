@@ -108,7 +108,7 @@ class VaultTest {
 	private static void storeKeyRoundTrip(Path home) throws Exception {
 		String seed = Mnemonic.toSeedHex(Mnemonic.generate(12));
 		// The persistent store under home, on whatever port is free.
-		AMap<AString, ACell> base = AppConfig.defaultVenue(home).assoc(Fields.PORT, CVMLong.create(0));
+		AMap<AString, ACell> base = tau.SharedVenue.withTestAdapter(AppConfig.defaultVenue(home)).assoc(Fields.PORT, CVMLong.create(0));
 
 		// Launch with this seed, write a marker, close.
 		AMap<AString, ACell> a = Vault.secure(base, seed);

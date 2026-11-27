@@ -167,7 +167,7 @@ final class PlaceActions {
 
 	private static String reason(Throwable error) {
 		while (error.getCause() != null) error = error.getCause();
-		return (error.getMessage() == null) ? error.getClass().getSimpleName() : error.getMessage();
+		return tau.ui.Problems.fileLine(error);
 	}
 
 	private interface Step { void run(Places places) throws Exception; }

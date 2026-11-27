@@ -1,6 +1,6 @@
 # Jobs
 
-How *Settings → Jobs* shows the acting principal's jobs and acts on them,
+How the *Jobs* screen (in the sidebar, and in Settings) shows the acting principal's jobs and acts on them,
 with Covia's own lattice components as its domain model. What the page offers
 the owner is described in [CONFIGURATION.md](CONFIGURATION.md#jobs); Covia's
 job model is in [Covia Jobs](https://github.com/covia-ai/covia/blob/develop/venue/docs/JOBS.md).
@@ -33,6 +33,11 @@ time range seeks by time-ordered job ID without reading records. Status and
 caller filters must scan records within that range. Row summaries are built
 on demand, and selection follows the job ID across refreshed indexes.
 
+A row's title is its operation's name and the agent it ran for, never the
+words the job was handed: a chat's first line can hold anything, a pasted key
+among it, and titles are what screenshots and notifications show. What a job
+was for appears in the detail, with anything shaped like a key masked.
+
 ## The detail
 
 `JobDetail` follows a `JobRecord` and shows its status, attribution, input,
@@ -45,6 +50,17 @@ record deleted after opening can leave stale detail visible; see
 The bar under the list, the right-click menu and the detail act on a job
 through Covia's job operations as the acting principal (`JobList`), off the
 event thread, and then read the list and any open detail again at once.
+
+## Stopping a run
+
+Stop on a reply in flight ends the whole run, not only the wait for it
+(`StopRun`). It cancels the chat job; interrupts the agent's turn by
+suspending the agent, which cancels its transition and backend jobs, and
+resumes it at once so the next message goes through; and cancels every job of
+the run that is still going: those whose `parent` chain reaches the chat job,
+and the agent's own jobs since the run began, with theirs in turn. A Claude
+Code run among them is stopped with `claudecode:stop` as well. Steps already
+finished keep their results, and the chat says it stopped.
 
 ## Known limits
 

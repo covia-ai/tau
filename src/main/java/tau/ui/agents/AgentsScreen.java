@@ -96,6 +96,18 @@ public final class AgentsScreen extends JPanel {
 		void manageAccess(Row agent);
 
 		void copy(String text);
+
+		/** Opens a room on the Rooms screen. */
+		default void openRoom(String name) {
+		}
+	}
+
+	/** For each connected token, by name, the rooms it has posted in. */
+	private java.util.Map<String, java.util.List<String>> roomsByToken = java.util.Map.of();
+
+	/** The rooms each connected token has posted in, for its menu's "Open room" items. */
+	public void setRoomsByToken(java.util.Map<String, java.util.List<String>> rooms) {
+		roomsByToken = (rooms == null) ? java.util.Map.of() : rooms;
 	}
 
 	private enum Filter {
@@ -295,6 +307,11 @@ public final class AgentsScreen extends JPanel {
 			JMenuItem manage = new JMenuItem("Manage its access");
 			manage.addActionListener(e -> host.manageAccess(row));
 			menu.add(manage);
+			for (String room : roomsByToken.getOrDefault(row.name(), java.util.List.of())) {
+				JMenuItem go = new JMenuItem("Open room " + room);
+				go.addActionListener(e -> host.openRoom(room));
+				menu.add(go);
+			}
 		} else {
 			JMenuItem open = new JMenuItem("Open");
 			open.addActionListener(e -> host.open(row));

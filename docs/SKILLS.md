@@ -5,8 +5,9 @@ Memory supplies preferences across conversations. `TauSkillsAdapter` and
 `src/main/resources/tau/skills/` own the shipped library; Covia owns loading
 and execution.
 
-- **Tool exposure is not authority.** The default assistant has unrestricted
-  caps within its owner's authority. Its initial tools cover reads, memory,
+- **Tool exposure is not authority.** The default assistant's caps, the
+  scoped assistant set on a new install ([IDENTITY.md](IDENTITY.md#what-an-agent-may-do)),
+  decide what it may do. Its initial tools cover reads, memory,
   feedback and compaction; skills expose further tools without granting new
   permissions. Previously loaded skills can remain available in a session.
 - **Every top-level skill is a useful first load.** The assistant is
@@ -105,7 +106,7 @@ is the reference for those details.
 
 The source of truth is `TauSkillsAdapter` and the resources under
 `src/main/resources/tau/skills/`. The Skills screen shows what the assistant
-can discover; a session's Skills tab shows what it has loaded.
+can discover; a session's *Context* view shows what it has loaded (*Skills* and *Loaded*).
 
 The library covers conversations, speech, files and structured data;
 research, writing, planning and coding; automation and the Inbox; diagnostics,
@@ -132,9 +133,9 @@ of its own. Descriptions should say when to load a skill in task language.
 - The assistant writes skills under `w/skills/<name>`. The authoring skill
   exposes writes and a deletion operation confined to that subtree. Other
   skills also expose workspace mutation, so authoring is not the sole path to
-  changing skills. Deletion recovery depends on retained data or a backup;
-  enforced confirmation remains open
-  ([tau#16](https://github.com/covia-ai/tau/issues/16)).
+  changing skills. Deletion recovery depends on retained data or a backup
+  ([SECURITY.md](SECURITY.md#backups)); deletes and overwrites by an agent with
+  template caps wait for the owner (below).
 
 - Folders of `SKILL.md` files under `~/.tau/skills/` are imported into
   `w/skills` at launch (`FilesystemSkills`), unchanged when nothing changed.
@@ -151,3 +152,44 @@ of its own. Descriptions should say when to load a skill in task language.
 every tool it declares exists, every child it reveals loads with its tools
 including the venue skills it points at, and no top-level skill reveals
 children without tools of its own. Nothing asserts prose.
+
+## Deletes and overwrites wait for you
+
+An agent with template caps ([IDENTITY.md](IDENTITY.md#what-an-agent-may-do))
+holds its write and delete grants under a gate, `v/ops/tau/confirm-change`
+(`ChangeGate`), which Covia runs on every such call: the harness enforces it,
+so no prompt or skill can talk past it. It covers the workspace and the file
+roots, and any other surface (dlfs, the vault, the lattice) whose operations
+check `crud/write` or `crud/delete` under those grants. A write that makes
+something new goes straight through. An overwrite or a delete raises an
+approval in the owner's Inbox, which shows beside the chat when the owner is
+there, and waits a short while: approved, the call goes ahead; declined, it is
+refused. Unanswered, the call is refused with "waiting for your approval", and
+the same call goes ahead once the owner approves, so scheduled runs wait in
+the Inbox. One approval or one no covers the call's own checks for a minute
+and no longer, and only a call's first check waits: a second check of the same
+unanswered request refuses at once. The agent's own notes and the shared memory never ask.
+
+The gate also asks before an agent replaces a stored key (a `secret:set` of
+a name already stored, or any call told to `overwrite`), and before it gives
+an agent permissions: making or updating an agent with caps confers them, and
+Covia checks the author holds each one through this gate. The card names
+what the agent would be able to do, and the approval holds for exactly those
+caps. Caps whose writes or deletes would not ask (Unrestricted, or a grant
+without this gate) are refused outright, with nothing for the owner to wave
+through, so no agent can take its own gates off or hand another a delete that
+does not ask. Deleting an agent or one of its conversations asks as a delete.
+
+What the gate reads from the operation's name: `create`, `append`, `mkdir`
+and a new drive only add (a `create` over something already there is refused
+by its adapter), so they go ahead; `write`, `copy`, `move` and the like are
+an overwrite when their target is there; operations on an agent that neither
+delete nor grant go ahead; any other verb whose effect it can't tell
+(`archive:extract`, `skills:import`) asks.
+
+The main assistant of a new install holds the scoped assistant set, so its
+deletes and overwrites ask, scheduled runs included. An assistant from an
+older install keeps Unrestricted until the owner chooses *Use the scoped set*
+on its page, and any agent given Unrestricted holds no gated grants: its
+deletes and overwrites do not ask.
+

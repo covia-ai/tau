@@ -91,6 +91,20 @@ public final class ChatPanel extends JPanel {
 
 		/** Show the conversation on screen among the others, on the Sessions tab. */
 		void showInSessions(String sessionId);
+
+		/**
+		 * Stops the whole run behind chat job {@code chatJob} with agent
+		 * {@code agentId}: the turn, the jobs it started, tasks it handed on,
+		 * Claude Code sessions. Null when it couldn't (the chat job alone is then cancelled).
+		 */
+		default tau.chat.StopRun.Result stopRun(convex.core.data.Blob chatJob, String agentId) {
+			return null;
+		}
+
+		/** Stores {@code value} as secret {@code name} in your encrypted store; false when it couldn't. */
+		default boolean storeSecret(String name, String value) {
+			return false;
+		}
 	}
 
 	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ChatPanel.class);
@@ -138,6 +152,15 @@ public final class ChatPanel extends JPanel {
 	private JTextComponent lastSelectedBubble; // the bubble or step holding the current selection, if any
 	private Component thinkingRow; // assistant progress row while a reply is pending
 	private ThinkingBubble thinkingBubble;
+	/** The character beside the step line while a reply is pending, when there is art for it; else null. */
+	private tau.ui.character.CharacterView figure;
+	/** Agent calls already sparked this turn: one spark out to each, none back. */
+	private int sparked;
+	/** Whether something waits on the owner's decision (the Inbox count): the figure clasps its hands. */
+	private boolean waitingOnYou;
+	/** Told the beat of the turn in flight, for the sidebar's status slot; IDLE when none runs. */
+	private java.util.function.Consumer<tau.ui.character.Presence.Beat> presence = b -> {
+	};
 	private LiveTurn liveTurn; // the turn in flight, built from the agent's live events
 	private ExpandableActivity liveChip; // its steps so far, grown in place
 	private Component liveRow;
@@ -360,6 +383,49 @@ public final class ChatPanel extends JPanel {
 		if (!liveTurn.apply(event, toolLabel)) return;
 		showStatus(liveTurn.status());
 		showLiveSteps();
+		showBeat();
+	}
+
+	/** The beat of the turn in flight, from its phase; waiting on you outranks the rest. */
+	tau.ui.character.Presence.Beat beat() {
+		if (liveTurn == null) return tau.ui.character.Presence.Beat.IDLE;
+		if (waitingOnYou) return tau.ui.character.Presence.Beat.WAITING;
+		return switch (liveTurn.phase()) {
+			case PREPARING -> tau.ui.character.Presence.Beat.NEW_REQUEST;
+			case THINKING -> tau.ui.character.Presence.Beat.THINKING;
+			case WORKING -> tau.ui.character.Presence.Beat.WORKING;
+			case DELEGATING -> tau.ui.character.Presence.Beat.DELEGATING;
+		};
+	}
+
+	/** The figure and the sidebar follow the turn; a new agent call sends one spark out to the step line. */
+	private void showBeat() {
+		tau.ui.character.Presence.Beat b = beat();
+		presence.accept(b);
+		if (figure == null) return;
+		figure.setBeat(b);
+		if (liveTurn != null && liveTurn.delegations() > sparked) {
+			sparked = liveTurn.delegations();
+			tau.ui.character.Sparks.fly(figure, thinkingBubble);
+		}
+	}
+
+	/** Something waits on your decision, or no longer does. */
+	public void setWaitingOnYou(boolean waiting) {
+		if (waitingOnYou == waiting) return;
+		waitingOnYou = waiting;
+		if (liveTurn != null) showBeat();
+	}
+
+	/** Where the beat of the turn in flight goes: the window's status slot. */
+	public void onPresence(java.util.function.Consumer<tau.ui.character.Presence.Beat> listener) {
+		presence = (listener == null) ? b -> {
+		} : listener;
+	}
+
+	/** The figure beside the step line, or null: for tests. */
+	tau.ui.character.CharacterView figure() {
+		return figure;
 	}
 
 	/**
@@ -704,9 +770,56 @@ public final class ChatPanel extends JPanel {
 	private void sendDraft(boolean reviewed, Voice.Sent sent) {
 		String text = input.getText().trim();
 		if (text.isEmpty()) return;
+		if (!keyChecked(text)) return;
 		ACell message = voice.message(text, reviewed, sent);
 		input.setText("");
 		deliver(text, message);
+	}
+
+	/** What to do with a message holding a key: store it as a secret, send it anyway, or neither. */
+	enum KeyChoice {
+		STORE, SEND, KEEP
+	}
+
+	/** Asks what to do with a message holding a key; a test answers instead. */
+	java.util.function.Function<tau.KeyShapes.Found, KeyChoice> askAboutKey = this::askAboutKey;
+
+	/**
+	 * A message with something shaped like a key in it is caught before it is
+	 * sent: it would stay in the conversation and its job records. The owner
+	 * can store it as a secret instead (the message is not sent, and the box
+	 * keeps their words with the key taken out), send it anyway, or go back.
+	 *
+	 * @return whether to send the message as it is
+	 */
+	boolean keyChecked(String text) {
+		tau.KeyShapes.Found found = tau.KeyShapes.find(text);
+		if (found == null) return true;
+		KeyChoice choice = askAboutKey.apply(found);
+		if (choice == KeyChoice.SEND) return true;
+		if (choice == KeyChoice.STORE) {
+			if (host != null && host.storeSecret(found.secretName(), found.text())) {
+				input.setText(text.replace(found.text(), "s/" + found.secretName()).trim());
+				appendSystem("Stored " + found.kind() + " as the secret " + found.secretName()
+					+ ". Your message wasn't sent; it now names the secret instead of the key.");
+			} else {
+				appendError("Couldn't store that as a secret: your Home/venue isn't ready. Nothing was sent.");
+			}
+		}
+		return false;
+	}
+
+	private KeyChoice askAboutKey(tau.KeyShapes.Found found) {
+		Object[] options = { "Store it as a secret", "Send anyway", "Go back" };
+		int picked = javax.swing.JOptionPane.showOptionDialog(this, "This message has what looks like " + found.kind()
+			+ " in it (" + found.masked() + ").\nAnything sent stays in the conversation and its job records. Store it "
+			+ "as the secret " + found.secretName() + " instead?", "Looks like a key", javax.swing.JOptionPane.DEFAULT_OPTION,
+			javax.swing.JOptionPane.WARNING_MESSAGE, null, options, options[0]);
+		return switch (picked) {
+			case 0 -> KeyChoice.STORE;
+			case 1 -> KeyChoice.SEND;
+			default -> KeyChoice.KEEP;
+		};
 	}
 
 	/** Sends {@code text} as the user's next message. */
@@ -769,12 +882,14 @@ public final class ChatPanel extends JPanel {
 				} else if (failure instanceof CancellationException) {
 					// The user stopped waiting. The turn may still finish on the
 					// venue; reconciling by session id lets the watcher show it.
-					appendSystem("Stopped waiting for this reply.");
+					appendSystem(stopRequested ? "Stopped. Steps already finished keep their results."
+						: "Stopped waiting for this reply.");
+					stopRequested = false;
 					String sid = accepted.isCompletedExceptionally() ? null : accepted.getNow(null);
 					if (sid != null) conversationCommitted.accept(sid);
 				} else {
 					log.warn("Chat send failed", failure);
-					appendError(describe(failure));
+					appendProblem(tau.ui.Problems.describe(failure));
 				}
 				focusInput();
 			}
@@ -791,22 +906,39 @@ public final class ChatPanel extends JPanel {
 		ChatSession s = session;
 		long version = bindingVersion;
 		if (s == null || !busy) return;
-		boolean stop = Dialogs.choose(this, "Stop waiting?",
-			"Stop waiting for this reply?\n\n"
-			+ "You can carry on chatting straight away. Anything the assistant is\n"
-			+ "still doing will finish on its own, and if it answers, the reply\n"
-			+ "appears here.",
-			"Stop waiting", "Keep waiting");
+		boolean stop = askToStop.getAsBoolean();
 		if (!stop || session != s || bindingVersion != version || !busy) return;
+		stopRequested = true;
+		if (thinkingBubble != null) thinkingBubble.setSummary("Stopping…");
 		Thread t = new Thread(() -> {
 			try {
-				if (!s.cancel()) log.info("Nothing to cancel: the reply had already arrived");
+				convex.core.data.Blob job = s.inFlightId();
+				tau.chat.StopRun.Result r = (job == null || host == null) ? null : host.stopRun(job, s.config().agentId());
+				if (r == null && !s.cancel()) log.info("Nothing to cancel: the reply had already arrived");
+				stopped = r;
 			} catch (Exception e) {
-				log.warn("Could not cancel the chat in flight", e);
+				log.warn("Could not stop the run in flight", e);
 			}
-		}, "tau-chat-cancel");
+		}, "tau-chat-stop");
 		t.setDaemon(true);
 		t.start();
+	}
+
+	/** Whether the owner asked to stop the reply in flight, and what stopping it did. */
+	private volatile boolean stopRequested;
+	private volatile tau.chat.StopRun.Result stopped;
+
+	/** Asks the owner to confirm Stop; a test answers instead. */
+	java.util.function.BooleanSupplier askToStop = () -> Dialogs.choose(this, "Stop this reply?",
+		"Stop this reply?\n\n"
+		+ "The assistant stops what it's doing: its current step, the jobs it\n"
+		+ "started, tasks it handed to other agents, and any Claude Code session.\n"
+		+ "Steps already finished keep their results, and you can carry on chatting.",
+		"Stop", "Keep going");
+
+	/** Stops the reply in flight as the Stop control does, after the confirmation: for tests. */
+	void stopNow() {
+		confirmStop();
 	}
 
 	/** Deliver a follow-up to the venue queue without waiting for the active reply. */
@@ -837,7 +969,7 @@ public final class ChatPanel extends JPanel {
 			if (failure != null) {
 				Throwable cause = unwrap(failure);
 				log.warn("Queued chat delivery failed", cause);
-				appendError(describe(cause));
+				appendProblem(tau.ui.Problems.describe(cause));
 			} else {
 				conversationCommitted.accept(result.sessionId());
 			}
@@ -894,16 +1026,34 @@ public final class ChatPanel extends JPanel {
 		if (thinkingRow != null) return;
 		hideEmptyState();
 		liveTurn = new LiveTurn();
+		sparked = 0;
 		thinkingBubble = new ThinkingBubble(liveTurn.status(), this::confirmStop);
 		JPanel row = new JPanel(new BorderLayout());
 		row.setOpaque(false);
 		row.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
-		row.add(thinkingBubble, BorderLayout.WEST);
+		// The full figure beside the step line while the reply runs, when there is art for it.
+		Component yours = column.getComponentCount() > 0 ? column.getComponent(column.getComponentCount() - 1) : null;
+		if (tau.ui.character.CharacterArt.get().present()) {
+			figure = new tau.ui.character.CharacterView(tau.ui.character.CharacterView.FULL_FIGURE);
+			JPanel beside = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 8, 0));
+			beside.setOpaque(false);
+			beside.add(figure);
+			beside.add(thinkingBubble);
+			row.add(beside, BorderLayout.WEST);
+		} else {
+			row.add(thinkingBubble, BorderLayout.WEST);
+		}
 		thinkingRow = row;
 		column.add(row);
 		column.revalidate();
 		scrollToBottom();
 		thinkingBubble.start();
+		showBeat();
+		// One spark in from your message; the gloves catch it.
+		if (figure != null && yours != null) {
+			tau.ui.character.CharacterView f = figure;
+			SwingUtilities.invokeLater(() -> tau.ui.character.Sparks.fly(yours, f));
+		}
 	}
 
 	private void hideThinking() {
@@ -918,6 +1068,8 @@ public final class ChatPanel extends JPanel {
 			thinkingBubble.stop();
 			thinkingBubble = null;
 		}
+		figure = null;
+		presence.accept(tau.ui.character.Presence.Beat.IDLE);
 		if (thinkingRow != null) {
 			column.remove(thinkingRow);
 			thinkingRow = null;
@@ -939,6 +1091,53 @@ public final class ChatPanel extends JPanel {
 	public void appendSystem(String text) {
 		hideEmptyState();
 		column.add(noticeRow(text, Styles.MUTED, false, false));
+		column.revalidate();
+		scrollToBottom();
+	}
+
+	/**
+	 * A failure in the chat: what happened and what to try, where the log
+	 * line is, and the raw text (cleaned) behind Details, never by itself.
+	 */
+	public void appendProblem(tau.ui.Problems.Problem p) {
+		hideEmptyState();
+		JPanel box = new JPanel();
+		box.setLayout(new javax.swing.BoxLayout(box, javax.swing.BoxLayout.Y_AXIS));
+		box.setOpaque(false);
+		box.setName("problem");
+		if (p.calm()) {
+			// A refusal is not a fault: the calm Refused badge and plain text, never the error colour.
+			tau.ui.components.StatusBadge badge = new tau.ui.components.StatusBadge("Refused", "ban",
+				tau.ui.components.Tone.REFUSED);
+			badge.setAlignmentX(Component.LEFT_ALIGNMENT);
+			box.add(badge);
+			// The badge says Refused, so the line starts with what was refused.
+			String what = p.what().startsWith("Refused: ") ? p.what().substring(9) : p.what();
+			SelectableText line = new SelectableText(what + " " + p.tryThis()).small();
+			line.setAlignmentX(Component.LEFT_ALIGNMENT);
+			box.add(line);
+		} else {
+			SelectableText line = new SelectableText(p.what() + " " + p.tryThis()).tone(Styles.ERROR).small().bold();
+			line.setAlignmentX(Component.LEFT_ALIGNMENT);
+			box.add(line);
+		}
+		SelectableText where = new SelectableText(p.where()).muted().small();
+		where.setAlignmentX(Component.LEFT_ALIGNMENT);
+		box.add(where);
+		if (!p.details().isBlank()) {
+			SelectableText details = new SelectableText(p.details()).mono().muted().small();
+			tau.ui.components.Disclosure more = new tau.ui.components.Disclosure(tau.ui.components.Labels.small("Details"),
+				details);
+			more.setName("details");
+			more.setAlignmentX(Component.LEFT_ALIGNMENT);
+			box.add(more);
+		}
+		JPanel row = new JPanel(new BorderLayout());
+		row.setOpaque(false);
+		row.setBorder(BorderFactory.createEmptyBorder(6, 24, 6, 24));
+		row.add(box, BorderLayout.CENTER);
+		row.setAlignmentX(Component.LEFT_ALIGNMENT);
+		column.add(row);
 		column.revalidate();
 		scrollToBottom();
 	}

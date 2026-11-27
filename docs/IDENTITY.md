@@ -96,8 +96,64 @@ in `w/memory` it shares with their other agents. Each turn, the read-only
 
 An agent has no independent identity key. It acts within its configured
 capabilities and its owner's authority, which may include using that owner's
-credentials. Tau's default owner agent has unrestricted caps within that
-authority; loading skills does not narrow it.
+credentials. Tau's default owner agent holds the scoped assistant set on a new
+install (below); loading skills neither narrows nor widens it.
+
+### What an agent may do
+
+An agent made in the New agent dialog starts with its template's caps
+(`AgentPermissions`), not Unrestricted. Every one may run operations (each
+still checks what it touches), read the workspace, the file roots and its jobs,
+keep its own notes and the shared memory, load skills, and ask the owner
+through the Inbox. Personal assistant adds writes and deletes in the workspace
+and the file roots, and handing work to the owner's other agents; Research
+adds workspace writes; Software development adds file-root writes and deletes
+and workspace writes; Writing & editing adds workspace writes and deletes;
+Blank slate adds nothing. Every write and delete grant is gated by
+`v/ops/tau/confirm-change` ([SKILLS.md](SKILLS.md#deletes-and-overwrites-wait-for-you)).
+
+Covia has no grant for the internet apart from running operations: `http:get`
+and `http:post` check only that the agent may run them. Every agent that may
+run operations may therefore fetch from and send to the internet, whatever its
+template; the venue's address policy keeps it off this computer and the local
+network. The agent's page says "Run operations, the internet included", so no
+template claims a limit Covia does not enforce. Keeping an agent off the
+internet would need `invoke` scoped to a list of adapters, since `mcp`, `a2a`,
+`grid` and model operations dial out under the same grant; that is not done.
+
+**The main assistant** of a new install gets the scoped assistant set
+(`AgentPermissions.ASSISTANT`), derived from what its skills, tools, and loads
+call, each run under the set by `AssistantScopeTest` and every shipped tool
+placed by `AssistantInventoryTest`: the base above; gated writes and deletes
+in the workspace, the file roots and the owner's drives (the vault among
+them); the owner's stored keys and connected accounts, used without being seen
+(connections and Moltbook), listing them, and storing a new key (replacing one
+asks); making agents (asks when it gives one permissions), asking and
+messaging them, and changing them and their conversations (asks before
+changing what one may do, or deleting); reading the Inbox; running and
+cancelling the owner's schedules; reading, posting in, and creating rooms;
+storing assets; listing and revoking the owner's access tokens (revoking
+asks); and Claude Code in the owner's projects. The gods are asked through
+Tau's bridges, which carry their own grant, and a relaunch is Odin's to run,
+so neither needs more. It cannot widen its own caps: Covia refuses caps their
+author does not hold, and an agent it makes without caps gets none.
+
+What the set does not cover, listed on the agent's page as *Needs an extra
+grant*: copying an agent (`agent:fork`), deleting a stored key, seeing a
+stored key's value (no agent ever can), adding or removing tool servers,
+disconnecting a connected account, handing out access (`ucan:issue`), reading
+the venue's settings, and running the venue (people, adapters, restarts, and
+relaunches), which Odin does when asked. What it does without asking: making
+something new, its own notes and the shared memory, running or cancelling one
+of the owner's schedules, and Claude Code's own edits inside its project.
+
+*Unrestricted* is an explicit, labelled choice: in the New agent dialog, and
+for the main assistant on its page (*Make it Unrestricted…*), which says that
+its deletes and overwrites will not ask, scheduled runs included. An
+assistant from an older install keeps the caps it has; its page offers *Use
+the scoped set…* in one click, listing what changes. The agent's page (*Agent
+info*) lists what it may do in plain words. Caps are an owner's decision:
+setting up an existing agent never changes them.
 
 Covia can issue a UCAN to an agent DID after an Inbox approval, but the agent
 cannot yet present that grant on later calls (see below). Tau's `hitl` skill

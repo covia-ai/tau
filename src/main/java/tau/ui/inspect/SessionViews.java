@@ -78,6 +78,10 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 		/** Give the agent new instructions, from its Agent tab. */
 		void saveInstructions(String agentId, String instructions);
 
+		/** Switch the main assistant between the scoped set (false) and Unrestricted (true). */
+		default void setUnrestricted(String agentId, boolean unrestricted) {
+		}
+
 		/** End what the agent is doing now, from its Agent tab. */
 		void stopAgent(String agentId);
 
@@ -646,7 +650,8 @@ public final class SessionViews extends JPanel implements AutoCloseable {
 		if (info == null) noteAgent(() -> unreadable("Couldn't read this agent"));
 		else fill(slots.get(View.AGENT), AgentInspector.view(info,
 			editable ? text -> host.saveInstructions(agentId, text) : null,
-			() -> host.stopAgent(agentId)));
+			() -> host.stopAgent(agentId),
+			info.standard() ? unrestricted -> host.setUnrestricted(agentId, unrestricted) : null));
 		if (current() == View.AGENT) readAgent();
 	}
 

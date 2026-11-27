@@ -1,0 +1,28 @@
+# Secret scanning configuration, read by gitleaks in CI (.github/workflows/ci.yml)
+# and by a local `gitleaks git .`. The default rules apply; the allowlist below
+# only names matches that are known not to be secrets. Add to it sparingly and
+# say why.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Known non-secrets"
+regexTarget = "match"
+regexes = [
+	# did:key identifiers are public keys, shown in the UI and in test fixtures.
+	'''key:z6Mk[1-9A-HJ-NP-Za-km-z]{40,50}''',
+	# Java parameter lists such as (String key, Point2D.Double at).
+	'''key, Point2D\.Double''',
+	# Prose in docs/SECURITY.md describing how API keys are wrapped.
+	'''keys?, AES-256-GCM-wrapped''',
+	# The fake signed login DiagnosticsTest seeds to prove the report redacts it
+	# ({"sub":"seeded"}, signature "seededsignature").
+	'''eyJhbGciOiJFZERTQSJ9\.eyJzdWIiOiJzZWVkZWQifQ\.c2VlZGVkc2lnbmF0dXJl''',
+	# The made-up AWS-style key KeyMaskTest checks is masked in job titles.
+	'''AKIAABCDEFGHIJKLMNOP''',
+]
+
+[[allowlists]]
+description = "Build output"
+paths = ['''(^|/)target/''']

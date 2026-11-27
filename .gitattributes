@@ -1,0 +1,8 @@
+# Text is normalised to LF in the repository. These files also stay LF in a
+# Windows checkout: tests read the lists line by line, and bash runs the
+# scripts on every platform, including Git Bash on Windows.
+* text=auto
+*.sh text eol=lf
+src/test/resources/**/*.txt text eol=lf
+packaging/*.txt text eol=lf
+packaging/linux/deb/* text eol=lf

@@ -255,6 +255,8 @@ public final class Tau {
 			System.exit(66); // EX_NOINPUT, as the Covia venue does
 			return;
 		}
+		// A character pack in the data folder, when nothing names another (docs/CHARACTER.md).
+		tau.ui.character.CharacterArt.useDataFolder(config.home());
 		// The look chosen in Settings → Theme (remembered in prefs) wins over config.json's light/dark.
 		Prefs prefs = Prefs.load(config.home());
 		String mode = LAF.effective(prefs.getString(PREF_MODE, config.theme()));
@@ -525,9 +527,20 @@ public final class Tau {
 			EmbeddedVenue v;
 			StoreRepair.Outcome repaired = null;
 			StoreSpace.Compacted compacted = null;
+			// A build that has not opened this store before may upgrade its schema: snapshot it first, closed.
+			Path storeFile = storePath(venueConfig);
+			if (Backups.upgradeDue(config.home(), storeFile, buildId())) {
+				progress("Backing up the data store before upgrading…");
+				try {
+					Backups.snapshot(config.home(), storeFile, "before-" + BuildInfo.version());
+				} catch (IOException e) {
+					log.warn("Could not back up the store before upgrading: {}", e.toString());
+				}
+			}
 			try {
 				if (compacting) compacted = space.compact(storeConfig);
 				v = launchOn(venueConfig, compacted);
+				Backups.opened(config.home(), buildId());
 			} catch (RuntimeException | IOException e) {
 				if (EmbeddedVenue.isNewerStore(e)) {
 					log.error("The store is newer than this build", e);
@@ -570,6 +583,7 @@ public final class Tau {
 			venue = v;
 			log.info("Venue '{}' ready at {} as {}", v.name(), v.url(), v.did());
 			adoptModel(v);
+			allowEchoModel(v);
 			adoptSettings(v);
 			// Bind the identity and move any keys the vault still holds while the
 			// dialog is still up, so a failure goes back to it. Only then reveal:
@@ -712,6 +726,7 @@ public final class Tau {
 			return Relaunch.start(configPath, options).toHandle();
 		}
 		Path staged = Relaunch.stage(jar, config.home());
+		backUp("before-relaunch");
 		log.info("Relaunching: starting a new " + APP_NAME + " from {} with {}", staged, options);
 		return Relaunch.start(staged, configPath, options).toHandle();
 	}
@@ -1157,6 +1172,11 @@ public final class Tau {
 	}
 
 	// ------------------------------------------------------------------
+	/** A notification from a room, plain text, through the tray when there is one. Event thread. */
+	public void notifyRoom(String text) {
+		if (tray != null) tray.notify(APP_NAME, text);
+	}
+
 	// Integrations (Discord)
 	// ------------------------------------------------------------------
 
@@ -1756,6 +1776,28 @@ public final class Tau {
 	}
 
 	/**
+	 * Covia's test adapter is off in a real install (AppConfig.defaultVenue);
+	 * it is switched on only while the owner's model is the offline echo bot,
+	 * which it serves.
+	 */
+	private void allowEchoModel(EmbeddedVenue v) {
+		allowEchoModel(v.engine(), currentModelOp());
+	}
+
+	/** Switches on the test adapter when {@code modelOp} is the offline echo bot; true when it is on. */
+	static boolean allowEchoModel(covia.venue.Engine engine, String modelOp) {
+		if (!AppConfig.ECHO_LLM_OPERATION.equals(modelOp)) return false;
+		try {
+			engine.enableAdapter("test");
+			log.info("Offline echo bot in use: the test adapter is on");
+			return true;
+		} catch (Exception e) {
+			log.warn("Could not switch on the offline echo bot: {}", e.toString());
+			return false;
+		}
+	}
+
+	/**
 	 * The owner's standard assistant's chat config: the chosen model, else
 	 * config.json's, and its system prompt under the name the app shows for it.
 	 */
@@ -2264,6 +2306,12 @@ public final class Tau {
 	 * (null: none).
 	 */
 	public void createAgent(String rawName, String modelOp, String systemPrompt, String skill) {
+		createAgent(rawName, modelOp, systemPrompt, skill,
+			tau.model.AgentPermissions.caps(tau.model.AgentTemplate.GENERAL));
+	}
+
+	/** As {@link #createAgent(String, String, String, String)}, with what the agent may do: {@code caps}. */
+	public void createAgent(String rawName, String modelOp, String systemPrompt, String skill, ACell caps) {
 		String name = (rawName != null) ? rawName.trim() : "";
 		String aid = slug(name);
 		EmbeddedVenue v = venue;
@@ -2283,7 +2331,8 @@ public final class Tau {
 		AppConfig.Chat chosen = new AppConfig.Chat(aid, base.operation(), chosenModel, chosenPrompt);
 		Thread t = new Thread(() -> {
 			try {
-				new ChatSession(v.clientAs(did), chosen, id.name(), true).named(name).pinning(skill).ensureAgent();
+				new ChatSession(v.clientAs(did), chosen, id.name(), true).named(name).pinning(skill).withCaps(caps)
+					.ensureAgent();
 			} catch (Exception e) {
 				log.warn("Could not create agent {}: {}", aid, e.toString());
 				SwingUtilities.invokeLater(() -> window.showSystemMessage(
@@ -2422,6 +2471,44 @@ public final class Tau {
 		}, "tau-agent-stop");
 		t.setDaemon(true);
 		t.start();
+	}
+
+	/**
+	 * Switches the main assistant between the scoped assistant set and
+	 * Unrestricted, on the owner's word from its page: {@code agent:update}
+	 * of its caps, as the owner. Other agents are left as they are.
+	 */
+	public void setAgentPermissions(String agentId, boolean unrestricted) {
+		Venue c = client;
+		if (c == null || agentId == null || !agentId.equals(defaultAgentId())) return;
+		String name = displayNameFor(agentId);
+		Thread t = new Thread(() -> {
+			String note;
+			try {
+				setAgentCaps(c, agentId, unrestricted);
+				log.info("Agent '{}' now has {}", agentId, unrestricted ? "Unrestricted caps" : "the scoped assistant set");
+				note = unrestricted
+					? name + " is Unrestricted: its deletes and overwrites won't ask you first."
+					: name + " now uses the scoped set: overwrites and deletes ask you first.";
+			} catch (Exception e) {
+				log.warn("Could not change the permissions of agent {}: {}", agentId, e.toString());
+				note = "Couldn't change " + name + "'s permissions (" + rootMessage(e)
+					+ "). If it is replying, try again once it is done.";
+			}
+			String text = note;
+			SwingUtilities.invokeLater(() -> {
+				window.agentChanged();
+				window.showSystemMessage(text);
+			});
+		}, "tau-agent-permissions");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/** Sets an agent's caps to the scoped assistant set or Unrestricted ({@code agent:update}). */
+	static void setAgentCaps(Venue client, String agentId, boolean unrestricted) throws Exception {
+		invokeOp(client, "v/ops/agent/update", Maps.of("agentId", agentId, "config", Maps.of("caps",
+			unrestricted ? covia.venue.Config.UNRESTRICTED : tau.model.AgentPermissions.ASSISTANT)));
 	}
 
 	/** Replaces an agent's instructions: {@code agent:update} merging in its {@code systemPrompt}, keeping the rest. */
@@ -3121,6 +3208,18 @@ public final class Tau {
 		});
 	}
 
+	/**
+	 * Copies the character pack at {@code source} (its folder or a zip) into the
+	 * data folder and uses it for every view made from now on; the ones already
+	 * showing keep the glyph until Tau restarts.
+	 */
+	public tau.ui.character.CharacterArt addCharacterPack(Path source) throws IOException {
+		tau.ui.character.CharacterArt art = tau.ui.character.CharacterPacks.install(source, config.home());
+		if (!tau.ui.character.CharacterArt.namedElsewhere()) tau.ui.character.CharacterArt.use(art);
+		log.info("Character pack added to the data folder");
+		return art;
+	}
+
 	/** Force an immediate lattice value compare and refresh the transcript if it changed. */
 	public void refreshNow() {
 		if (!SwingUtilities.isEventDispatchThread()) {
@@ -3211,6 +3310,46 @@ public final class Tau {
 		if (v == null) return;
 		String url = v.url();
 		desktop("open the dashboard", d -> d.browse(URI.create(url)));
+	}
+
+	/**
+	 * Snapshots the running store now ({@link Backups}): flushed first, so the
+	 * copy holds everything saved. Returns the snapshot's folder, or null when
+	 * there is no store to copy. Never on the event thread.
+	 */
+	public Path backUp(String reason) throws IOException {
+		EmbeddedVenue v = venue;
+		if (v != null) v.durable();
+		Path store = storePath(config.venueConfig());
+		if (store == null) return null;
+		return Backups.snapshot(config.home(), store, reason);
+	}
+
+	/** Where snapshots are kept, and how many there are now. */
+	public Path backupsDir() {
+		return Backups.dir(config.home());
+	}
+
+	/**
+	 * Which build this is, for knowing when a new one first opens the store:
+	 * the version and, when running from a jar, the jar's size and time, so two
+	 * builds with the same version string still count as different.
+	 */
+	static String buildId() {
+		Path jar = Relaunch.runningJar();
+		try {
+			if (jar != null && Files.isRegularFile(jar)) {
+				return BuildInfo.version() + "+" + Files.size(jar) + "-" + Files.getLastModifiedTime(jar).toMillis();
+			}
+		} catch (IOException e) {
+			// the version alone
+		}
+		return BuildInfo.version();
+	}
+
+	/** The configuration file this instance runs with. */
+	public Path configFile() {
+		return configPath;
 	}
 
 	public void openConfigFile() {

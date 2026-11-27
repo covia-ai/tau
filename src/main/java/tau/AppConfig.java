@@ -204,6 +204,12 @@ public final class AppConfig {
 			Config.USERS, Maps.of(Config.AUTO_CREATE, true),
 			// This is a private personal venue: HTTP and MCP require authentication.
 			Config.AUTH, Maps.of(Config.PUBLIC, Maps.of(Config.ENABLED, false)),
+			// Browser pages may call the venue only from this computer: Covia's
+			// default answers any web origin, which would let any website read the
+			// venue's open discovery route (/api/v1/status: name, identity,
+			// version). The venue's own dashboard is same-origin and unaffected;
+			// local web tooling on another localhost port still works.
+			Config.CORS_ORIGINS, "loopback",
 			// Private Network Access preflights are left to Covia, which answers
 			// them while the venue is bound to loopback (so local web tooling
 			// can reach it) and refuses them once it is bound wider.
@@ -246,7 +252,12 @@ public final class AppConfig {
 				// The venue keeps each access token's key sealed under its secret
 				// store, so the owner can see a named token's key again in
 				// Settings rather than Tau writing it to a file (tau.Tokens).
-				"token", Maps.of("keepRawTokens", true)));
+				"token", Maps.of("keepRawTokens", true),
+				// Covia's test adapter (echo, delay, fail, never and the echo
+				// model) is off in a real install. It is switched on at launch
+				// only while the owner's model is the offline echo bot that
+				// onboarding offers (Tau.allowEchoModel); test venues keep it.
+				"test", Maps.of("enabled", false)));
 	}
 
 	/** Creates an app-owned file root without making configuration failure fatal. */

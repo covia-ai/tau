@@ -30,7 +30,7 @@ class SettingsPhaseTest {
 	@Test
 	void sectionsComeInTheirOrder() {
 		assertEquals(List.of(Tab.PROFILE, Tab.MODEL, Tab.PEERS, Tab.TREASURY, Tab.GENERAL, Tab.THEME,
-			Tab.INTEGRATIONS, Tab.SCHEDULE, Tab.JOBS, Tab.SECRETS, Tab.VAULT, Tab.ACCESS), Arrays.asList(Tab.values()));
+			Tab.INTEGRATIONS, Tab.SCHEDULE, Tab.JOBS, Tab.SECRETS, Tab.VAULT, Tab.ACCESS, Tab.DEVELOPER), Arrays.asList(Tab.values()));
 	}
 
 	@Test

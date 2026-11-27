@@ -151,6 +151,34 @@ enter the venue configuration in memory just before launch and are never
 written to `config.json`; there is no plaintext `venue.key` and no plaintext
 legacy mode.
 
+## Backups
+
+`Backups` snapshots the data store into `backups/<date>-<reason>/` in the data
+folder: before a new build first opens the store (when any schema upgrade
+runs, with the store still closed; a build is known by its version and, from
+a jar, the jar's size and time, recorded in `last-build`), before relaunching into a new build, and
+when the owner chooses *Back up now* (*Settings → General → Data store*). A
+snapshot holds `venue.etch`, `identity.enc`, `vault.salt` and the plain
+settings files. It never holds `unlock.passphrase`, `tool-token.json`,
+`operator-token.json` or `keys.enc`, so opening a snapshot takes the
+passphrase or the recovery phrase, as the store itself does. The last five are
+kept. `skills/`, `files/` and `code/` are outside the store and outside
+snapshots; back them up separately if they matter.
+
+**Restoring a snapshot.**
+
+1. Quit Tau (tray icon → Quit), so nothing holds the store.
+2. Move the current `venue.etch` (and `identity.enc` and `vault.salt`, if
+   restoring those too) aside, out of the data folder, rather than deleting
+   them.
+3. Copy the snapshot's files into the data folder.
+4. Start Tau and open it with the passphrase, or the recovery phrase.
+
+A snapshot taken while Tau ran (*Back up now*, before a relaunch) restores like
+a store that was not closed cleanly: Tau checks and rebuilds it at the first
+start ([LAUNCH.md](LAUNCH.md#when-the-store-was-not-closed-cleanly)).
+Keep the moved-aside files until the restored data is verified.
+
 ## Recovery procedure
 
 **What to back up.** The recovery phrase, offline and apart from the computer;
@@ -194,16 +222,28 @@ There is no online recovery service, no escrow and no operator backdoor.
 
 ## Authentication and network exposure
 
-By default the venue binds HTTP to `127.0.0.1`, disables the anonymous public
+By default the venue binds HTTP to `127.0.0.1`, and Covia also opens IPv6
+loopback `::1`; both reach only this computer. It disables the anonymous public
 principal, requires venue authentication for the API and MCP, and, while
 bound to loopback, permits browser Private Network Access preflights so local
 web tooling can reach the authenticated API. Bound to any other address, the
-venue refuses those preflights unless `allowPrivateNetwork` is set. These are defaults: `config.json` overrides the
+venue refuses those preflights unless `allowPrivateNetwork` is set. Browser
+pages may call the venue only from this computer (`corsOrigins` is
+`"loopback"`): Covia's own default answers any web origin, which would let
+any website a person visits read the venue's discovery route
+(`/api/v1/status`, which answers without a key and names the venue, its
+identity and its version). These are defaults: `config.json` overrides the
 venue map, including bind, CORS and authentication. The endpoint is plain
 HTTP; binding beyond loopback needs a TLS boundary and restrictive policy, and
 a reviewer inspects the effective configuration first.
 
 *Settings → Access* makes two kinds of access, and says which it is making.
+Outside tools get named tokens: *Connect a tool* makes one with a scoped
+preset and gives the tool's settings. Logins, and the *Unrestricted* preset,
+which carry everything the user can do, sit behind *Show advanced options*
+with a warning and a confirmation, and show at once only when a local login is
+already kept. No scoped preset names Claude Code's tools; a preset that can
+hand the assistant work says beside it that the assistant can run commands.
 
 - **A login** is an Ed25519-signed bearer token for the current user or, as an
   advanced option, the venue operator: `iss = aud = <venueDID>`, `sub` the
@@ -266,8 +306,11 @@ source that influenced it.
 **Provenance informs judgement; it does not confine the agent.** An admitted
 request can cause the assistant to use its own authority. Its caps are checked
 at actions, but they are not automatically reduced to the external sender's
-caps. New owner assistants default to unrestricted caps; routine chat setup
-preserves subsequent restrictions ([SKILLS.md](SKILLS.md)). A model persuaded
+caps. A new install's assistant holds the scoped assistant set, whose
+overwrites, deletes, and grants of permissions ask the owner first, scheduled
+runs included ([IDENTITY.md](IDENTITY.md#what-an-agent-may-do)); an older
+install's keeps Unrestricted until the owner switches it on its page. Routine
+chat setup preserves the caps an agent has ([SKILLS.md](SKILLS.md)). A model persuaded
 by hostile content can still misuse any power it holds. Native code running
 in the process is outside that boundary ([ARCHITECTURE.md](ARCHITECTURE.md)).
 
@@ -277,6 +320,27 @@ restrictions. They do not establish resistance to every prompt injection or
 test a production model's judgement. Enforced approval for consequential
 actions and route-specific trust remain design work in [TRUST.md](TRUST.md).
 
+## What the main assistant may do
+
+A new install's assistant holds the scoped assistant set, not Unrestricted
+([IDENTITY.md](IDENTITY.md#what-an-agent-may-do)): everything its shipped
+skills and tools use, within the owner's namespace. Its overwrites and
+deletes, replacing a stored key, and giving another agent permissions raise an
+approval in the Inbox and wait for it, scheduled runs included
+([SKILLS.md](SKILLS.md#deletes-and-overwrites-wait-for-you)). It may use the
+owner's stored keys and connected accounts in requests without seeing them,
+and may reach the internet: Covia has no separate grant for that, so a
+prompt-injected assistant can still send what it can read to a host on the
+internet, a stored key among it, in a request. It cannot widen its own caps,
+take its own gates off, or make an agent with more than it holds; it can still
+ask an Unrestricted agent of the owner's, or a god, to do what it may not, and
+that agent acts under its own caps. An older install's assistant keeps Unrestricted until the owner chooses
+*Use the scoped set* on its page; *Make it Unrestricted* there is labelled
+with what it gives up. The gods keep their own caps.
+
+Covia's `test` adapter is off in a real install, and on only while the owner's
+model is the offline echo bot ([CONFIGURATION.md](CONFIGURATION.md)).
+
 ## Runtime secret handling
 
 - Passphrase and temporary seed arrays are cleared on the paths that expose
@@ -285,8 +349,10 @@ actions and route-specific trust remain design work in [TRUST.md](TRUST.md).
   in a trusted desktop session and clear the clipboard after.
 - The seed and derived keys necessarily exist in the running JVM; a debugger,
   a malicious same-user process or a compromised JVM can read them.
-- *Log out* clears the user's UI and session state but leaves the venue
-  running: a session lock, not key erasure. Quit to release in-memory keys.
+- *Log out* and *Lock* clear the user's UI and session state but leave the
+  venue running: a session lock, not key erasure. Named tokens made for outside
+  tools keep working while Tau is locked; revoke one in *Settings → Access* to
+  stop it. Quit to release in-memory keys.
 - Model calls send the assembled context to the chosen provider under its
   terms; a local model avoids that disclosure.
 

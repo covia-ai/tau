@@ -120,6 +120,9 @@ class TokensTest {
 		AString owner = owner("tokens-agent-made");
 		new ChatSession(shared.venue().clientAs(owner.toString()), new AppConfig.Chat("maker", AppConfig.DEFAULT_OPERATION,
 			AppConfig.ECHO_LLM_OPERATION, "You are a test assistant."), "Maker").ensureAgent();
+		// A new main assistant gets the scoped set, which can't administer tokens
+		// directly; this agent stands for one given Unrestricted.
+		Tau.setAgentCaps(shared.venue().clientAs(owner.toString()), "maker", true);
 		RequestContext agent = engine().context(owner, Principals.agentDID(owner, Strings.create("maker")));
 		TokenAdapter adapter = (TokenAdapter) engine().getAdapter(TokenAdapter.NAME);
 		String bearer = adapter.create(agent, Strings.create("agents"), Tokens.access(TokenPreset.READ_ONLY.scope("maker")),
@@ -163,8 +166,32 @@ class TokensTest {
 		Tokens tokens = new Tokens(engine(), owner);
 		String bearer = tokens.create("tool", TokenPreset.READ_ONLY.scope("helper")).bearer();
 		RequestContext assistant = engine().context(owner, Principals.agentDID(owner, Strings.create("helper")));
-		engine().jobs().invokeInternal("v/ops/mcp/delete-token", Maps.of(Fields.NAME, "tool"), assistant)
-			.get(5, TimeUnit.SECONDS);
+		// The assistant's delete asks the owner first; approved, the same call goes ahead.
+		java.util.concurrent.CompletableFuture<convex.core.data.ACell> revoke = engine().jobs()
+			.invokeInternal("v/ops/mcp/delete-token", Maps.of(Fields.NAME, "tool"), assistant);
+		Inbox.Request card = null;
+		long until = System.currentTimeMillis() + 10_000;
+		while (card == null && System.currentTimeMillis() < until) {
+			card = Inbox.parse(shared.venue().inbox(owner.toString()), owner.toString()).stream()
+				.filter(Inbox.Request::open).findFirst().orElse(null);
+		}
+		assertNotNull(card, "the revoke waits for the owner");
+		assertFalse(tokens.list().isEmpty(), "nothing is revoked while it waits");
+		Inbox.answer(shared.venue().clientAs(owner.toString()), card.id(),
+			new Inbox.Answer(java.util.Map.of("ok", true), java.util.Map.of(), java.util.List.of(), null));
+		try {
+			revoke.get(30, TimeUnit.SECONDS);
+		} catch (java.util.concurrent.ExecutionException waitedOut) {
+			// The call stopped waiting before the answer came (other classes shorten the gate's
+			// wait): once the card is answered, the same call goes ahead.
+			var answered = card.id();
+			long by = System.currentTimeMillis() + 10_000;
+			while (System.currentTimeMillis() < by && Inbox.parse(shared.venue().inbox(owner.toString()), owner.toString())
+				.stream().anyMatch(r -> r.open() && r.id().equals(answered))) {
+				Thread.onSpinWait();
+			}
+			engine().jobs().invokeInternal("v/ops/mcp/delete-token", Maps.of(Fields.NAME, "tool"), assistant).get(30, TimeUnit.SECONDS);
+		}
 		assertTrue(tokens.list().isEmpty(), "the skill's revoke deletes the owner's token");
 		assertNull(store().lookup(bearer));
 	}

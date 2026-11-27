@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Tau
+Comment=Your own agent, on your own machine, under your own identity
+Exec=Tau
+Icon=tau
+Categories=Utility;Network;
+Terminal=false
+StartupWMClass=tau-Tau

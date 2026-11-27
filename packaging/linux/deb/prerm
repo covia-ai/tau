@@ -1,0 +1,40 @@
+#!/bin/sh
+# prerm script for APPLICATION_PACKAGE
+#
+# Tau's override of jpackage's template (packaging/package.sh passes this
+# folder as --resource-dir). The same placeholders are filled in. Removing the
+# menu entry never stops the package being removed: there may be no menu, or
+# no xdg-utils. Nothing outside the package is touched, so each person's own
+# Tau data stays where it is.
+
+set -e
+
+package_type=deb
+COMMON_SCRIPTS
+DESKTOP_SCRIPTS
+LAUNCHER_AS_SERVICE_SCRIPTS
+
+remove_menu_entry ()
+{
+  :
+DESKTOP_COMMANDS_UNINSTALL
+}
+
+case "$1" in
+    remove|upgrade|deconfigure)
+        if command -v xdg-desktop-menu >/dev/null 2>&1; then
+            remove_menu_entry || echo "Tau: the menu entry could not be removed; there may be none." >&2
+        fi
+LAUNCHER_AS_SERVICE_COMMANDS_UNINSTALL
+    ;;
+
+    failed-upgrade)
+    ;;
+
+    *)
+        echo "prerm called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
+
+exit 0

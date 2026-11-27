@@ -27,20 +27,39 @@ import tau.ui.components.Theme;
  * "Waiting on you" beside it, with an amber dot, while decisions wait, and
  * the glyph alone otherwise. The count rides in the tooltip and the
  * accessible name ("Waiting on you · 1 decision"); collapsed, the words move
- * there too.
+ * there too. With character art, the 32 px character stands in for the glyph
+ * and plays the beat for what Tau is doing ({@link #setActivity}), except
+ * while a quiet screen is open ({@link #setQuietScreenOpen}): the Record, the
+ * Vault, the Constellation, an agent's profile, a refusal, or an error.
  */
 @SuppressWarnings("serial")
 public final class StatusSlot extends JPanel {
 
-	private static final String WAITING = "Waiting on you";
+	/** What Tau is doing, for the character's beat. The slot's words name only waiting decisions. */
+	public enum State {
+		RESTING, THINKING, AT_WORK, WAITING, DONE
+	}
+
+	private static final String WAITING_WORDS = "Waiting on you";
 
 	private final Glyph glyph = new Glyph();
+	/** The character at 32 px, when there is art for it: it only crossfades and blinks. */
+	private final tau.ui.character.CharacterView figure;
+	private boolean showingFigure;
 	private final JLabel label = Labels.small("");
+	private State activity = State.RESTING;
 	private int waiting;
 	private boolean collapsed;
+	private boolean quietScreenOpen;
 
 	public StatusSlot() {
+		this(tau.ui.character.CharacterArt.get());
+	}
+
+	/** With {@code art} for the character, or {@link tau.ui.character.CharacterArt#NONE} for the glyph alone. */
+	StatusSlot(tau.ui.character.CharacterArt art) {
 		super(new BorderLayout(UIScale.scale(8), 0));
+		figure = art.present() ? tau.ui.character.CharacterView.withArt(32, art) : null;
 		setOpaque(false);
 		setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
 		Styles.classes(label, Styles.SMALL, Styles.STRONG);
@@ -49,15 +68,26 @@ public final class StatusSlot extends JPanel {
 		update();
 	}
 
-	/** How many decisions wait for the owner; none leaves the glyph alone. */
+	/** How many decisions wait for the owner; none leaves the glyph (or character) without words. */
 	public void setWaiting(int count) {
 		waiting = Math.max(0, count);
 		update();
 	}
 
+	/** What Tau is doing, which sets the character's beat; waiting decisions win over it. */
+	public void setActivity(State activity) {
+		this.activity = (activity != null) ? activity : State.RESTING;
+		update();
+	}
+
+	/** The beat in force: waiting while decisions wait, else the activity. */
+	public State state() {
+		return (waiting > 0) ? State.WAITING : activity;
+	}
+
 	/** The words the slot shows, or carries as its tooltip when collapsed; null while nothing waits. */
 	public String text() {
-		return (waiting > 0) ? WAITING + " · " + waiting + (waiting == 1 ? " decision" : " decisions") : null;
+		return (waiting > 0) ? WAITING_WORDS + " · " + waiting + (waiting == 1 ? " decision" : " decisions") : null;
 	}
 
 	public void setCollapsed(boolean collapsed) {
@@ -65,12 +95,51 @@ public final class StatusSlot extends JPanel {
 		update();
 	}
 
+	/** A quiet screen is open: the slot shows the glyph alone. */
+	public void setQuietScreenOpen(boolean open) {
+		quietScreenOpen = open;
+		update();
+	}
+
+	public boolean quietScreenOpen() {
+		return quietScreenOpen;
+	}
+
+	/**
+	 * Whether the slot shows anything beyond the τ glyph and its words: the
+	 * character, at 32 px, when there is art for it, the slot is open, and no
+	 * quiet screen is. Collapsed (below 32 px of room) it is the glyph alone.
+	 */
+	public boolean showsMoreThanGlyph() {
+		return showingFigure;
+	}
+
+	/** The beat the character plays for each state. */
+	static tau.ui.character.Presence.Beat beat(State s) {
+		return switch (s) {
+			case RESTING -> tau.ui.character.Presence.Beat.IDLE;
+			case THINKING -> tau.ui.character.Presence.Beat.THINKING;
+			case AT_WORK -> tau.ui.character.Presence.Beat.WORKING;
+			case WAITING -> tau.ui.character.Presence.Beat.WAITING;
+			case DONE -> tau.ui.character.Presence.Beat.DONE;
+		};
+	}
+
 	private void update() {
 		String t = text();
 		// The words on the card; the count rides in the tooltip and the accessible name.
 		boolean words = t != null && !collapsed;
-		label.setText(words ? WAITING : null);
+		label.setText(words ? WAITING_WORDS : null);
 		label.setVisible(words);
+		boolean show = figure != null && !collapsed && !quietScreenOpen;
+		java.awt.Component want = show ? figure : glyph;
+		java.awt.Component now = ((BorderLayout) getLayout()).getLayoutComponent(BorderLayout.WEST);
+		if (now != want) {
+			if (now != null) remove(now);
+			add(want, BorderLayout.WEST);
+		}
+		showingFigure = show;
+		if (figure != null) figure.setBeat(beat(state()));
 		setToolTipText(APP_NAME + ": " + (t != null ? t : "nothing is waiting for you"));
 		getAccessibleContext().setAccessibleName((t != null) ? APP_NAME + " is " + t.toLowerCase(java.util.Locale.ROOT) : APP_NAME);
 		revalidate();

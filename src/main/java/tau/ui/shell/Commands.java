@@ -54,6 +54,13 @@ public final class Commands {
 	}
 
 	private final List<Command> all = new ArrayList<>();
+	/** Commands that come and go, such as one per room: searched with the rest, never in a menu. */
+	private java.util.function.Supplier<List<Command>> extras = List::of;
+
+	/** Adds a source of commands that come and go, such as each room by name. */
+	public void extras(java.util.function.Supplier<List<Command>> source) {
+		this.extras = (source == null) ? List::of : source;
+	}
 
 	public Commands add(String id, String name, String where, String menu, KeyStroke key, Runnable action,
 			String... aliases) {
@@ -80,6 +87,7 @@ public final class Commands {
 	public List<Command> search(String query) {
 		List<Command> hits = new ArrayList<>();
 		for (Command c : all) if (c.score(query) > 0) hits.add(c);
+		for (Command c : extras.get()) if (c.score(query) > 0) hits.add(c);
 		hits.sort((a, b) -> Integer.compare(b.score(query), a.score(query)));
 		return hits;
 	}

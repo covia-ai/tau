@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import tau.JobList;
 import tau.ui.ChangesLook;
@@ -22,7 +23,8 @@ import covia.grid.Status;
  * A job that timed out is a status of its own: never filed under Failed and
  * never shown in the error colour. Like Covia, it is not finished, so it can
  * be cancelled, but nothing resumes, retries, or messages it, and its clock
- * stops. Headless.
+ * stops. Headless. Isolated: it swaps the JVM's look and feel, which every
+ * class reads, between the dark and light themes.
  */
 @ChangesLook
 class TimedOutStatusTest {

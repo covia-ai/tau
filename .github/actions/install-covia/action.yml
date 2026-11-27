@@ -1,0 +1,80 @@
+name: Install Covia
+description: >
+  Makes the Covia version named by covia.version in pom.xml resolvable. A
+  release comes from Maven Central and needs nothing here. A SNAPSHOT is built
+  from the Covia repository's develop branch and installed into the local
+  Maven repository, with Convex first when Covia itself names a Convex
+  SNAPSHOT.
+
+inputs:
+  covia-ref:
+    description: Covia branch, tag or commit to build when covia.version is a SNAPSHOT.
+    default: develop
+  convex-ref:
+    description: Convex branch, tag or commit to build when Covia names a Convex SNAPSHOT.
+    default: develop
+
+outputs:
+  covia-version:
+    description: The covia.version from pom.xml.
+    value: ${{ steps.version.outputs.covia }}
+  covia-commit:
+    description: The Covia commit installed, or empty for a release.
+    value: ${{ steps.covia.outputs.commit }}
+
+runs:
+  using: composite
+  steps:
+    - name: Read covia.version
+      id: version
+      shell: bash
+      run: |
+        version="$(sed -n 's:.*<covia.version>\(.*\)</covia.version>.*:\1:p' pom.xml | head -1)"
+        if [[ -z "$version" ]]; then
+          echo "::error file=pom.xml::No covia.version property found"
+          exit 1
+        fi
+        echo "covia=$version" >> "$GITHUB_OUTPUT"
+        echo "Covia version: $version"
+
+    - name: Build and install the Covia SNAPSHOT
+      id: covia
+      if: endsWith(steps.version.outputs.covia, '-SNAPSHOT')
+      shell: bash
+      env:
+        COVIA_REF: ${{ inputs.covia-ref }}
+        CONVEX_REF: ${{ inputs.convex-ref }}
+        COVIA_VERSION: ${{ steps.version.outputs.covia }}
+      run: |
+        set -euo pipefail
+        work="$RUNNER_TEMP/upstream"
+        mkdir -p "$work"
+
+        fetch() { # repository, ref, directory
+          git init -q "$3"
+          git -C "$3" remote add origin "$1"
+          git -C "$3" fetch -q --depth 1 origin "$2"
+          git -C "$3" checkout -q FETCH_HEAD
+        }
+
+        fetch https://github.com/covia-ai/covia.git "$COVIA_REF" "$work/covia"
+        commit="$(git -C "$work/covia" rev-parse HEAD)"
+        echo "commit=$commit" >> "$GITHUB_OUTPUT"
+        echo "Covia $COVIA_REF at $commit"
+
+        built="$(sed -n '/<parent>/,/<\/parent>/d; s:.*<version>\(.*\)</version>.*:\1:p' "$work/covia/pom.xml" | head -1)"
+        if [[ "$built" != "$COVIA_VERSION" ]]; then
+          echo "::error file=pom.xml::pom.xml names Covia $COVIA_VERSION but $COVIA_REF is $built"
+          exit 1
+        fi
+
+        convex="$(sed -n 's:.*<convex.version>\(.*\)</convex.version>.*:\1:p' "$work/covia/pom.xml" | head -1)"
+        if [[ "$convex" == *-SNAPSHOT ]]; then
+          echo "Covia names Convex $convex: building Convex $CONVEX_REF first"
+          fetch https://github.com/Convex-Dev/convex.git "$CONVEX_REF" "$work/convex"
+          mvn -B -ntp -f "$work/convex/pom.xml" install -DskipTests
+        fi
+
+        mvn -B -ntp -f "$work/covia/pom.xml" \
+          -pl venue,workbench,covia-discord,covia-telegram,covia-claude-code,covia-speech -am \
+          install -DskipTests

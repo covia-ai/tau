@@ -14,6 +14,7 @@ import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import tau.ui.ChangesLook;
 import tau.ui.LAF;
@@ -26,7 +27,8 @@ import tau.ui.components.Tone;
  * Onboarding and the empty states: the τ greets on Welcome only (and as
  * Finish sets things up), at the size the brand sets; the name card shows the
  * identity just made; empty states can carry the τ in place of their icon.
- * Headless.
+ * Headless. Isolated: it swaps the JVM's look and feel, which every class
+ * reads, between the dark and light themes.
  */
 @ChangesLook
 class OnboardingPhaseTest {

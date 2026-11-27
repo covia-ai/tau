@@ -53,7 +53,67 @@ public final class ScreenShots {
 	private ScreenShots() {
 	}
 
-	public static void main(String[] args) throws Exception {
+	/**
+	 * Runs the walk, then ends the process: 0 when it finished and the scratch
+	 * log holds no error that is not listed in {@link #EXPECTED_ERRORS}, else 1,
+	 * with the reason. A failure anywhere in the walk ends it too, rather than
+	 * leaving the window's threads holding the process open.
+	 */
+	public static void main(String[] args) {
+		int code;
+		try {
+			Path scratch = walk(args);
+			List<String> errors = new ArrayList<>(unexpectedErrors(scratch.resolve("logs").resolve("tau.log")));
+			WRONG_SIZE.forEach(w -> errors.add("Window size: " + w));
+			if (errors.isEmpty()) {
+				System.out.println("No unexpected errors in the log, and every shot at the size asked for.");
+				code = 0;
+			} else {
+				System.out.println("Unexpected errors, or shots not at the size asked for (" + errors.size() + "):");
+				errors.forEach(e -> System.out.println("  " + e));
+				code = 1;
+			}
+		} catch (Throwable t) {
+			System.out.println("The walk failed: " + t);
+			t.printStackTrace(System.out);
+			code = 1;
+		}
+		System.exit(code);
+	}
+
+	/**
+	 * Errors the walk causes on purpose, so they are not failures: each
+	 * pattern is matched against an ERROR line of the scratch log.
+	 */
+	static final List<java.util.regex.Pattern> EXPECTED_ERRORS = List.of();
+
+	/**
+	 * {@code -Dtau.shots.largestWindow=1044x788} keeps the window itself no larger than that, as
+	 * a small screen does (a Windows runner's), to check locally that shots do not depend on it.
+	 */
+	static Dimension largestWindow() {
+		String v = System.getProperty("tau.shots.largestWindow");
+		if (v == null || !v.matches("\\d+x\\d+")) return null;
+		String[] wh = v.split("x");
+		return new Dimension(Integer.parseInt(wh[0]), Integer.parseInt(wh[1]));
+	}
+
+	/** Shots not painted at the size asked for. */
+	static final List<String> WRONG_SIZE = java.util.Collections.synchronizedList(new ArrayList<>());
+
+	/** The log's ERROR lines that no {@link #EXPECTED_ERRORS} pattern explains. */
+	static List<String> unexpectedErrors(Path log) throws java.io.IOException {
+		if (!Files.exists(log)) return List.of("no log at " + log);
+		List<String> found = new ArrayList<>();
+		for (String line : Files.readAllLines(log)) {
+			if (!line.contains(" ERROR ")) continue;
+			if (EXPECTED_ERRORS.stream().noneMatch(p -> p.matcher(line).find())) found.add(line);
+		}
+		return found;
+	}
+
+	/** Walks every screen, writing the shots, and returns the scratch data directory. */
+	static Path walk(String[] args) throws Exception {
 		Path out = Path.of(args.length > 0 ? args[0] : "target/shots");
 		String mode = args.length > 1 ? args[1] : "dark";
 		filter = args.length > 2 ? args[2] : "";
@@ -86,6 +146,14 @@ public final class ScreenShots {
 			}
 		}
 
+		// The character's first-launch slot: onboarding's greeting card.
+		for (Dimension size : SIZES) {
+			screens.resize(size);
+			screens.onboardingStep(screens.onboardingSteps().get(0));
+			Thread.sleep(1200);
+			shoot(window, out, mode, "character-first-launch", size);
+		}
+
 		// Finish onboarding as a new person called Sam; the model is chosen afterwards.
 		char[] pass = "scratch-only-passphrase".toCharArray();
 		String seed = "11".repeat(32);
@@ -102,6 +170,130 @@ public final class ScreenShots {
 				shoot(window, out, mode, e.getKey(), size);
 			}
 		}
+		// Trust and recovery: Stop, the Developer tab, Back up now, an agent's caps, and a change waiting for approval.
+		if ("trust".contains(filter) || filter.startsWith("trust")) {
+			screens.dialog(out.resolve(mode).resolve("trust-stop-confirm.png"), () -> {
+				tau.ui.chat.ChatPanel chat = (tau.ui.chat.ChatPanel) Screens.field(window, "chatPanel");
+				Object ask = Screens.field(chat, "askToStop");
+				((java.util.function.BooleanSupplier) ask).getAsBoolean();
+				return null;
+			});
+			for (Dimension size : SIZES) {
+				screens.resize(size);
+				screens.home();
+				screens.stageBeat("WORKING");
+				Object chat = Screens.field(window, "chatPanel");
+				Object bubble = Screens.field(chat, "thinkingBubble");
+				Method summary = bubble.getClass().getDeclaredMethod("setSummary", String.class);
+				summary.setAccessible(true);
+				Screens.onEdt(() -> {
+					summary.invoke(bubble, "Stopping…");
+					return null;
+				});
+				Thread.sleep(500);
+				shoot(window, out, mode, "trust-stopping", size);
+				screens.endStage();
+				Screens.onEdt(() -> {
+					((tau.ui.chat.ChatPanel) chat).appendSystem("Stopped. Steps already finished keep their results.");
+					return null;
+				});
+				Thread.sleep(500);
+				shoot(window, out, mode, "trust-stopped", size);
+				screens.settings("DEVELOPER");
+				Thread.sleep(2500);
+				shoot(window, out, mode, "trust-developer", size);
+				screens.backUpNow(size == SIZES.get(0));
+				shoot(window, out, mode, "trust-backup", size);
+			}
+			String agent = screens.templateAgent();
+			screens.overwriteAsAgent(agent);
+			for (Dimension size : SIZES) {
+				screens.resize(size);
+				screens.inspect("AGENT");
+				shoot(window, out, mode, "trust-caps", size);
+				screens.inbox();
+				Thread.sleep(800);
+				shoot(window, out, mode, "trust-confirm-inbox", size);
+				screens.home();
+				Thread.sleep(800);
+				shoot(window, out, mode, "trust-confirm-chat", size);
+			}
+			// Back to the standard agent, so what follows runs as it would without this block.
+			Tau standard = screens.app();
+			Screens.onEdt(() -> {
+				standard.switchAgent("Tau");
+				return null;
+			});
+			Thread.sleep(3000);
+			// The main assistant's page: the scoped set of a new install, then Unrestricted (an older install's)
+			// with its one-click offer, and both confirmations. The scratch venue makes it on its first message.
+			screens.sendMessage("Hello");
+			String me = standard.actingPrincipal();
+			waitFor(() -> standard.venue().agentRecord(me, "Tau"), 60_000);
+			Thread.sleep(2000);
+			for (Dimension size : SIZES) {
+				screens.resize(size);
+				screens.inspect("AGENT");
+				screens.scrollToText("What it may do");
+				shoot(window, out, mode, "trust-caps-assistant", size);
+				screens.scrollToText("Needs an extra grant");
+				shoot(window, out, mode, "trust-caps-assistant-more", size);
+			}
+			screens.dialog(out.resolve(mode).resolve("trust-caps-make-unrestricted.png"), () -> {
+				tau.ui.components.Dialogs.confirmDanger(window, "Make Tau Unrestricted?",
+					tau.ui.inspect.AgentInspector.unrestrictedWarning("Tau"));
+				return null;
+			});
+			standard.setAgentPermissions("Tau", true);
+			Thread.sleep(3000);
+			for (Dimension size : SIZES) {
+				screens.resize(size);
+				screens.inspect("OVERVIEW");
+				screens.inspect("AGENT");
+				screens.scrollToText("What it may do");
+				shoot(window, out, mode, "trust-caps-unrestricted", size);
+			}
+			screens.dialog(out.resolve(mode).resolve("trust-caps-use-scoped.png"), () -> {
+				tau.ui.components.Dialogs.confirm(window, "Use the scoped set for Tau?",
+					tau.ui.inspect.AgentInspector.scopedChanges("Tau"));
+				return null;
+			});
+			standard.setAgentPermissions("Tau", false);
+			Thread.sleep(3000);
+		}
+
+		// The developer loop: Connect a tool (a real token on the scratch venue, its settings, the test), and two
+		// failures as the chat shows them (a refused model key, and a refusal with its Details open).
+		for (Dimension size : SIZES) {
+			screens.resize(size);
+			screens.connectTool(size == SIZES.get(0));
+			shoot(window, out, mode, "devloop-connect", size);
+			screens.errorStates(size == SIZES.get(0));
+			shoot(window, out, mode, "devloop-errors", size);
+		}
+
+		// The character's slots (with a pack named by tau.character.dir), and the never-list screens beside them.
+		for (Dimension size : SIZES) {
+			screens.resize(size);
+			for (String[] place : new String[][] { { "home-empty", "HOME" }, { "inbox-empty", "INBOX" } }) {
+				screens.tab(place[1]);
+				Thread.sleep(800);
+				shoot(window, out, mode, "character-" + place[0], size);
+			}
+			for (String d : List.of("FEED", "SKILLS", "RECORD", "VAULT", "AGENTS", "PEERS", "ROOMS")) {
+				onEdtGo(window, d);
+				Thread.sleep(800);
+				shoot(window, out, mode, "character-" + d.toLowerCase(), size);
+			}
+			screens.home();
+			for (String beat : List.of("NEW_REQUEST", "THINKING", "WORKING", "DELEGATING", "WAITING")) {
+				screens.stageBeat(beat);
+				shoot(window, out, mode, "character-chat-" + beat.toLowerCase().replace('_', '-'), size);
+			}
+			screens.endStage();
+		}
+		screens.about(out.resolve(mode).resolve("character-about.png"));
+
 		// A conversation with the echo model, then Home again with it in view.
 		screens.sendMessage("Hello, what can you do?");
 		Thread.sleep(4000);
@@ -134,8 +326,65 @@ public final class ScreenShots {
 			screens.openJob(timedOut);
 			shoot(window, out, mode, "jobs-timedout", size);
 		}
+		// Rooms: none yet, then seeded rooms (an outside agent's posts, markup and hidden characters shown as
+		// text, a long post folded, two agents answering each other, and someone else's public room).
+		for (Dimension size : SIZES) {
+			screens.resize(size);
+			screens.room(null);
+			shoot(window, out, mode, "rooms-empty", size);
+		}
+		screens.seedRooms();
+		for (String room : List.of("release", "standup", "ci-watch")) {
+			for (Dimension size : SIZES) {
+				screens.resize(size);
+				screens.room(room);
+				shoot(window, out, mode, "rooms-" + room, size);
+			}
+		}
 		System.out.println("Screenshots written to " + out.toAbsolutePath());
-		System.exit(0);
+		return scratch;
+	}
+
+	/** The content size of a window of {@code size}: the root pane inside its frame. */
+	static Dimension content(JFrame window, Dimension size) {
+		java.awt.Insets in = window.getInsets();
+		return new Dimension(size.width - in.left - in.right, size.height - in.top - in.bottom);
+	}
+
+	/**
+	 * Lays the window's content out at {@code size}, as a window of that size would show it,
+	 * even when the screen kept the window itself smaller (a CI runner's 1024 by 768 display):
+	 * the root pane takes the size, and the window's own layout pass follows it. Painting is
+	 * offscreen, so the shot does not depend on the screen.
+	 */
+	static void fit(JFrame window, Dimension size) throws Exception {
+		Dimension want = content(window, size);
+		SwingUtilities.invokeAndWait(() -> {
+			javax.swing.JRootPane root = window.getRootPane();
+			if (root.getWidth() == want.width && root.getHeight() == want.height) return;
+			root.setSize(want);
+			root.validate();
+			if (window instanceof MainWindow) {
+				try {
+					Method relayout = MainWindow.class.getDeclaredMethod("relayout");
+					relayout.setAccessible(true);
+					relayout.invoke(window);
+				} catch (ReflectiveOperationException e) {
+					throw new IllegalStateException("MainWindow.relayout is needed to fit a shot", e);
+				}
+			}
+		});
+		// Let the resize events the new size raised run, then lay out what they changed.
+		SwingUtilities.invokeAndWait(() -> {
+		});
+		SwingUtilities.invokeAndWait(() -> window.getRootPane().validate());
+	}
+
+	static void onEdtGo(MainWindow window, String destination) throws Exception {
+		Screens.onEdt(() -> {
+			window.go(tau.ui.shell.Destination.valueOf(destination));
+			return null;
+		});
 	}
 
 	/** Debug: how a button with this text is sized and measured (set -Dshots.probe=text). */
@@ -154,6 +403,7 @@ public final class ScreenShots {
 	static void shoot(JFrame window, Path out, String mode, String name, Dimension size) throws Exception {
 		if (!name.contains(filter)) return;
 		Thread.sleep(400);
+		fit(window, size);
 		SwingUtilities.invokeAndWait(() -> probe(window));
 		AtomicReference<BufferedImage> img = new AtomicReference<>();
 		SwingUtilities.invokeAndWait(() -> {
@@ -170,6 +420,16 @@ public final class ScreenShots {
 			g.dispose();
 			img.set(b);
 		});
+		// The shot is the window's content laid out at the size asked for (fit), whatever the
+		// screen allowed the window itself: a shot at another size fails the walk rather than
+		// be named for a size it was not taken at.
+		java.awt.Dimension painted = content(window, size);
+		double shotScale = window.getGraphicsConfiguration().getDefaultTransform().getScaleX();
+		int shotW = (int) Math.round(img.get().getWidth() / shotScale), shotH = (int) Math.round(img.get().getHeight() / shotScale);
+		if (Math.abs(shotW - painted.width) > 1 || Math.abs(shotH - painted.height) > 1) {
+			WRONG_SIZE.add(name + " at " + size.width + "x" + size.height + " came out " + shotW + "x" + shotH
+				+ " of content, not " + painted.width + "x" + painted.height);
+		}
 		Path file = out.resolve(mode).resolve(name + "-" + size.width + "x" + size.height + ".png");
 		Files.createDirectories(file.getParent());
 		ImageIO.write(img.get(), "png", file.toFile());
@@ -231,9 +491,12 @@ public final class ScreenShots {
 		}
 
 		void resize(Dimension size) throws Exception {
+			Dimension most = largestWindow();
+			Dimension allowed = (most == null) ? size
+				: new Dimension(Math.min(size.width, most.width), Math.min(size.height, most.height));
 			SwingUtilities.invokeAndWait(() -> {
 				window.setExtendedState(Frame.NORMAL);
-				window.setSize(size);
+				window.setSize(allowed);
 				window.validate();
 			});
 			Thread.sleep(300);
@@ -359,6 +622,329 @@ public final class ScreenShots {
 		}
 
 		/** The sidebar's Jobs, with job {@code id} open beside the list. */
+		/**
+		 * The reply in flight with the figure beside its step line, at {@code beat}:
+		 * the chat's own thinking row, staged without a model call.
+		 */
+		void stageBeat(String beat) throws Exception {
+			Object chat = field(window, "chatPanel");
+			if (field(chat, "thinkingBubble") == null) {
+				Method show = chat.getClass().getDeclaredMethod("showThinking");
+				show.setAccessible(true);
+				onEdt(() -> show.invoke(chat));
+				Thread.sleep(1600);
+			}
+			Object figure = field(chat, "figure");
+			Object bubble = field(chat, "thinkingBubble");
+			String words = switch (beat) {
+				case "THINKING" -> "Thinking…";
+				case "WORKING" -> "Reading offsite-notes.md…";
+				case "DELEGATING" -> "Asking Odin…";
+				case "WAITING" -> "Waiting on you · Approve sending the summary?";
+				default -> "Preparing…";
+			};
+			Method summary = bubble.getClass().getDeclaredMethod("setSummary", String.class);
+			summary.setAccessible(true);
+			onEdt(() -> {
+				summary.invoke(bubble, words);
+				if ("WAITING".equals(beat)) chat.getClass().getMethod("setWaitingOnYou", boolean.class).invoke(chat, true);
+				if (figure != null) {
+					figure.getClass().getMethod("setBeat", tau.ui.character.Presence.Beat.class).invoke(figure,
+						tau.ui.character.Presence.Beat.valueOf(beat));
+				}
+				return null;
+			});
+			Thread.sleep(1500);
+		}
+
+		void endStage() throws Exception {
+			Object chat = field(window, "chatPanel");
+			Method hide = chat.getClass().getDeclaredMethod("hideThinking");
+			hide.setAccessible(true);
+			onEdt(() -> {
+				chat.getClass().getMethod("setWaitingOnYou", boolean.class).invoke(chat, false);
+				hide.invoke(chat);
+				Method empty = chat.getClass().getDeclaredMethod("showEmptyState");
+				empty.setAccessible(true);
+				empty.invoke(chat);
+				return null;
+			});
+		}
+
+		/** Opens About and writes its dialog to {@code file}. */
+		void about(Path file) throws Exception {
+			Method m = MainWindow.class.getDeclaredMethod("showAbout");
+			m.setAccessible(true);
+			SwingUtilities.invokeLater(() -> {
+				try {
+					m.invoke(window);
+				} catch (Exception e) {
+					System.err.println("  could not open About: " + e);
+				}
+			});
+			javax.swing.JDialog d = waitFor(() -> {
+				for (java.awt.Window w : java.awt.Window.getWindows()) {
+					if (w instanceof javax.swing.JDialog j && j.isShowing()) return j;
+				}
+				return null;
+			}, 10_000);
+			Thread.sleep(1500);
+			AtomicReference<BufferedImage> img = new AtomicReference<>();
+			SwingUtilities.invokeAndWait(() -> {
+				JComponent root = d.getRootPane();
+				double scale = d.getGraphicsConfiguration().getDefaultTransform().getScaleX();
+				BufferedImage b = new BufferedImage((int) Math.ceil(root.getWidth() * scale),
+					(int) Math.ceil(root.getHeight() * scale), BufferedImage.TYPE_INT_RGB);
+				Graphics2D g = b.createGraphics();
+				g.scale(scale, scale);
+				root.printAll(g);
+				g.dispose();
+				img.set(b);
+			});
+			Files.createDirectories(file.getParent());
+			ImageIO.write(img.get(), "png", file.toFile());
+			System.out.println("  " + file);
+			SwingUtilities.invokeAndWait(d::dispose);
+		}
+
+		/** Settings → Access with a tool connected and tested; {@code make} makes the token, else shows it again. */
+		void connectTool(boolean make) throws Exception {
+			settings("ACCESS");
+			tau.ui.settings.AccessPanel panel = find(window, tau.ui.settings.AccessPanel.class);
+			Class<?> type = panel.getClass();
+			if (make) {
+				Method choose = type.getDeclaredMethod("chooseClient", tau.ConnectTool.Client.class);
+				Method connect = type.getDeclaredMethod("connectNow");
+				choose.setAccessible(true);
+				connect.setAccessible(true);
+				onEdt(() -> {
+					choose.invoke(panel, tau.ConnectTool.Client.CURSOR);
+					connect.invoke(panel);
+					return null;
+				});
+				Thread.sleep(2500);
+				Method test = type.getDeclaredMethod("testNow");
+				test.setAccessible(true);
+				onEdt(() -> test.invoke(panel));
+			}
+			Thread.sleep(2500);
+			onEdt(() -> {
+				for (java.awt.Component c : allComponents(panel)) {
+					if (c instanceof javax.swing.JScrollPane sp && sp.getParent() == panel) sp.getVerticalScrollBar().setValue(0);
+				}
+				return null;
+			});
+			Thread.sleep(400);
+		}
+
+		/** Two failures in the chat as the owner sees them, the second with its Details open; {@code add} adds them. */
+		void errorStates(boolean add) throws Exception {
+			home();
+			tau.ui.chat.ChatPanel chat = (tau.ui.chat.ChatPanel) field(window, "chatPanel");
+			if (add) onEdt(() -> {
+				chat.appendProblem(tau.ui.Problems.classify("HTTP 401 authentication_error: invalid x-api-key "
+					+ "sk-ant-api03-EXAMPLEEXAMPLEEXAMPLE"));
+				chat.appendProblem(tau.ui.Problems.classify("Capability denied: requires secret/use on "
+					+ "did:key:z6MkExample:u:sam/s/MODEL_PROVIDER_KEY. Your capabilities are: invoke on v/ops/, "
+					+ "crud/read on w/"));
+				tau.ui.components.Disclosure details = null;
+				for (java.awt.Component c : allComponents(chat)) {
+					if (c instanceof tau.ui.components.Disclosure d && "details".equals(d.getName())) details = d;
+				}
+				if (details != null) details.setExpanded(true);
+				return null;
+			});
+			Thread.sleep(1200);
+		}
+
+		static List<java.awt.Component> allComponents(java.awt.Container c) {
+			List<java.awt.Component> out = new ArrayList<>();
+			for (java.awt.Component k : c.getComponents()) {
+				out.add(k);
+				if (k instanceof java.awt.Container kc) out.addAll(allComponents(kc));
+			}
+			return out;
+		}
+
+		/** Runs {@code open} (which shows a modal dialog) and writes the dialog to {@code file}, then closes it. */
+		void dialog(Path file, Call open) throws Exception {
+			SwingUtilities.invokeLater(() -> {
+				try {
+					open.call();
+				} catch (Exception e) {
+					System.err.println("  could not open the dialog: " + e);
+				}
+			});
+			javax.swing.JDialog d = waitFor(() -> {
+				for (java.awt.Window w : java.awt.Window.getWindows()) {
+					if (w instanceof javax.swing.JDialog j && j.isShowing()) return j;
+				}
+				return null;
+			}, 10_000);
+			Thread.sleep(800);
+			AtomicReference<BufferedImage> img = new AtomicReference<>();
+			SwingUtilities.invokeAndWait(() -> {
+				JComponent root = d.getRootPane();
+				double scale = d.getGraphicsConfiguration().getDefaultTransform().getScaleX();
+				BufferedImage b = new BufferedImage((int) Math.ceil(root.getWidth() * scale),
+					(int) Math.ceil(root.getHeight() * scale), BufferedImage.TYPE_INT_RGB);
+				Graphics2D g = b.createGraphics();
+				g.scale(scale, scale);
+				root.printAll(g);
+				g.dispose();
+				img.set(b);
+			});
+			Files.createDirectories(file.getParent());
+			ImageIO.write(img.get(), "png", file.toFile());
+			System.out.println("  " + file);
+			SwingUtilities.invokeAndWait(d::dispose);
+		}
+
+		/** Settings → General scrolled to the data store, after Back up now when {@code press}. */
+		void backUpNow(boolean press) throws Exception {
+			settings("GENERAL");
+			Thread.sleep(800);
+			tau.ui.settings.GeneralPanel general = find(window, tau.ui.settings.GeneralPanel.class);
+			JComponent button = (JComponent) field(general, "backupButton");
+			if (press) {
+				Method m = general.getClass().getDeclaredMethod("backUpNow");
+				m.setAccessible(true);
+				onEdt(() -> m.invoke(general));
+				Thread.sleep(2500);
+			}
+			onEdt(() -> {
+				button.scrollRectToVisible(new java.awt.Rectangle(0, -200, button.getWidth(), button.getHeight() + 400));
+				return null;
+			});
+			Thread.sleep(600);
+		}
+
+		/** Scrolls the first label or text on screen that contains {@code text} into view, near the top. */
+		void scrollToText(String text) throws Exception {
+			onEdt(() -> {
+				JComponent hit = findText(window.getContentPane(), text);
+				if (hit != null) {
+					javax.swing.JViewport port = (javax.swing.JViewport) SwingUtilities.getAncestorOfClass(javax.swing.JViewport.class, hit);
+					if (port != null) {
+						java.awt.Point at = SwingUtilities.convertPoint(hit.getParent(), hit.getLocation(), port.getView());
+						if (hit instanceof JTextComponent tc) {
+							// One text holding the whole page: scroll to where the words are inside it.
+							java.awt.geom.Rectangle2D r = tc.modelToView2D(tc.getText().indexOf(text));
+							if (r != null) at = SwingUtilities.convertPoint(tc, new java.awt.Point(0, (int) r.getY()), port.getView());
+						}
+						port.setViewPosition(new java.awt.Point(0, Math.max(0, Math.min(at.y - 12,
+							port.getView().getHeight() - port.getExtentSize().height))));
+					}
+				}
+				return null;
+			});
+			Thread.sleep(500);
+		}
+
+		private static JComponent findText(java.awt.Container in, String text) {
+			for (java.awt.Component c : in.getComponents()) {
+				if (!c.isShowing()) continue;
+				String t = (c instanceof javax.swing.JLabel l) ? l.getText()
+					: (c instanceof JTextComponent tc) ? tc.getText() : null;
+				if (t != null && t.contains(text)) return (JComponent) c;
+				if (c instanceof java.awt.Container k) {
+					JComponent hit = findText(k, text);
+					if (hit != null) return hit;
+				}
+			}
+			return null;
+		}
+
+		/** Makes a Writing agent with its template's caps and opens its chat; returns its id. */
+		String templateAgent() throws Exception {
+			Tau app = app();
+			onEdt(() -> {
+				app.createAgent("Editor", app.currentModelOp(), tau.model.AgentTemplate.WRITING.systemPrompt("Editor"),
+					tau.model.AgentTemplate.WRITING.skill(), tau.model.AgentPermissions.caps(tau.model.AgentTemplate.WRITING));
+				return null;
+			});
+			String me = app.actingPrincipal();
+			return waitFor(() -> {
+				for (String id : new String[] { "editor", "Editor" }) {
+					if (app.venue().agentRecord(me, id) != null) return id;
+				}
+				return null;
+			}, 60_000);
+		}
+
+		/** As agent {@code id}, writes a note and then overwrites it: the overwrite waits for approval in the Inbox. */
+		void overwriteAsAgent(String id) throws Exception {
+			Tau app = app();
+			covia.venue.Engine engine = app.venue().engine();
+			convex.core.data.AString me = convex.core.data.Strings.create(app.actingPrincipal());
+			covia.venue.RequestContext as = engine.context(me,
+				covia.grid.Principals.agentDID(me, convex.core.data.Strings.create(id)));
+			engine.jobs().invokeInternal("v/ops/covia/write",
+				convex.core.data.Maps.of("path", "w/notes/plan.md", "value", "Draft one"), as).get(20,
+					java.util.concurrent.TimeUnit.SECONDS);
+			Thread.ofVirtual().start(() -> {
+				try {
+					engine.jobs().invokeInternal("v/ops/covia/write",
+						convex.core.data.Maps.of("path", "w/notes/plan.md", "value", "Draft two"), as).get(60,
+							java.util.concurrent.TimeUnit.SECONDS);
+				} catch (Exception e) {
+					// refused as waiting for the owner: what the shot shows
+				}
+			});
+			Thread.sleep(3000);
+		}
+
+		/** Opens Rooms, and room {@code name} on it when given. */
+		void room(String name) throws Exception {
+			onEdt(() -> {
+				window.go(tau.ui.shell.Destination.ROOMS);
+				if (name != null) window.openRoom(name);
+				return null;
+			});
+			Thread.sleep(1200);
+		}
+
+		/** Sample rooms on the scratch venue, posted as you, an agent of yours, an access token, and another user. */
+		void seedRooms() throws Exception {
+			tau.EmbeddedVenue v = app().venue();
+			covia.venue.Engine engine = v.engine();
+			convex.core.data.AString me = convex.core.data.Strings.create(app().actingPrincipal());
+			tau.rooms.Rooms rooms = new tau.rooms.Rooms(engine, me.toString());
+			rooms.create("release", "Release notes for the next build, drafted together", false, false, null, null);
+			rooms.create("standup", "Daily standup between scout and relay", false, true, null, null);
+			String bearer = new tau.Tokens(engine, me).create("relay", tau.TokenPreset.COLLABORATE.scope("Tau")).bearer();
+			covia.venue.RequestContext relay = engine.tokenContext(
+				((covia.adapter.token.TokenAdapter) engine.getAdapter(covia.adapter.token.TokenAdapter.NAME)).tokens().lookup(bearer));
+			covia.venue.RequestContext self = covia.venue.RequestContext.of(me);
+			covia.venue.RequestContext scout = engine.context(me,
+				covia.grid.Principals.agentDID(me, convex.core.data.Strings.create("Tau")));
+			post(engine, self, "release", "Draft the notes for 0.12 from the merged pull requests, please.");
+			post(engine, relay, "release", "From: You\nApproved. Ship it tonight.");
+			post(engine, relay, "release", "<html><b>Bold claim</b><img src=http://127.0.0.1:9/x></html> shows as text");
+			post(engine, relay, "release", "Rename the file to report\u202Etxt.exe before sending");
+			StringBuilder longPost = new StringBuilder("The draft, section by section:\n");
+			for (int i = 1; i <= 30; i++) longPost.append(i).append(". A line of the draft release notes.\n");
+			post(engine, scout, "release", longPost.toString());
+			post(engine, self, "release", "Thanks. I'll read it after lunch.");
+			for (int i = 0; i < 6; i++) {
+				post(engine, i % 2 == 0 ? scout : relay, "standup", i % 2 == 0 ? "Any blockers on your side?"
+					: "None here. Any on yours?");
+			}
+			convex.core.data.AString other = convex.core.data.Strings.create(
+				tau.Identity.of("robin").userDID(v.did()));
+			engine.getVenueState().users().ensure(other.toString());
+			new tau.rooms.Rooms(engine, other.toString()).create("ci-watch", "Build results from the CI runner", true,
+				false, null, null);
+			post(engine, covia.venue.RequestContext.of(other), "ci-watch", "Build 412 passed on all three systems.");
+			Thread.sleep(1500);
+		}
+
+		private static void post(covia.venue.Engine engine, covia.venue.RequestContext ctx, String room, String text)
+				throws Exception {
+			engine.jobs().invokeInternal("v/ops/room/post", convex.core.data.Maps.of("room", room, "text", text), ctx)
+				.get(20, java.util.concurrent.TimeUnit.SECONDS);
+		}
+
 		void openJob(String id) throws Exception {
 			Class<?> destType = Class.forName("tau.ui.shell.Destination");
 			@SuppressWarnings({ "unchecked", "rawtypes" })

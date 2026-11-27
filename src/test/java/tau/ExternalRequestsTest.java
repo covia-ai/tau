@@ -70,8 +70,10 @@ class ExternalRequestsTest {
 		String id = "caps-survive";
 		prepare(owner, id);
 		RequestContext agent = engine().context(owner, Principals.agentDID(owner, Strings.create(id)));
-		AString path = Strings.create(owner + "/w/protected");
-		assertTrue(engine().authorityCovers(agent, path, Capability.CRUD_WRITE), "creation keeps the owner's default");
+		AString path = Strings.create(owner + "/w/memory");
+		assertEquals(tau.model.AgentPermissions.ASSISTANT, RT.getIn(shared.venue().agentRecord(owner.toString(), id), "config", "caps"),
+			"creation gives the assistant's scoped default");
+		assertTrue(engine().authorityCovers(agent, path, Capability.CRUD_WRITE), "which may write the shared memory");
 		for (AVector<ACell> caps : java.util.List.of(
 			Vectors.<ACell>of(Maps.of("with", "v/ops/", "can", "invoke"), Maps.of("with", "w/", "can", "crud/read")),
 			Vectors.<ACell>empty())) {
@@ -118,7 +120,7 @@ class ExternalRequestsTest {
 				&& String.valueOf(RT.getIn(message, "content")).contains("via token")), "the model receives a separate verified token label");
 		assertThrows(ExecutionException.class, () -> run("v/ops/covia/write", Maps.of("path", "w/private", "value", "x"), token));
 		RequestContext agent = engine().stepContext(engine().harnessContext(owner, Strings.create(id)), Strings.create(id));
-		assertTrue(engine().authorityCovers(agent, Strings.create(owner + "/w/private"), Capability.CRUD_WRITE),
+		assertTrue(engine().authorityCovers(agent, Strings.create(owner + "/w/memory"), Capability.CRUD_WRITE),
 			"the agent still has its own authority: provenance is not automatic attenuation to the requester's caps");
 	}
 

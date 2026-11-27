@@ -49,7 +49,8 @@ A small window of its own, shown before the main window exists: passphrase,
 passphrase fails the authenticated decryption and is reported there, not in
 the log. While the venue starts, the dialog shows progress and the main window
 appears only once it is ready. *Lock* (Settings → General) hides the window and
-brings the dialog back. *Remember me* stores the passphrase in plaintext after
+brings the dialog back; the venue keeps running, so named tokens made for
+outside tools keep working. *Remember me* stores the passphrase in plaintext after
 explicit opt-in, a trade-off SECURITY.md spells out. With it stored, Settings →
 General → Startup can have a launch unlock with it without asking; Lock still
 asks ([LAUNCH.md](LAUNCH.md#startup)).

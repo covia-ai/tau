@@ -61,6 +61,7 @@ import tau.ui.shell.Destination;
 import tau.ui.shell.Rail;
 import tau.ui.shell.ShellCommands;
 import tau.ui.shell.ShellLayout;
+import tau.ui.shell.StatusSlot;
 import tau.ui.shell.StatusStrip;
 
 /**
@@ -119,11 +120,13 @@ public final class MainWindow extends JFrame {
 	private static final String MAIN_AGENTS = "agents";
 	private static final String MAIN_JOBS = "jobs";
 	private static final String MAIN_RECORD = "record";
+	private static final String MAIN_ROOMS = "rooms";
 	private static final String MAIN_VAULT = "vault";
 	/** In the sidebar layout Jobs and the Vault's pages are screens of their own, holding Settings' own panels. */
 	private final JPanel jobsHolder = new JPanel(new BorderLayout());
 	private tau.ui.vault.VaultScreen vaultScreen;
 	private tau.ui.record.RecordScreen recordScreen;
+	private tau.ui.rooms.RoomsScreen roomsScreen;
 	private tau.ui.settings.TreasuryPanel treasuryPanel;
 	/** The Inbox panel, docked beside Home and Jobs from 1440 while requests wait. */
 	private tau.ui.inbox.InboxPanel inboxPanel;
@@ -221,7 +224,24 @@ public final class MainWindow extends JFrame {
 		chatPanel.sendAfterPause(app::sendAfterPauseSeconds);
 
 		// The conversation menu beside Send acts on the conversation on screen.
+		chatPanel.onPresence(b -> {
+			chatBeat = b;
+			showPresence();
+		});
 		chatPanel.setHost(new ChatPanel.Host() {
+			@Override
+			public boolean storeSecret(String name, String value) {
+				return app.storeSecret(name, value);
+			}
+
+			@Override
+			public tau.chat.StopRun.Result stopRun(convex.core.data.Blob chatJob, String agentId) {
+				tau.EmbeddedVenue v = app.venue();
+				String me = app.actingPrincipal();
+				if (v == null || me == null) return null;
+				return tau.chat.StopRun.stop(v.engine(), convex.core.data.Strings.create(me), chatJob, agentId);
+			}
+
 			@Override
 			public void newConversation() {
 				views.newConversation();
@@ -290,6 +310,11 @@ public final class MainWindow extends JFrame {
 			@Override
 			public void saveInstructions(String agentId, String instructions) {
 				app.setAgentInstructions(agentId, instructions);
+			}
+
+			@Override
+			public void setUnrestricted(String agentId, boolean unrestricted) {
+				app.setAgentPermissions(agentId, unrestricted);
 			}
 
 			@Override
@@ -401,9 +426,30 @@ public final class MainWindow extends JFrame {
 				try {
 					app.setCompactAtNextStart(value);
 				} catch (IOException e) {
-					Dialogs.warn(MainWindow.this, "Data store", APP_NAME + " couldn't save that: " + e.getMessage());
+					Dialogs.warn(MainWindow.this, "Data store", APP_NAME + " couldn't save that: " + tau.ui.Problems.describe(e).line());
 				}
 				settingsScreen.general().refreshStore(app.storeReport());
+			}
+
+			@Override
+			public String backUpNow() {
+				try {
+					java.nio.file.Path made = app.backUp("now");
+					if (made == null) return null;
+					return "Backed up to " + made + ". The last " + tau.Backups.KEEP + " backups are kept; your "
+						+ "passphrase and access tokens are never copied.";
+				} catch (java.io.IOException e) {
+					return "Couldn't back up. " + tau.ui.Problems.fileLine(e);
+				}
+			}
+
+			@Override
+			public String backupsWhere() {
+				java.nio.file.Path dir = app.backupsDir();
+				int n = tau.Backups.list(app.config().home()).size();
+				return "Backups are in " + dir + " (" + (n == 0 ? "none yet" : n + " kept") + "). One is made "
+					+ "before a new build first opens the store and before a relaunch; the last " + tau.Backups.KEEP
+					+ " are kept.";
 			}
 
 			@Override
@@ -418,7 +464,7 @@ public final class MainWindow extends JFrame {
 					try {
 						app.removeKeptOriginals();
 					} catch (IOException e) {
-						Dialogs.warn(MainWindow.this, "Data store", APP_NAME + " couldn't remove them: " + e.getMessage());
+						Dialogs.warn(MainWindow.this, "Data store", APP_NAME + " couldn't remove them: " + tau.ui.Problems.describe(e).line());
 					}
 				}
 				settingsScreen.general().refreshStore(app.storeReport());
@@ -482,6 +528,11 @@ public final class MainWindow extends JFrame {
 			}
 
 			@Override
+			public void addCharacterPack() {
+				chooseCharacterPack();
+			}
+
+			@Override
 			public void setShell(boolean rail) {
 				app.setUiPref("shell", rail ? "rail" : "classic");
 				applyShell(rail);
@@ -491,6 +542,13 @@ public final class MainWindow extends JFrame {
 			public void setDensity(boolean compact) {
 				app.setUiPref("density", compact ? "compact" : "comfortable");
 				applyDensity(compact);
+			}
+
+			@Override
+			public void setMotion(tau.ui.character.Motion motion) {
+				app.setUiPref(MOTION_PREF, motion == null ? "system" : motion.name().toLowerCase(java.util.Locale.ROOT));
+				tau.ui.character.Motion.choose(motion);
+				repaint();
 			}
 		});
 
@@ -627,9 +685,35 @@ public final class MainWindow extends JFrame {
 			public void openConversation(String agentId, String sessionId) {
 				MainWindow.this.openConversation(agentId, sessionId);
 			}
+
+			@Override
+			public void openRoom(String name) {
+				MainWindow.this.openRoom(name);
+			}
 		});
 		VaultPanel vaultPanel = new VaultPanel(app::forgetRememberedPassphrase);
 		AccessPanel accessPanel = new AccessPanel(new AccessPanel.Host() {
+			@Override
+			public boolean reachesRooms(String name) {
+				tau.EmbeddedVenue v = app.venue();
+				if (v == null) return false;
+				try {
+					for (var t : new tau.Tokens(v.engine(), convex.core.data.Strings.create(app.actingPrincipal())).list()) {
+						if (!name.equals(String.valueOf(t.name()))) continue;
+						String caps = String.valueOf(t.record().get(convex.core.data.Strings.create("caps")));
+						return caps.contains("x/room") || caps.contains("unrestricted");
+					}
+				} catch (Exception e) {
+					// unreadable: say nothing about rooms
+				}
+				return false;
+			}
+
+			@Override
+			public void openRooms() {
+				go(Destination.ROOMS);
+			}
+
 			@Override
 			public List<AccessPanel.Row> tokens() {
 				return app.listTokens();
@@ -694,6 +778,12 @@ public final class MainWindow extends JFrame {
 			public void keepOperatorToken(boolean keep) {
 				app.setKeepOperatorToken(keep);
 			}
+
+			@Override
+			public String mcpUrl() {
+				tau.EmbeddedVenue v = app.venue();
+				return (v == null || v.url() == null) ? null : v.url() + "mcp";
+			}
 		});
 		treasuryPanel = new tau.ui.settings.TreasuryPanel();
 		treasuryPanel.setPlan(tau.ui.settings.TreasuryPanel.Plan.stub());
@@ -718,6 +808,7 @@ public final class MainWindow extends JFrame {
 				}
 			}));
 		settingsScreen.install(SettingsScreen.Tab.TREASURY, treasuryPanel);
+		settingsScreen.install(SettingsScreen.Tab.DEVELOPER, new tau.ui.settings.DeveloperPanel(new DeveloperHost()));
 
 		mainDeck = new JPanel(mainCards);
 		mainDeck.add(split, MAIN_CHAT);
@@ -810,6 +901,8 @@ public final class MainWindow extends JFrame {
 			}
 		});
 		mainDeck.add(recordScreen, MAIN_RECORD);
+		roomsScreen = new tau.ui.rooms.RoomsScreen(new RoomsHost());
+		mainDeck.add(roomsScreen, MAIN_ROOMS);
 		chatCard = new JPanel(new BorderLayout());
 		inboxPanel = new tau.ui.inbox.InboxPanel(r -> {
 			go(Destination.INBOX);
@@ -1083,6 +1176,7 @@ public final class MainWindow extends JFrame {
 		settingsScreen.general().refreshStore(app.storeReport());
 		settingsScreen.theme().refresh(app.mode(), app.theme(), app.accent(), app.higherContrast());
 		settingsScreen.theme().refreshLayout(railShell, tau.ui.components.Density.compact());
+		settingsScreen.theme().refreshMotion(tau.ui.character.Motion.chosen());
 		settingsScreen.theme().refreshSystem(LAF.SYSTEM.equalsIgnoreCase(app.modeChoice()));
 		settingsScreen.model().preselect(app.currentModelOp());
 		app.refreshServedModels(); // answers through showServedModels, off the event thread
@@ -1318,8 +1412,11 @@ public final class MainWindow extends JFrame {
 			if (venue.did() != null) sb.append("\nIdentity: ").append(identity != null
 				? identity.userDID(venue.did()) : venue.did());
 		}
-		Dialogs.info(this, "About " + Tau.APP_NAME, new SelectableText(sb.toString()),
-			tau.ui.components.TauMark.brand(128));
+		// The character at rest when there is art for it (docs/CHARACTER.md); else the brand τ, as before.
+		javax.swing.Icon mark = tau.ui.character.CharacterArt.get().present()
+			? new tau.ui.character.CharacterView(160, tau.ui.components.TauMark.brand(128)).asIcon()
+			: tau.ui.components.TauMark.brand(128);
+		Dialogs.info(this, "About " + Tau.APP_NAME, new SelectableText(sb.toString()).wrapAt(420), mark);
 	}
 
 
@@ -1338,7 +1435,8 @@ public final class MainWindow extends JFrame {
 	private void newAgent() {
 		NewAgentPanel.Options options = NewAgentPanel.showDialog(this, app.currentModelOp(), servedModels);
 		if (options != null) {
-			app.createAgent(options.name(), options.modelOp(), options.systemPrompt(), options.template().skill());
+			app.createAgent(options.name(), options.modelOp(), options.systemPrompt(), options.template().skill(),
+				options.caps());
 		}
 	}
 
@@ -1346,6 +1444,14 @@ public final class MainWindow extends JFrame {
 	private void installShell() {
 		Shell host = new Shell();
 		commands = ShellCommands.build(host);
+		// Each room by name in the palette, under #, marked as a room.
+		commands.extras(() -> {
+			List<Commands.Command> out = new java.util.ArrayList<>();
+			if (roomsScreen != null) for (String n : roomsScreen.roomNames()) {
+				out.add(new Commands.Command("room:" + n, "# " + n, "Room", null, null, List.of(n), () -> openRoom(n)));
+			}
+			return out;
+		});
 		rail = new Rail(host);
 		strip = new StatusStrip(host);
 		palette = new CommandPalette(commands);
@@ -1354,7 +1460,11 @@ public final class MainWindow extends JFrame {
 		railCollapsedByChoice = "true".equals(app.uiPref("rail.collapsed", "false"));
 		applyShell(!"classic".equals(app.uiPref("shell", "rail")));
 		applyDensity("compact".equals(app.uiPref("density", "comfortable")));
+		tau.ui.character.Motion.choose(tau.ui.character.Motion.parse(app.uiPref(MOTION_PREF, "system")));
 	}
+
+	/** Where the Motion choice is kept: {@code ui.motion} in prefs.properties ({@code system}, {@code full}, {@code reduced}, {@code off}). */
+	static final String MOTION_PREF = "motion";
 
 	/** {@code true}: the sidebar and status strip; {@code false}: the classic bottom bar. Live, remembered by the caller. */
 	private void applyShell(boolean railShell) {
@@ -1464,10 +1574,16 @@ public final class MainWindow extends JFrame {
 		destination = d;
 		if (changed) javax.swing.SwingUtilities.invokeLater(this::relayout);
 		rail.setActive(d);
+		// The Record, the Vault and the Constellation are quiet screens: the slot keeps to the glyph.
+		// Rooms has no character either: outside agents' words are on it.
+		rail.slot().setQuietScreenOpen(d == Destination.RECORD || d == Destination.VAULT || d == Destination.PEERS
+			|| d == Destination.ROOMS);
 	}
 
 	/** Goes to a sidebar destination; Jobs, Record and the Vault open their Settings pages until their screens land. */
 	public void go(Destination d) {
+		// Leaving Rooms stops following the open room; the list keeps following for notifications.
+		if (d != Destination.ROOMS && destination == Destination.ROOMS && roomsScreen != null) roomsScreen.close();
 		destination = d;
 		switch (d) {
 			case HOME -> selectTab(NavBar.Tab.HOME);
@@ -1491,6 +1607,7 @@ public final class MainWindow extends JFrame {
 				else showSettings(SettingsScreen.Tab.JOBS);
 			}
 			case INBOX -> selectTab(NavBar.Tab.INBOX);
+			case ROOMS -> openOwnScreen(MAIN_ROOMS);
 			case PEERS -> selectTab(NavBar.Tab.PEERS);
 			case SKILLS -> selectTab(NavBar.Tab.SKILLS);
 			case FILES -> selectTab(NavBar.Tab.FILES);
@@ -1548,11 +1665,15 @@ public final class MainWindow extends JFrame {
 						role != null ? "Looks after this computer" : "Acts for you", role, agentDID(a.id())));
 				}
 				long now = System.currentTimeMillis();
+				java.util.Map<String, List<String>> roomsByToken = roomsByToken();
+				agentsScreen.setRoomsByToken(roomsByToken);
 				for (AccessPanel.Row t : read.tokens()) {
+					List<String> posted = roomsByToken.getOrDefault(t.name(), List.of());
+					String grant = (t.unrestricted() ? "Unrestricted" : t.scope())
+						+ (posted.isEmpty() ? "" : " · Posts in rooms: " + String.join(", ", posted));
 					rows.add(new tau.ui.agents.AgentsScreen.Row(t.name(), t.name(),
 						tau.ui.agents.AgentsScreen.Kind.OUTSIDE_MCP, "A local client",
-						t.expired(now) ? "Token expired" : "Token active",
-						t.unrestricted() ? "Unrestricted" : t.scope(), null));
+						t.expired(now) ? "Token expired" : "Token active", grant, null));
 				}
 				agentsScreen.setRows(rows, defaultAgent);
 			}
@@ -1570,6 +1691,22 @@ public final class MainWindow extends JFrame {
 			: covia.grid.Principals.agentDID(convex.core.data.Strings.create(owner), convex.core.data.Strings.create(aid)).toString();
 	}
 
+	/** For each access token, by name, the rooms it has posted in. */
+	private java.util.Map<String, List<String>> roomsByToken() {
+		java.util.Map<String, List<String>> out = new java.util.LinkedHashMap<>();
+		tau.rooms.Rooms rooms = rooms();
+		if (rooms == null) return out;
+		convex.core.data.ACell view = rooms.view();
+		for (tau.rooms.Rooms.Room r : tau.rooms.Rooms.rooms(view)) {
+			for (tau.rooms.Rooms.Post p : tau.rooms.Rooms.postsFrom(view, r.name(), 0)) {
+				if (p.via() == null) continue;
+				List<String> list = out.computeIfAbsent(p.via(), k -> new java.util.ArrayList<>());
+				if (!list.contains(r.name())) list.add(r.name());
+			}
+		}
+		return out;
+	}
+
 	private static String godRole(String id) {
 		return switch (id) {
 			case "Odin" -> "the administrator";
@@ -1582,6 +1719,8 @@ public final class MainWindow extends JFrame {
 
 	/** What the Agents roster asks of the window. */
 	private final class AgentsHost implements tau.ui.agents.AgentsScreen.Host {
+		@Override public void openRoom(String name) { MainWindow.this.openRoom(name); }
+
 		@Override
 		public void open(tau.ui.agents.AgentsScreen.Row agent) {
 			if (!agent.id().equals(currentAgentId)) app.switchAgent(agent.id());
@@ -1693,17 +1832,56 @@ public final class MainWindow extends JFrame {
 		relayout();
 		rail.setInboxCount(waiting);
 		strip.setWaiting(waiting);
-		rail.slot().setWaiting(waiting);
+		chatPanel.setWaitingOnYou(waiting > 0);
+		showPresence();
+	}
+
+	/** The beat of the reply in flight, from the chat: the status slot follows it. */
+	private tau.ui.character.Presence.Beat chatBeat = tau.ui.character.Presence.Beat.IDLE;
+
+	/** The status slot: waiting on you first, else what the reply in flight is doing, else resting. */
+	private void showPresence() {
+		if (rail == null) return;
+		StatusSlot.State state = switch (chatBeat) {
+			case THINKING -> StatusSlot.State.THINKING;
+			case NEW_REQUEST, WORKING, DELEGATING -> StatusSlot.State.AT_WORK;
+			case WAITING -> StatusSlot.State.WAITING;
+			default -> StatusSlot.State.RESTING;
+		};
+		rail.slot().setWaiting(waitingCount);
+		rail.slot().setActivity(state);
 	}
 
 	/** The acting identity or the venue changed: the strip, the sidebar's identity menu, and the venue chip follow. */
 	private void identityChanged() {
+		if (roomsScreen != null) roomsScreen.follow(rooms());
 		if (rail == null) return;
 		String name = (identity != null) ? (app.actingAsOperator() ? app.operatorName() : identity.name()) : null;
 		rail.setIdentity(name);
 		strip.setActing(name, app.actingAsOperator());
 		strip.setVenue(venue != null ? StatusStrip.Venue.RUNNING : StatusStrip.Venue.STARTING,
 			venue != null ? venue.url() : null);
+	}
+
+	/** Settings → Theme → Add character pack…: a folder or a zip, copied into the data folder. */
+	private void chooseCharacterPack() {
+		javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
+		chooser.setDialogTitle("Add a character pack");
+		chooser.setFileSelectionMode(javax.swing.JFileChooser.FILES_AND_DIRECTORIES);
+		chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Character pack (folder or .zip)", "zip"));
+		if (chooser.showDialog(this, "Add") != javax.swing.JFileChooser.APPROVE_OPTION) return;
+		java.nio.file.Path source = chooser.getSelectedFile().toPath();
+		try {
+			app.addCharacterPack(source);
+		} catch (IOException e) {
+			Dialogs.warn(this, "Add a character pack", e.getMessage());
+			return;
+		}
+		String note = tau.ui.character.CharacterArt.namedElsewhere()
+			? "The pack is saved, but " + tau.ui.character.CharacterArt.ENV + " or " + tau.ui.character.CharacterArt.PROPERTY
+				+ " names another pack, and that one is used while it is set."
+			: "Restart " + APP_NAME + " to see the character in every place.";
+		Dialogs.info(this, "Character pack added", note);
 	}
 
 	private void applyDensity(boolean compact) {
@@ -1815,7 +1993,117 @@ public final class MainWindow extends JFrame {
 		}
 	}
 
+	/** What Settings → Developer reads and does. */
+	private final class DeveloperHost implements tau.ui.settings.DeveloperPanel.Host {
+		@Override public String tauVersion() { return tau.BuildInfo.version(); }
+		@Override public String coviaVersion() { return tau.BuildInfo.coviaVersion(); }
+		@Override public String venueUrl() {
+			tau.EmbeddedVenue v = app.venue();
+			return (v == null) ? null : v.url();
+		}
+		@Override public String bind() {
+			return String.valueOf(convex.core.lang.RT.getIn(app.config().venueConfig(), covia.venue.Config.BIND_ADDRESS));
+		}
+		@Override public List<String> adapters() {
+			tau.EmbeddedVenue v = app.venue();
+			if (v == null) return List.of();
+			try {
+				convex.core.data.ACell out = v.engine().jobs().invokeInternal("v/ops/venue/adapters",
+					convex.core.data.Maps.empty(), v.engine().venueContext()).get(10, java.util.concurrent.TimeUnit.SECONDS);
+				return tau.Diagnostics.adapterLines(out);
+			} catch (Exception e) {
+				return List.of("Couldn't read the adapters: " + tau.ui.Problems.describe(e).what());
+			}
+		}
+		@Override public java.nio.file.Path configFile() { return app.configFile(); }
+		@Override public java.nio.file.Path logFile() { return app.config().home().resolve("logs").resolve("tau.log"); }
+		@Override public tau.Diagnostics.Posture posture() {
+			return tau.Diagnostics.posture(app.config().venueConfig(), app.keepToolToken(), app.keepOperatorToken(),
+				app.hasRememberedPassphrase());
+		}
+		@Override public void openDashboard() { app.openDashboard(); }
+		@Override public void openConfigFile() { app.openConfigFile(); }
+		@Override public void openLogsFolder() { app.openLogsFolder(); }
+		@Override public void showRawContext() { inspectChat(true); }
+	}
+
 	/** The shell's hosts: what the sidebar, the strip, the menu bar and the palette ask of the window. */
+	/** The acting principal's rooms, or null while the venue is not up. */
+	private tau.rooms.Rooms rooms() {
+		tau.EmbeddedVenue v = app.venue();
+		String me = app.actingPrincipal();
+		return (v == null || me == null) ? null : new tau.rooms.Rooms(v.engine(), me);
+	}
+
+	/** Opens room {@code name} on the Rooms screen, as from Jobs, Agents, and notifications. */
+	public void openRoom(String name) {
+		go(Destination.ROOMS);
+		roomsScreen.open(name);
+	}
+
+	/** What the Rooms screen asks of the window. */
+	private final class RoomsHost implements tau.ui.rooms.RoomsScreen.Host {
+		@Override public tau.rooms.Rooms rooms() { return MainWindow.this.rooms(); }
+
+		@Override
+		public String venueDid() {
+			tau.EmbeddedVenue v = app.venue();
+			return v == null ? null : v.did();
+		}
+
+		@Override
+		public List<String> agents() {
+			List<String> ids = new java.util.ArrayList<>();
+			for (tau.model.AgentRef a : lastAgents) ids.add(a.id());
+			return ids;
+		}
+
+		@Override
+		public List<String[]> chats(String agentId) {
+			List<String[]> out = new java.util.ArrayList<>();
+			tau.EmbeddedVenue v = app.venue();
+			if (v == null) return out;
+			try {
+				for (tau.SessionHistory.Session s : tau.SessionHistory.listSessions(v.clientAs(app.actingPrincipal()), agentId)) {
+					out.add(new String[] { s.sessionId(), s.title() == null ? "Untitled" : s.title() });
+				}
+			} catch (Exception e) {
+				// no chats to offer: "in a new chat" still works
+			}
+			return out;
+		}
+
+		@Override
+		public List<String> roomTokens() {
+			List<String> out = new java.util.ArrayList<>();
+			tau.EmbeddedVenue v = app.venue();
+			if (v == null) return out;
+			try {
+				for (var t : new tau.Tokens(v.engine(), convex.core.data.Strings.create(app.actingPrincipal())).list()) {
+					String caps = String.valueOf(t.record().get(convex.core.data.Strings.create("caps")));
+					if (caps.contains("x/room") || caps.contains("unrestricted")) out.add(String.valueOf(t.name()));
+				}
+			} catch (Exception e) {
+				// tokens unreadable: the details say none reach rooms
+			}
+			return out;
+		}
+
+		@Override public void openJobs() { go(Destination.JOBS); }
+
+		@Override
+		public void openAccess() {
+			if (railShell) {
+				go(Destination.VAULT);
+				vaultScreen.select(tau.ui.vault.VaultScreen.Page.ACCESS);
+			} else {
+				showSettings(SettingsScreen.Tab.ACCESS);
+			}
+		}
+
+		@Override public void notify(String text) { app.notifyRoom(text); }
+	}
+
 	private final class Shell implements ShellCommands.Actions, Rail.Host, StatusStrip.Host {
 		@Override public void go(Destination d) { MainWindow.this.go(d); }
 		@Override public void openSettings() { selectTab(NavBar.Tab.SETTINGS); }
@@ -1834,6 +2122,18 @@ public final class MainWindow extends JFrame {
 
 		@Override public void newChat() { showNewChat(); }
 		@Override public void newAgent() { MainWindow.this.newAgent(); }
+
+		@Override
+		public void newRoom() {
+			go(Destination.ROOMS);
+			roomsScreen.newRoom();
+		}
+
+		@Override
+		public void roomSettings() {
+			go(Destination.ROOMS);
+			roomsScreen.openSettings();
+		}
 		@Override public void refresh() { app.refreshNow(); }
 		@Override public boolean hasTray() { return app.hasTray(); }
 		@Override public void hideToTray() { app.hideToTray(); }

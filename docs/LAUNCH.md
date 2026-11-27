@@ -72,7 +72,9 @@ An unattended launch with missing setup or an invalid remembered passphrase
 fails without a window. If it has already displaced the previous instance,
 it reports a subsequent failure in a dialog where possible. Settings → General
 → Startup controls ordinary-launch preferences; command-line modes override
-them. Lock always asks for the passphrase and leaves the venue running.
+them. Lock always asks for the passphrase and leaves the venue running: named
+tokens made for outside tools keep working while Tau is locked, and a kept
+local login is removed until Tau is next opened with the passphrase.
 
 ### Starting at Windows sign-in
 
@@ -209,8 +211,9 @@ Etch refuses a writable open after an unclean stop. With `repairStore` enabled,
 the new file fails, it attempts to restore the original.
 
 Repair restores the last checkpoint, not necessarily every published change.
-Keep the preserved file until the recovered data is verified; diagnostic
-problems are logged. Set `repairStore: false` to stop instead and restore a
+Keep the preserved file until the recovered data is verified. The notice and
+the log both name what the check found (the first few problems, and how many
+more), not only how many there were. Set `repairStore: false` to stop instead and restore a
 backup manually. Interrupted collection has additional limits below.
 
 ## Compacting the store
@@ -248,6 +251,35 @@ Do not assume an older jar can undo an upgrade. Builds predating version
 checks may not refuse newer data safely, and migrated stores may be unreadable
 to earlier builds. Keep a pre-upgrade store backup. `CoviaMigrationTest`
 exercises an installation written by an older build.
+
+## Self-test
+
+`tau --self-test <folder>` (the installed launcher, or `java -jar tau.jar`)
+checks that a copy of Tau works end to end, headless, and exits; it is never
+on otherwise. `SelfTest` runs the code the app runs, in a throwaway folder on a
+free port, so a Tau already running is never touched:
+
+- **First run, in an empty folder:** the Java in use is named, the venue comes
+  up and answers on loopback (127.0.0.1; Covia also opens IPv6 `::1`) and on
+  no other address this computer has, a website's browser
+  request gets no Access-Control-Allow-Origin while a page on this computer
+  does, onboarding with the
+  offline echo bot saves an identity, one chat turn round-trips, a read-only
+  named token lists tools over MCP and is refused once revoked, a room post is
+  read back, Stop (`StopRun`) cancels a job that would never end, and the
+  venue closes.
+- **Second run, in the same folder:** the store unlocks without a repair, so
+  it was closed cleanly, and the first run's chat turn is still there.
+
+Each step prints PASS, FAIL or SKIP (not checkable here, with the reason) and
+is appended to `self-test-report.txt` in the folder, because the Windows
+launcher has no console. The exit code is 0 when nothing failed, 1 when a step
+failed, 2 when the folder is refused, and 64 when no folder is named. A folder
+that does not exist yet is made. The folder must be empty, or one an earlier
+self-test made (it holds `.tau-self-test`),
+and is never the default data directory. The passphrase is a fixed throwaway
+one: the folder holds nothing worth protecting. CI runs it on every installer
+after installing it ([README.md](../README.md#installers)).
 
 ## When launch fails
 

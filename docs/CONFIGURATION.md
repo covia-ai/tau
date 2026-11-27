@@ -35,6 +35,7 @@ hand-edited file and its comments stay intact.
 | `~/.tau/code/` | Source checkouts the assistant works on, as the writable `code` root; `code/tau` is Tau's own source, a [Claude Code](#claude-code) project by default. The self-improvement loop keeps `last-good.jar` and `.covia-installed` beside it ([SELF_IMPROVEMENT.md](SELF_IMPROVEMENT.md)). |
 | `~/.tau/logs/` | Plaintext rolling logs; exposed to the assistant as the server-enforced read-only `logs` root. |
 | `~/.tau/run/` | The copy of the jar a relaunch started from another build ([LAUNCH.md](LAUNCH.md#relaunch)); earlier copies go at the next relaunch. |
+| `~/.tau/character/` | Optional: the τ character's art pack, put there by Settings → Theme → Add character pack… and used when nothing else names one ([CHARACTER.md](CHARACTER.md)). Deleting it brings the τ glyph back. |
 | `~/.tau/cache/speech/` | The speech models and engine libraries [voice typing](#voice-typing) and [reading aloud](#reading-replies-aloud) download once you agree; safe to delete. |
 
 To reset Tau completely, remove the whole data directory while
@@ -57,6 +58,36 @@ independent agents side by side.
 For unattended startup, takeover and starting at Windows sign-in, see the
 [launch modes](LAUNCH.md#startup). `--unlock` requires a remembered passphrase;
 `--takeover` authorises replacing the running instance.
+
+## Installed copies
+
+The native installers (built by `packaging/package.sh`, see
+[README.md](../README.md#installers)) put the program in one folder and
+leave the data directory where it always is, `~/.tau/`. Installing,
+upgrading and uninstalling never create, change or remove anything there;
+remove `~/.tau` yourself, with Tau stopped, to reset it.
+
+| Platform | Installer | Program folder | Bundled Java | Jar |
+|---|---|---|---|---|
+| macOS | `tau-<version>-mac-<arch>.dmg` | `/Applications/Tau.app` | `Contents/runtime/Contents/Home/bin/java` | `Contents/app/tau.jar` |
+| Windows | `tau-<version>-windows-<arch>.msi` | `C:\Program Files\Tau` (chosen at install) | `runtime\bin\java.exe` | `app\tau.jar` |
+| Linux | `tau-<version>-linux-<arch>.deb` | `/opt/tau` | `lib/runtime/bin/java` | `lib/app/tau.jar` |
+| Linux | `tau-<version>-linux-<arch>.AppImage` | the AppImage itself | inside the image | inside the image |
+
+`<arch>` is `x64` or `arm64`. To check an installed copy works, run its
+launcher with `--self-test` and an empty folder ([LAUNCH.md](LAUNCH.md#self-test)).
+
+The bundled runtime is a reduced Java 25 holding the modules listed in
+`packaging/runtime-modules.txt`. It keeps its `java` command because a
+[relaunch](LAUNCH.md#relaunch) starts the successor with the same Java as
+the running app. Paths into an installed copy, such as an MCP client's
+`command` and jar below, use the bundled Java and jar from the table;
+an upgrade keeps them. The AppImage has no stable inner path, so point
+tools at a separately built `tau.jar` instead.
+
+The installer version is the `pom.xml` version without its `-SNAPSHOT`
+suffix. macOS refuses a version starting with 0, so there the 0.x preview is
+labelled 1.x (0.1.0 shows as 1.1.0); the version in *About* is the jar's own.
 
 ## Selecting an existing installation
 
@@ -160,7 +191,8 @@ no Tau change.
 
 Tau's defaults:
 
-- bind to `127.0.0.1` (loopback only — nothing on your network can reach it)
+- bind to `127.0.0.1` (loopback only: nothing on your network can reach it);
+  the venue also opens IPv6 loopback, `::1`, which is this computer too
 - a persistent encrypted store at `~/.tau/venue.etch`, with its identity
   and encryption material injected only into the in-memory venue configuration
 - anonymous HTTP and MCP access disabled; local tools must authenticate
@@ -168,6 +200,8 @@ Tau's defaults:
 - the MCP endpoint enabled at `http://127.0.0.1:8085/mcp`
 - `maxToolIterations` 1000, so an agent's turn is not cut off after Covia's
   default of 30 tool calls
+- `corsOrigins` `"loopback"`: a browser page may call the venue only from
+  this computer (any localhost port); add an origin here to allow one more
 - `logging.audit` and `logging.access` on: Covia's audit trail (sign-ins,
   refusals, token issue, secret writes) goes to `logs/audit.log` and one line
   per HTTP request to `logs/access.log`, so a connection from another tool
@@ -229,7 +263,13 @@ For an offline smoke test with no key at all, set:
 ```
 
 — the venue's echo test LLM. The app works end to end; the replies are just
-echoes.
+echoes. Covia's `test` adapter, which serves it, is off in a real install
+(`"adapters": {"test": {"enabled": false}}` in Tau's venue defaults): Tau
+switches it on at launch only while the chosen model is this echo bot, as
+after onboarding's "Skip for now". Its other operations (echo, delay, fail,
+never) are then on the venue too. Tau looks only at the main assistant's
+model: another agent made while on the echo bot keeps it as its model, so once
+the owner chooses a real model, that agent fails from the next launch.
 
 ## Voice typing
 
@@ -519,26 +559,57 @@ has its own display label. Principal forms and authority are documented in
 ## Reaching the venue from other tools
 
 The venue speaks HTTP, MCP and A2A on loopback. Anonymous access is disabled, so
-a tool needs a key. *Settings → Access → New access* starts with the kind, and
-each says how the tool will appear:
+a tool needs a key.
 
-- **Named token for a tool (MCP)** — the usual choice for a tool that is not
+**Connect a tool** (*Settings → Access*, also *Vault → Access*) is the usual
+way: pick Claude Code, Codex, Cursor, Claude Desktop, or another MCP client
+(HTTP or stdio), and the access (*Ask the assistant* by default) and lifetime
+(30 days by default). Tau makes a named token for it, shows the exact settings
+for that client with the key in them, and *Test connection* lists the tools
+the key reaches at the MCP endpoint, as the client would. HTTP clients carry
+the key as a fixed `Authorization: Bearer` header; Claude Desktop and other
+stdio clients run Tau's `--mcp-stdio` bridge with the key in `TAU_MCP_TOKEN`,
+so the bridge sends that scoped key instead of a login. The shapes are:
+
+| Tool | Where it goes | Shape |
+|---|---|---|
+| Claude Code | a terminal | `claude mcp add --transport http --scope local tau <url> --header "Authorization: Bearer <key>"` |
+| Codex | `~/.codex/config.toml` | `[mcp_servers.tau]` with `url` and `http_headers = { "Authorization" = "Bearer <key>" }` |
+| Cursor | `~/.cursor/mcp.json` (or `.cursor/mcp.json`) | `mcpServers.tau` with `url` and `headers.Authorization` |
+| Claude Desktop | `claude_desktop_config.json` | `mcpServers.tau` running `java -jar <tau.jar> --mcp-stdio` with `env.TAU_MCP_TOKEN` |
+| Another client | its MCP settings | the HTTP or the stdio shape above |
+
+*New access* below makes a token by hand. Without the advanced options it
+offers named tokens with the scoped presets only; *Show advanced options*,
+after a warning and a confirmation, adds the logins and the *Unrestricted*
+preset, which can do everything you can. Each kind says how the tool will
+appear:
+
+- **Named token for a tool (MCP)**: the usual choice for a tool that is not
   you. Its turns show as the token's name, and it can use only the tools and
   caps it carries: a preset (*Ask the assistant*, *Read only*,
-  *Collaborate*, for an outside agent in [rooms](ROOMS.md), or
-  *Unrestricted*, marked with a warning sign, which can run any operation
-  as you) or a custom set.
+  *Collaborate*, for an outside agent in [rooms](ROOMS.md), or, among the
+  advanced options, *Unrestricted*, marked with a warning sign, which can run
+  any operation as you) or a custom set. Beside *Ask the assistant* the page
+  says that the assistant can run commands on this computer through Claude
+  Code, so whoever holds the key can ask it to; no scoped preset names Claude
+  Code's own tools. An outside tool's messages show in the chat as *via* its
+  token's name.
   It expires after the lifetime chosen when it is made (30 days by default;
-  1, 7, or 90 days, or until revoked), and revoking ends it sooner. The page
+  1, 7, or 90 days), and revoking ends it sooner. *New access* in the
+  advanced options also offers a token that lasts until it is revoked. The page
   lists each token, when it expires, and its key (behind
   your passphrase), *New key* and *Revoke*. *New key* makes the token again
   with a fresh key, its lifetime starting over, whether or not it has
   expired; the old key, and work it started, stop. A token one of your
   agents made, or another tool made to be accepted beyond the MCP endpoint,
   can't be made again here.
-- **Login as you** — appears as you, with everything you can do, for a
-  chosen time; shown once and never written to disk.
-- **Venue operator login** (advanced) — the venue itself, for administration.
+- **Login as you** (advanced): appears as you, with everything you can do,
+  for a chosen time; shown once and never written to disk.
+- **Venue operator login** (advanced): the venue itself, for administration.
+
+The local-tool logins below (*Keep a login as you* and *Keep a venue operator
+login*) are advanced options too, and show at once when one is already kept.
 
 A named token's key goes in the tool's MCP settings as a fixed header,
 `Authorization: Bearer <key>`, against `http://127.0.0.1:8085/mcp`; paste it
@@ -581,7 +652,8 @@ HTTP headers or handling a token themselves:
 
 Replace the jar path with the absolute path to your build or installation.
 Use Java 25 or later, giving its executable's absolute path if the client
-cannot find `java`.
+cannot find `java`. For an installed copy, use its bundled Java and jar from
+[installed copies](#installed-copies).
 
 1. Set up Tau and unlock it once with *Remember me* enabled if you want
    MCP clients to start it automatically.
@@ -622,8 +694,8 @@ local tools* ticked, configure `http_headers_helper` to read
 expects. This keeps credentials out of the repository and lets the client
 read a fresh token when authentication expires. A configured
 `bearer_token_env_var` takes precedence over the helper, so omit it when
-using the rotating file. Reload the client's MCP connections after changing
-configuration.
+using the rotating file. Restart Codex after changing configuration;
+`codex mcp list` shows the servers it has.
 
 ### From Claude Code
 
@@ -797,7 +869,7 @@ schedule instead.
 
 ## Jobs
 
-*Settings → Jobs* lists everything that has run or is running for the acting
+*Jobs* (in the sidebar, and in Settings) lists everything that has run or is running for the acting
 principal: chats, agent tasks, scheduled runs, tool calls that were kept,
 anything run through the venue. The newest are first. Filter by how a job
 stands (all, or one of active, waiting for you, failed, completed and
@@ -827,10 +899,35 @@ passphrase is remembered on this computer, the gate opens without asking,
 as it does for the primary seed. Acting as the
 venue operator (Identity → switch user) shows the operator's store instead.
 
+## Developer
+
+*Settings → Developer* gathers what a developer needs in one place: the
+venue's address, what it is bound to, its adapters and their status, and the
+Tau and Covia versions; the settings file, with *Open settings file* and
+*Open logs folder*; the log itself, with a level (All, INFO, WARN, ERROR) and a
+text filter; *Show raw context* (what the model receives for the chat on
+screen); and *Open dashboard*. The command palette keeps its own entries for
+these.
+
+*Copy diagnostics* copies a report for a bug: the versions, the platform, the
+safe-defaults posture (the venue's binding, anonymous access, users created on
+first sign-in, logins kept for local tools, a remembered passphrase, sealed
+token keys, the audit logs), the adapters, and the last 200 log lines.
+`Diagnostics.redact` takes out anything shaped like a key, a token, a signed
+login, a seed, a passphrase, or an email address, the caller's list of rights
+from a refusal, and the home folder, and a test seeds each shape into a log to
+check that none survives.
+
 ## Environment variables
 
 | Variable | Effect |
 |---|---|
 | `ANTHROPIC_API_KEY` | Key for the default model operation. |
 | `TAU_NO_TRAY=1` | Skip the system tray; closing the window quits. |
-| `TAU_MCP_TOKEN` | Optional home for the venue-signed token a `.mcp.json` can reference as `${TAU_MCP_TOKEN}` instead of embedding it. |
+| `TAU_MCP_TOKEN` | A named token's key for the `--mcp-stdio` bridge, which then sends it instead of the local login in `tool-token.json` (what *Connect a tool* writes for stdio clients); also an optional home for the token a `.mcp.json` can reference as `${TAU_MCP_TOKEN}` instead of embedding it. |
+| `TAU_CHARACTER_DIR` | The directory holding the character's art pack (or the system property `tau.character.dir`); without one, the pack in `<data folder>/character/` (which Settings → Theme → Add character pack… fills), and without that the τ glyph stands in. See [CHARACTER.md](CHARACTER.md). |
+
+*Settings → Theme → Motion* sets how much the character moves: *Match the
+system*, *Full*, *Reduced*, or *Off*, kept as `ui.motion` in
+`prefs.properties`. A level overrides the operating system's own setting. The
+system property `tau.motion` (`full`, `reduced`, or `off`) wins over both.

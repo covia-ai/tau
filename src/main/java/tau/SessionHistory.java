@@ -348,7 +348,7 @@ public final class SessionHistory {
 			ACell envelope = (ACell) pending.get(i);
 			ACell raw = RT.getIn(envelope, "message");
 			String text = contentText(raw);
-			if (notBlank(text)) items.add(new Message(ROLE_USER, text, originOf(raw), true, isRequest(envelope)));
+			if (notBlank(text)) items.add(new Message(ROLE_USER, text, origin(raw, text), true, isRequest(envelope)));
 		}
 	}
 
@@ -472,6 +472,23 @@ public final class SessionHistory {
 	 * {@code "Discord · #general · quark"}, or {@code "Voice"} for one spoken
 	 * here. Null when the message has none (it was typed here).
 	 */
+	/**
+	 * Where a message came from: its {@code via} metadata, else the access
+	 * token named on the venue's line for a task an outside tool handed in
+	 * ("… via token (access token x/token/claude-code, …)"), so the chat can
+	 * say "via claude-code". Null when it was typed here.
+	 */
+	static String origin(ACell content, String text) {
+		String via = originOf(content);
+		if (via != null || text == null) return via;
+		java.util.regex.Matcher m = TOKEN_LINE.matcher(text);
+		return m.find() ? m.group(1) : null;
+	}
+
+	/** The token the venue names on a task's provenance line. */
+	private static final java.util.regex.Pattern TOKEN_LINE =
+		java.util.regex.Pattern.compile("access token x/token/([a-z0-9][a-z0-9-]{0,63})");
+
 	public static String originOf(ACell content) {
 		ACell via = RT.getIn(content, "via");
 		if (via == null) return null;
@@ -586,7 +603,7 @@ public final class SessionHistory {
 					// where it came from.
 					ACell raw = RT.getIn(turn, "content");
 					String text = contentText(raw);
-					if (notBlank(text)) items.add(new Message(ROLE_USER, text, originOf(raw), false, isRequest(turn)));
+					if (notBlank(text)) items.add(new Message(ROLE_USER, text, origin(raw, text), false, isRequest(turn)));
 				}
 				case ROLE_ASSISTANT -> {
 					if (hasToolCalls(turn)) {

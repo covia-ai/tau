@@ -28,7 +28,11 @@ schedule. The procedure is the
 
 Improver is an agent in the owner's namespace, forked from Tau's main agent
 so it has the same tools and skills, with caps unrestricted and the
-`self-improvement` skill pinned ([SKILLS.md](SKILLS.md)). It has its own
+`self-improvement` skill pinned ([SKILLS.md](SKILLS.md)). The loop forks it as
+the owner, and its `agent.json` sets `caps` to unrestricted, because a fork
+would otherwise inherit the main assistant's caps, the scoped set on a new
+install, whose deletes would wait on an owner who is not there; the main
+assistant itself cannot fork an agent. It has its own
 sessions, and may create child agents to test behaviour. Its definition is
 the skill's `agent.json`; each run applies it.
 

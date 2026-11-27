@@ -114,6 +114,24 @@ public enum TokenPreset {
 		return false;
 	}
 
+	/**
+	 * Whether a token with this preset can hand the owner's assistant work. The
+	 * assistant can run commands on this computer through Claude Code, so such
+	 * a token can ask it to; Settings says so beside it.
+	 */
+	public boolean asksTheAssistant() {
+		return scope("x").tools().contains(OP_AGENT_REQUEST) || dangerous();
+	}
+
+	/** What Settings says beside a preset that can hand the assistant work. */
+	public static final String RUNS_COMMANDS = "The assistant can run commands on this computer through Claude Code, "
+		+ "so whoever holds this key can ask it to.";
+
+	/** The presets offered without Advanced: none of them can do everything the owner can. */
+	public static java.util.List<TokenPreset> scoped() {
+		return java.util.Arrays.stream(values()).filter(p -> !p.dangerous()).toList();
+	}
+
 	/** The preset {@code scope} is, for chat agent {@code agentId}, or null for a custom scope. */
 	public static TokenPreset matching(Tokens.Scope scope, String agentId) {
 		for (TokenPreset preset : values()) {

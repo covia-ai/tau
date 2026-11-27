@@ -59,6 +59,16 @@ public final class GeneralPanel extends SettingsPage {
 		/** Delete the originals earlier repairs kept, once the owner confirms. */
 		void removeKeptOriginals();
 
+		/** Backs up the data store now and says where; the snapshot's words, or why it couldn't. */
+		default String backUpNow() {
+			return null;
+		}
+
+		/** Where backups are kept, and how many are kept. */
+		default String backupsWhere() {
+			return null;
+		}
+
 		void hideToTray();
 
 		void openDashboard();
@@ -93,6 +103,36 @@ public final class GeneralPanel extends SettingsPage {
 		"Off: right-click a reply and choose Read aloud to hear just that one. Esc stops it.");
 	private final JLabel storeSize = new JLabel(" ");
 	private final JCheckBox compact = new JCheckBox("Compact it the next time " + APP_NAME + " starts");
+	private final JLabel backupWhere = Labels.allowHtml(new JLabel(" "));
+	private JButton backupButton;
+
+	private void backUpNow() {
+		backupButton.setEnabled(false);
+		backupWhere.setText("Backing up…");
+		new javax.swing.SwingWorker<String, Void>() {
+			@Override
+			protected String doInBackground() {
+				return host.backUpNow();
+			}
+
+			@Override
+			protected void done() {
+				backupButton.setEnabled(true);
+				try {
+					String said = get();
+					backupWhere.setText("<html>" + Labels.escape(said == null ? "Nothing to back up yet." : said) + "</html>");
+				} catch (Exception e) {
+					backupWhere.setText(tau.ui.Problems.describe(e).line());
+				}
+			}
+		}.execute();
+	}
+
+	/** Says where backups are, as the page shows it. */
+	void showBackupsWhere() {
+		String where = host.backupsWhere();
+		if (where != null) backupWhere.setText("<html>" + Labels.escape(where) + "</html>");
+	}
 	private final JLabel keptNote = Labels.small(" ");
 	private final JPanel keptRow;
 	private final JButton hideToTray;
@@ -190,6 +230,12 @@ public final class GeneralPanel extends SettingsPage {
 			host::removeKeptOriginals);
 		keptNote.setVisible(false); // until refreshStore finds any
 		keptRow.setVisible(false);
+		JPanel backupRow = buttons();
+		backupButton = action(backupRow, "Back up now", "Copy the data store and what opening it needs into a "
+			+ "snapshot; your passphrase and access tokens are never copied", this::backUpNow);
+		addSpan(backupWhere);
+		Styles.classes(backupWhere, Styles.SMALL, Styles.MUTED);
+		showBackupsWhere();
 
 		group("Advanced");
 		JPanel advanced = buttons();

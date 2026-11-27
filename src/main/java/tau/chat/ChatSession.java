@@ -129,6 +129,7 @@ public final class ChatSession {
 	private String agentName;
 	/** A skill the agent starts with pinned, from the template it was made from (null: none). */
 	private String pinnedSkill;
+	private ACell createCaps;
 	private volatile String sessionId;
 	private volatile long sessionGeneration;
 	private boolean pendingResume;
@@ -196,6 +197,16 @@ public final class ChatSession {
 	}
 
 	/**
+	 * The caps the next {@link #ensureAgent} gives an agent it creates: what
+	 * it may do. Null keeps the default, the owner's own assistant's.
+	 * Applying configuration to an existing agent never touches its caps.
+	 */
+	public synchronized ChatSession withCaps(ACell caps) {
+		this.createCaps = caps;
+		return this;
+	}
+
+	/**
 	 * Re-apply the agent's configuration (e.g. a new model chosen in Settings).
 	 *
 	 * @return true if it applied now; false if the agent is busy (a reply in
@@ -258,6 +269,7 @@ public final class ChatSession {
 		String status = agentStatus(info);
 		AMap<AString, ACell> agentConfig = AgentSetup.config(config.operation(), config.llmOperation(),
 			config.systemPrompt(), userName, agentName, pinnedSkill, configuredLoads(info));
+		if (createCaps != null) agentConfig = agentConfig.assoc(Fields.CAPS, createCaps);
 		AMap<AString, ACell> input = Maps.of(Fields.AGENT_ID, config.agentId(), Fields.CONFIG, agentConfig);
 		if (status != null) {
 			if (!updateExisting) return ready();
@@ -405,6 +417,12 @@ public final class ChatSession {
 	 *
 	 * @return true if a chat job was in flight and has been cancelled
 	 */
+	/** The chat job in flight, or null when no reply is pending. */
+	public convex.core.data.Blob inFlightId() {
+		Job job = inFlight;
+		return (job == null || job.isFinished()) ? null : job.getID();
+	}
+
 	public boolean cancel() {
 		Job job = inFlight;
 		if (job == null || job.isFinished()) return false;
