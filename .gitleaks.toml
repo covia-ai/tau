@@ -19,6 +19,8 @@ regexes = [
 	# The fake signed login DiagnosticsTest seeds to prove the report redacts it
 	# ({"sub":"seeded"}, signature "seededsignature").
 	'''eyJhbGciOiJFZERTQSJ9\.eyJzdWIiOiJzZWVkZWQifQ\.c2VlZGVkc2lnbmF0dXJl''',
+	# The made-up AWS-style key KeyMaskTest checks is masked in job titles.
+	'''AKIAABCDEFGHIJKLMNOP''',
 ]
 
 [[allowlists]]
