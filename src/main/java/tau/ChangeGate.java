@@ -305,13 +305,32 @@ final class ChangeGate {
 	static Boolean answer(Job job, long millis) {
 		try {
 			if (millis <= 0 && !job.isFinished() && !job.future().isDone()) return null;
-			ACell out = job.awaitResult(Math.max(1, millis));
-			return CVMBool.TRUE.equals(RT.getIn(out, "answers", "ok"));
+			return approves(job.awaitResult(Math.max(1, millis)));
 		} catch (Exception e) {
+			if (!job.isFinished()) {
+				log.debug("No answer yet to approval {}: {}", job.getID(), e.toString());
+				return null;
+			}
 			// Declined, rejected, withdrawn or expired: the request's job has ended without a yes.
-			if (job.isFinished() || job.future().isDone()) return false;
-			return null;
+			if (!job.isComplete()) return false;
+			// Its record can say complete a moment before the answer is published: read the
+			// answer, and if it still can't be read, treat it as not yet answered, never as a no.
+			try {
+				return approves(job.future().get(PUBLISH_MILLIS, TimeUnit.MILLISECONDS));
+			} catch (Exception late) {
+				ACell out = job.getData().get(Fields.OUTPUT);
+				if (out != null) return approves(out);
+				log.info("Approval {} is answered but its answer could not be read yet: {}", job.getID(), late.toString());
+				return null;
+			}
 		}
+	}
+
+	/** How long to wait for an answered request's answer to be published. */
+	static final long PUBLISH_MILLIS = 500;
+
+	private static boolean approves(ACell out) {
+		return CVMBool.TRUE.equals(RT.getIn(out, "answers", "ok"));
 	}
 
 	/** The owner of an agent ({@code <owner>:g:<id>}), or the caller itself. */

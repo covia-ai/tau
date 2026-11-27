@@ -182,7 +182,14 @@ class TokensTest {
 		try {
 			revoke.get(30, TimeUnit.SECONDS);
 		} catch (java.util.concurrent.ExecutionException waitedOut) {
-			// The call stopped waiting before the answer came: the same call goes ahead now it is approved.
+			// The call stopped waiting before the answer came (other classes shorten the gate's
+			// wait): once the card is answered, the same call goes ahead.
+			var answered = card.id();
+			long by = System.currentTimeMillis() + 10_000;
+			while (System.currentTimeMillis() < by && Inbox.parse(shared.venue().inbox(owner.toString()), owner.toString())
+				.stream().anyMatch(r -> r.open() && r.id().equals(answered))) {
+				Thread.onSpinWait();
+			}
 			engine().jobs().invokeInternal("v/ops/mcp/delete-token", Maps.of(Fields.NAME, "tool"), assistant).get(30, TimeUnit.SECONDS);
 		}
 		assertTrue(tokens.list().isEmpty(), "the skill's revoke deletes the owner's token");
